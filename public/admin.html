@@ -39,6 +39,16 @@
   .msg.err{display:block;background:rgba(255,77,109,.12);color:var(--danger)}
   .msg.ok{display:block;background:rgba(57,217,138,.12);color:var(--ok)}
   .state{padding:40px;text-align:center;color:var(--faint)}
+  .tabs{display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)}
+  .tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--dim);padding:10px 16px;font-size:.86rem;cursor:pointer;margin-bottom:-1px}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  .scard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}
+  .scard h3{font-size:.95rem;margin-bottom:12px}
+  .scard .stat{display:flex;justify-content:space-between;font-size:.8rem;color:var(--dim);padding:3px 0}
+  .scard .stat b{color:var(--text)}
+  .bar{height:6px;background:var(--card2);border-radius:99px;overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
   .createbox{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:30px}
   .formrow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
   .formrow > div{flex:1;min-width:140px;margin:0}
@@ -72,6 +82,12 @@
     <span><span class="me" id="me"></span> &nbsp; <button onclick="logout()">Deconnexion</button></span>
   </div>
   <div class="wrap">
+    <div class="tabs">
+      <button id="tab-joueurs" class="tab active" onclick="setTab('joueurs')">Joueurs</button>
+      <button id="tab-stats" class="tab" onclick="setTab('stats')">Tableau de bord</button>
+    </div>
+
+    <div id="view-joueurs">
     <div class="createbox">
       <h2 style="margin-bottom:14px">Pre-creer un joueur</h2>
       <div class="msg" id="create-msg"></div>
@@ -91,6 +107,16 @@
     <div class="sub" id="count">Chargement...</div>
     <div class="msg" id="app-msg"></div>
     <div id="list"><div class="state">Chargement...</div></div>
+    </div><!-- /view-joueurs -->
+
+    <div id="view-stats" style="display:none">
+      <h2>Vue d'ensemble</h2>
+      <div class="sub">Joueurs et taux de completion par jeu.</div>
+      <div id="overview"><div class="state">Chargement...</div></div>
+      <h2 style="margin-top:34px">Ou ca bloque</h2>
+      <div class="sub">Enigmes les plus ratees (tous jeux).</div>
+      <div id="blocages"><div class="state">Chargement...</div></div>
+    </div><!-- /view-stats -->
   </div>
 </div>
 <script>
@@ -135,6 +161,42 @@ async function showApp(){
 }
 
 let JEUX = [];
+let statsLoaded = false;
+function setTab(t){
+  document.getElementById('tab-joueurs').classList.toggle('active', t==='joueurs');
+  document.getElementById('tab-stats').classList.toggle('active', t==='stats');
+  $('view-joueurs').style.display = t==='joueurs' ? 'block' : 'none';
+  $('view-stats').style.display = t==='stats' ? 'block' : 'none';
+  if(t==='stats' && !statsLoaded){ loadStats(); statsLoaded = true; }
+}
+async function loadStats(){
+  try {
+    const { overview, blocages } = await callFn('stats');
+    renderOverview(overview||[]);
+    renderBlocages(blocages||[]);
+  } catch(e){
+    $('overview').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`;
+    $('blocages').innerHTML = '';
+  }
+}
+function renderOverview(ov){
+  if(!ov.length){ $('overview').innerHTML='<div class="state">Aucun jeu.</div>'; return; }
+  $('overview').innerHTML = '<div class="cards">' + ov.map(o=>`
+    <div class="scard">
+      <h3>${esc(o.jeu)}</h3>
+      <div class="stat"><span>Joueurs</span><b>${o.joueurs}</b></div>
+      <div class="stat"><span>Actifs</span><b>${o.actifs}</b></div>
+      <div class="stat"><span>Ont fini</span><b>${o.ont_fini}</b></div>
+      <div class="stat"><span>Taux de fin</span><b>${o.taux_fin}%</b></div>
+      <div class="bar"><i style="width:${o.taux_fin}%"></i></div>
+    </div>`).join('') + '</div>';
+}
+function renderBlocages(bl){
+  if(!bl.length){ $('blocages').innerHTML='<div class="state">Pas encore de donnees de tentatives.</div>'; return; }
+  $('blocages').innerHTML = `<table>
+    <thead><tr><th>Jeu</th><th>Enigme</th><th>Echecs</th><th>Reussites</th></tr></thead>
+    <tbody>${bl.map(b=>`<tr><td>${esc(b.jeu)}</td><td>enigme ${b.enigme}</td><td style="color:var(--danger)"><strong>${b.echecs}</strong></td><td style="color:var(--ok)">${b.reussites}</td></tr>`).join('')}</tbody></table>`;
+}
 async function loadJeux(){
   try {
     const { jeux } = await callFn('jeux-list');
