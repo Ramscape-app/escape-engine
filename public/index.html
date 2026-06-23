@@ -1734,11 +1734,16 @@ async function authGuard() {
   // Connecté : est-il rattaché à ce jeu ?
   const { data, error } = await SB
     .from('joueurs')
-    .select('jeu_id, pseudo, jeu:jeux(slug)')
+    .select('jeu_id, pseudo, actif, jeu:jeux(slug)')
     .eq('id', session.user.id)
     .maybeSingle();
   if (error || !data || !data.jeu || data.jeu.slug !== slug) {
     alert("Tu n'as pas accès à ce jeu.");
+    location.replace('rejoindre.html');
+    return false;
+  }
+  if (data.actif === false) {
+    alert("Ton accès à ce jeu a été désactivé.");
     location.replace('rejoindre.html');
     return false;
   }
