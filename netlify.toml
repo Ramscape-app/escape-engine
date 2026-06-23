@@ -1,0 +1,9 @@
+# Configuration Netlify — site statique servi depuis public/
+[build]
+  publish = "public"
+  # Pas d'étape de build : ce sont des fichiers statiques prêts à servir.
+  command = ""
+
+# (Plus tard) les fonctions serveur iront ici :
+# [functions]
+#   directory = "netlify/functions"
