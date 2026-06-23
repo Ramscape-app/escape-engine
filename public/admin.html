@@ -39,6 +39,15 @@
   .msg.err{display:block;background:rgba(255,77,109,.12);color:var(--danger)}
   .msg.ok{display:block;background:rgba(57,217,138,.12);color:var(--ok)}
   .state{padding:40px;text-align:center;color:var(--faint)}
+  .createbox{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:30px}
+  .formrow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .formrow > div{flex:1;min-width:140px;margin:0}
+  .formrow input,.formrow select{margin:0}
+  select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;color:var(--text);padding:11px 13px;font-size:.9rem}
+  .genbtn{background:none;border:1px solid var(--border);color:var(--dim);border-radius:9px;padding:11px 14px;font-size:.78rem;cursor:pointer;white-space:nowrap}
+  .genbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .created{margin-top:14px;font-size:.84rem;color:var(--ok);font-family:var(--mono);display:none}
+  .created.show{display:block;background:rgba(57,217,138,.08);border:1px solid rgba(57,217,138,.25);border-radius:8px;padding:12px 14px}
   .del{background:none;border:1px solid var(--border);color:var(--dim);border-radius:6px;padding:5px 11px;font-size:.72rem;cursor:pointer}
   .del:hover{border-color:var(--danger);color:var(--danger)}
   .pill.off{color:var(--danger);border-color:rgba(255,77,109,.3)}
@@ -63,6 +72,21 @@
     <span><span class="me" id="me"></span> &nbsp; <button onclick="logout()">Deconnexion</button></span>
   </div>
   <div class="wrap">
+    <div class="createbox">
+      <h2 style="margin-bottom:14px">Pre-creer un joueur</h2>
+      <div class="msg" id="create-msg"></div>
+      <div class="formrow">
+        <div><label>Jeu</label><select id="c-jeu"></select></div>
+        <div><label>Pseudo</label><input id="c-pseudo" placeholder="ex : Tom"></div>
+        <div><label>Mot de passe</label><input id="c-pwd" placeholder="genere"></div>
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <button class="genbtn" onclick="genPwd()">Generer</button>
+          <button class="btn" style="width:auto;padding:11px 18px" onclick="creerJoueur()">Creer</button>
+        </div>
+      </div>
+      <div class="created" id="c-result"></div>
+    </div>
+
     <h2>Joueurs</h2>
     <div class="sub" id="count">Chargement...</div>
     <div class="msg" id="app-msg"></div>
@@ -106,8 +130,41 @@ async function showApp(){
   $('login').style.display = 'none';
   $('app').style.display = 'block';
   $('me').textContent = user ? user.email : '';
+  loadJeux();
   loadJoueurs();
 }
+
+let JEUX = [];
+async function loadJeux(){
+  try {
+    const { jeux } = await callFn('jeux-list');
+    JEUX = jeux || [];
+    $('c-jeu').innerHTML = JEUX.map(j=>`<option value="${j.id}" data-slug="${esc(j.slug)}">${esc(j.name)}</option>`).join('');
+  } catch(e){ /* silencieux */ }
+}
+function genPwd(){
+  const c='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let p=''; for(let i=0;i<8;i++) p+=c[Math.floor(Math.random()*c.length)];
+  $('c-pwd').value = p;
+}
+async function creerJoueur(){
+  const m=$('create-msg'); m.className='msg';
+  const sel=$('c-jeu'); const opt=sel.options[sel.selectedIndex];
+  const jeu_id=sel.value; const slug=opt?opt.getAttribute('data-slug'):'';
+  const pseudo=$('c-pseudo').value.trim(); const password=$('c-pwd').value.trim();
+  if(!jeu_id||!pseudo||!password){ m.textContent="Choisis un jeu, un pseudo et un mot de passe."; m.className='msg err'; return; }
+  try {
+    await callFn('joueur-create', { method:'POST', body:{ pseudo, password, jeu_id, slug } });
+    const r=$('c-result');
+    r.innerHTML = `Joueur cree. A transmettre :<br>Pseudo : <strong>${esc(pseudo)}</strong> &nbsp; Mot de passe : <strong>${esc(password)}</strong><br>Lien : <strong>rejoindre.html</strong> (mode connexion)`;
+    r.className='created show';
+    $('c-pseudo').value=''; $('c-pwd').value='';
+    loadJoueurs();
+  } catch(e){
+    m.textContent = "Erreur : " + e.message; m.className='msg err';
+  }
+}
+
 async function loadJoueurs(){
   try {
     const { joueurs } = await callFn('joueurs-list');
