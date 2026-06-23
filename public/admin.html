@@ -39,6 +39,8 @@
   .msg.err{display:block;background:rgba(255,77,109,.12);color:var(--danger)}
   .msg.ok{display:block;background:rgba(57,217,138,.12);color:var(--ok)}
   .state{padding:40px;text-align:center;color:var(--faint)}
+  .del{background:none;border:1px solid var(--border);color:var(--dim);border-radius:6px;padding:5px 11px;font-size:.72rem;cursor:pointer}
+  .del:hover{border-color:var(--danger);color:var(--danger)}
 </style>
 </head>
 <body>
@@ -115,7 +117,7 @@ function render(joueurs){
   $('count').textContent = `${joueurs.length} joueur(s) inscrit(s)`;
   if (!joueurs.length){ $('list').innerHTML = '<div class="state">Aucun joueur inscrit.</div>'; return; }
   $('list').innerHTML = `<table>
-    <thead><tr><th>Pseudo</th><th>Jeu</th><th>Progression</th><th>Inscrit le</th></tr></thead>
+    <thead><tr><th>Pseudo</th><th>Jeu</th><th>Progression</th><th>Inscrit le</th><th></th></tr></thead>
     <tbody>${joueurs.map(rowHtml).join('')}</tbody></table>`;
 }
 function rowHtml(j){
@@ -123,9 +125,22 @@ function rowHtml(j){
   const prog = p ? (p.termine ? '<span class="pill ok">Termine</span>' : `enigme ${p.enigme_courante||0}`) : '<span class="pill">pas commence</span>';
   const jeu = j.jeu ? j.jeu.name : '-';
   const date = j.created_at ? new Date(j.created_at).toLocaleDateString('fr-FR') : '';
-  return `<tr><td><strong>${esc(j.pseudo)}</strong></td><td>${esc(jeu)}</td><td>${prog}</td><td>${date}</td></tr>`;
+  return `<tr><td><strong>${esc(j.pseudo)}</strong></td><td>${esc(jeu)}</td><td>${prog}</td><td>${date}</td><td style="text-align:right"><button class="del" onclick="supprimer('${j.id}','${esc(j.pseudo)}')">Supprimer</button></td></tr>`;
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+async function supprimer(id, pseudo){
+  if(!confirm(`Supprimer definitivement le joueur "${pseudo}" et toute sa progression ?`)) return;
+  const m = $('app-msg'); m.className='msg';
+  try {
+    await callFn('joueur-delete', { method:'POST', body:{ id } });
+    m.textContent = `Joueur "${pseudo}" supprime.`; m.className='msg ok';
+    loadJoueurs();
+  } catch(e){
+    m.textContent = "Erreur : " + e.message; m.className='msg err';
+  }
+}
+
 (async()=>{ const { data:{ session } } = await sb.auth.getSession(); if (session) showApp(); })();
 </script>
 </body>
