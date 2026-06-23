@@ -8,8 +8,8 @@
 <meta name="theme-color" content="#0a0a0f">
 <title>PROJET 1986 : RÉACTIVATION</title>
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/avatar.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/avatar.png">
+<link rel="apple-touch-icon" href="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600&family=Playfair+Display:wght@600;700&family=Bebas+Neue&family=Caveat:wght@600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -915,7 +915,7 @@ html, body {
   
 <!-- BOOT -->
 <div id="boot-screen" class="screen">
-  <img src="icons/avatar.png" alt="Avatar" width="192" height="192">
+  <img src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png" alt="Avatar" width="192" height="192">
   <div class="logo">PROJET 1986</div>
   <div class="subtitle">Système de réactivation</div>
   <div id="boot-log"></div>
@@ -1035,7 +1035,7 @@ html, body {
 <!-- VICTORY -->
 <div id="victory-screen" class="screen">
   <div class="vic-emoji">🎉</div>
-  <img src="icons/fin.png" alt="Récompense" style="max-width:300px;width:90%;border-radius:12px;margin-top:20px;box-shadow:0 4px 20px rgba(0,0,0,.4);">
+  <img src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/fin.png" alt="Récompense" style="max-width:300px;width:90%;border-radius:12px;margin-top:20px;box-shadow:0 4px 20px rgba(0,0,0,.4);">
   <div class="vic-title">MISSION ACCOMPLIE</div>
   <div class="vic-text">
     Agent, vous avez prouvé que 40 ans n'est que le début.<br><br>
@@ -1059,9 +1059,9 @@ html, body {
 -->
 
 <!-- AUDIO ELEMENTS (hidden) -->
-<audio id="intro-music" preload="auto" loop src="intro3.m4a"></audio>
-<audio id="fouras-audio" preload="auto" src="Fouras.m4a"></audio>
-<audio id="melody-audio" preload="auto" src="melody.wav"></audio>
+<audio id="intro-music" preload="auto" loop src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/intro3.m4a"></audio>
+<audio id="fouras-audio" preload="auto" src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/Fouras.m4a"></audio>
+<audio id="melody-audio" preload="auto" src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/melody.wav"></audio>
 
 <script>
 // ═══════════════════════ CONFIGURATION ═══════════════════════
@@ -1716,7 +1716,7 @@ function applyBranding(b) {
   set('#boot-screen .subtitle', b.subtitle);
   set('.codename', b.codename);
   set('.classified', b.classified);
-  if (b.avatar) document.querySelectorAll('#boot-screen img').forEach(img => img.src = b.avatar);
+  if (b.avatar) document.querySelectorAll('#boot-screen img').forEach(img => img.src = assetUrl(b.avatar));
 }
 
 // ═══════════════════════ SUPABASE (chargement du jeu en base) ═══════════════════════
@@ -1725,6 +1725,13 @@ const SUPABASE_URL  = "https://gpwdnflaxuuselxxkepn.supabase.co";
 const SUPABASE_ANON = "sb_publishable_3ScfE7ewhH-FaPoaxA1zxw_jQ-BEBJA";
 const SB_READY = !SUPABASE_URL.includes("TON-PROJET") && !SUPABASE_ANON.includes("TA_CLE");
 const SB = SB_READY && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
+// Base des médias hébergés sur Supabase Storage (bucket public "assets")
+const ASSET_BASE = "https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/";
+function assetUrl(p) {
+  if (!p) return p;
+  if (/^https?:\/\//.test(p)) return p;            // déjà une URL complète
+  return ASSET_BASE + String(p).replace(/^\.?\//, '');
+}
 let JOUEUR_ID = null, JEU_ID = null;   // remplis par le verrou (authGuard)
 let PSEUDO = '', GAME_NAME = '';        // pour l'écran d'accueil joueur
 
@@ -2145,7 +2152,7 @@ function renderEnigmaScreen(idx) {
 
   if (e.image) {
     const img = document.createElement("img");
-    img.src = e.image;
+    img.src = assetUrl(e.image);
     img.style.maxWidth = "100%";
     img.style.margin = "16px 0";
     body.appendChild(img);
@@ -2153,7 +2160,7 @@ function renderEnigmaScreen(idx) {
   
   if (e.image2) {
     const img = document.createElement("img");
-    img.src = e.image2;
+    img.src = assetUrl(e.image2);
     img.style.maxWidth = "65%";
     img.style.margin = "0px 0";
     body.appendChild(img);
