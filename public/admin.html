@@ -120,7 +120,18 @@
     </div><!-- /view-stats -->
 
     <div id="view-jeux" style="display:none">
-      <h2>Jeux</h2>
+      <div class="createbox">
+        <h2 style="margin-bottom:14px">Nouveau jeu</h2>
+        <div class="msg" id="newjeu-msg"></div>
+        <div class="formrow">
+          <div><label>Nom</label><input id="nj-name" placeholder="ex : Mariage Dupont" oninput="autoSlug()"></div>
+          <div><label>Slug (URL)</label><input id="nj-slug" placeholder="mariage-dupont"></div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="btn" style="width:auto;padding:11px 18px" onclick="creerJeu()">Creer et editer</button>
+          </div>
+        </div>
+      </div>
+      <h2>Jeux existants</h2>
       <div class="sub">Cliquer sur Editer pour modifier le contenu en ligne.</div>
       <div id="jeux-list"><div class="state">Chargement...</div></div>
     </div><!-- /view-jeux -->
@@ -177,6 +188,24 @@ function setTab(t){
   });
   if(t==='stats' && !statsLoaded){ loadStats(); statsLoaded = true; }
   if(t==='jeux' && !jeuxLoaded){ renderJeux(); jeuxLoaded = true; }
+}
+function slugify(s){return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
+let slugTouched=false;
+function autoSlug(){
+  const sl=$('nj-slug');
+  if(!slugTouched || !sl.value) sl.value = slugify($('nj-name').value);
+}
+document.addEventListener('input', e=>{ if(e.target && e.target.id==='nj-slug') slugTouched=true; });
+async function creerJeu(){
+  const m=$('newjeu-msg'); m.className='msg';
+  const name=$('nj-name').value.trim(); const slug=slugify($('nj-slug').value);
+  if(!name||!slug){ m.textContent="Donne un nom et un slug."; m.className='msg err'; return; }
+  try{
+    const r = await callFn('jeu-create', { method:'POST', body:{ name, slug } });
+    location.href = 'editeur.html?id='+r.uuid;   // ouvre direct l'editeur
+  }catch(e){
+    m.textContent = "Erreur : " + e.message; m.className='msg err';
+  }
 }
 async function renderJeux(){
   try{
