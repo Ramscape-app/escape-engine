@@ -41,6 +41,9 @@
   .state{padding:40px;text-align:center;color:var(--faint)}
   .del{background:none;border:1px solid var(--border);color:var(--dim);border-radius:6px;padding:5px 11px;font-size:.72rem;cursor:pointer}
   .del:hover{border-color:var(--danger);color:var(--danger)}
+  .pill.off{color:var(--danger);border-color:rgba(255,77,109,.3)}
+  .tog{background:none;border:1px solid var(--border);color:var(--dim);border-radius:6px;padding:5px 11px;font-size:.72rem;cursor:pointer}
+  .tog:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
@@ -117,7 +120,7 @@ function render(joueurs){
   $('count').textContent = `${joueurs.length} joueur(s) inscrit(s)`;
   if (!joueurs.length){ $('list').innerHTML = '<div class="state">Aucun joueur inscrit.</div>'; return; }
   $('list').innerHTML = `<table>
-    <thead><tr><th>Pseudo</th><th>Jeu</th><th>Progression</th><th>Inscrit le</th><th></th></tr></thead>
+    <thead><tr><th>Pseudo</th><th>Jeu</th><th>Progression</th><th>Inscrit le</th><th>Statut</th><th></th></tr></thead>
     <tbody>${joueurs.map(rowHtml).join('')}</tbody></table>`;
 }
 function rowHtml(j){
@@ -125,7 +128,14 @@ function rowHtml(j){
   const prog = p ? (p.termine ? '<span class="pill ok">Termine</span>' : `enigme ${p.enigme_courante||0}`) : '<span class="pill">pas commence</span>';
   const jeu = j.jeu ? j.jeu.name : '-';
   const date = j.created_at ? new Date(j.created_at).toLocaleDateString('fr-FR') : '';
-  return `<tr><td><strong>${esc(j.pseudo)}</strong></td><td>${esc(jeu)}</td><td>${prog}</td><td>${date}</td><td style="text-align:right"><button class="del" onclick="supprimer('${j.id}','${esc(j.pseudo)}')">Supprimer</button></td></tr>`;
+  const inactif = (j.actif === false);
+  const statut = inactif ? '<span class="pill off">Desactive</span>' : '<span class="pill ok">Actif</span>';
+  const toggleLabel = inactif ? 'Reactiver' : 'Desactiver';
+  const rowStyle = inactif ? ' style="opacity:.5"' : '';
+  return `<tr${rowStyle}><td><strong>${esc(j.pseudo)}</strong></td><td>${esc(jeu)}</td><td>${prog}</td><td>${date}</td><td>${statut}</td>`
+    + `<td style="text-align:right;white-space:nowrap">`
+    + `<button class="tog" onclick="basculer('${j.id}','${esc(j.pseudo)}',${inactif})">${toggleLabel}</button> `
+    + `<button class="del" onclick="supprimer('${j.id}','${esc(j.pseudo)}')">Supprimer</button></td></tr>`;
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
@@ -135,6 +145,21 @@ async function supprimer(id, pseudo){
   try {
     await callFn('joueur-delete', { method:'POST', body:{ id } });
     m.textContent = `Joueur "${pseudo}" supprime.`; m.className='msg ok';
+    loadJoueurs();
+  } catch(e){
+    m.textContent = "Erreur : " + e.message; m.className='msg err';
+  }
+}
+
+async function basculer(id, pseudo, estInactif){
+  const nouvelEtat = estInactif; // si inactif -> on (re)active (true); si actif -> on desactive (false)
+  const actif = estInactif ? true : false;
+  const verbe = actif ? 'reactiver' : 'desactiver';
+  if(!confirm(`Veux-tu ${verbe} le joueur "${pseudo}" ?`)) return;
+  const m = $('app-msg'); m.className='msg';
+  try {
+    await callFn('joueur-toggle', { method:'POST', body:{ id, actif } });
+    m.textContent = `Joueur "${pseudo}" ${actif?'reactive':'desactive'}.`; m.className='msg ok';
     loadJoueurs();
   } catch(e){
     m.textContent = "Erreur : " + e.message; m.className='msg err';
