@@ -51,6 +51,17 @@
   .tile .ti-ic{font-size:1.5rem;margin-bottom:6px}
   .tile b{font-size:.98rem}
   .tile span{font-size:.76rem;color:var(--dim)}
+  .themewrap{display:flex;gap:24px;align-items:flex-start}
+  .themelist{width:230px;flex-shrink:0}
+  .themeitem{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:10px 12px;margin-bottom:7px;font-size:.85rem;cursor:pointer}
+  .themeitem:hover{border-color:var(--accent)}
+  .themeitem .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+  .themeedit{flex:1;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px}
+  .colorgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .colorrow{display:flex;flex-direction:column;gap:4px}
+  .colorrow label{margin:0}
+  .colorrow input[type=color]{width:100%;height:30px;padding:0;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer}
+  .colorrow input:not([type=color]){font-family:var(--mono);font-size:.74rem;padding:6px 8px}
   .tabs{display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border)}
   .tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--dim);padding:10px 16px;font-size:.86rem;cursor:pointer;margin-bottom:-1px}
   .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
@@ -165,8 +176,37 @@
 
     <div id="view-themes" style="display:none">
       <h2>Themes</h2>
-      <div class="sub">L'editeur de theme visuel sera disponible ici.</div>
-      <div class="state">A venir (prochaine etape).</div>
+      <div class="sub">Bibliotheque d'identites visuelles. Lecture en direct ; l'enregistrement necessite le serveur en ligne.</div>
+      <div class="msg" id="theme-msg"></div>
+      <div class="themewrap">
+        <div class="themelist">
+          <button class="btn" style="width:100%;margin-bottom:12px" onclick="newTheme()">+ Nouveau theme</button>
+          <div id="themes-list"><div class="state">Chargement...</div></div>
+        </div>
+        <div class="themeedit" id="theme-edit" style="display:none">
+          <div class="formrow">
+            <div><label>Identifiant (slug)</label><input id="t-id" placeholder="cyber"></div>
+            <div><label>Nom</label><input id="t-name" placeholder="Cyber"></div>
+          </div>
+          <label style="margin-top:14px">Couleurs</label>
+          <div class="colorgrid" id="t-colors"></div>
+          <div class="formrow" style="margin-top:14px">
+            <div><label>Police titres</label><select id="t-font-display"></select></div>
+            <div><label>Police texte</label><select id="t-font-body"></select></div>
+            <div><label>Police mono</label><select id="t-font-mono"></select></div>
+          </div>
+          <div class="formrow" style="margin-top:14px;align-items:flex-end">
+            <div><label>Arrondi (px)</label><input id="t-radius" type="number" min="0" max="40" value="12"></div>
+            <div style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="t-glow" style="width:auto;margin:0"><label style="margin:0">Halo (glow)</label></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button class="btn" style="width:auto;padding:11px 20px" onclick="saveTheme()">Enregistrer</button>
+            <button class="tog" onclick="deleteTheme()">Supprimer</button>
+          </div>
+          <label style="margin-top:20px">Apercu</label>
+          <div id="t-preview"></div>
+        </div>
+      </div>
     </div><!-- /view-themes -->
 
     </main>
@@ -217,6 +257,7 @@ async function showApp(){
 let JEUX = [];
 let statsLoaded = false;
 let jeuxLoaded = false;
+let themesLoaded = false;
 function setTab(t){
   const sections = ['accueil','jeux','themes','joueurs','stats'];
   sections.forEach(v=>{
@@ -225,6 +266,7 @@ function setTab(t){
   });
   if(t==='stats' && !statsLoaded){ loadStats(); statsLoaded = true; }
   if(t==='jeux' && !jeuxLoaded){ renderJeux(); jeuxLoaded = true; }
+  if(t==='themes' && !themesLoaded){ loadThemesLib(); themesLoaded = true; }
 }
 async function loadRecap(){
   try{
@@ -256,6 +298,91 @@ async function creerJeu(){
   }catch(e){
     m.textContent = "Erreur : " + e.message; m.className='msg err';
   }
+}
+
+// ════════ ÉDITEUR DE THÈME ════════
+const FONT_OPTS = [
+  ['Orbitron (techno)', "'Orbitron', sans-serif"],
+  ['Rajdhani', "'Rajdhani', system-ui, sans-serif"],
+  ['Share Tech Mono', "'Share Tech Mono', ui-monospace, monospace"],
+  ['Playfair (elegant)', "'Playfair Display', Georgia, serif"],
+  ['Poppins', "'Poppins', system-ui, sans-serif"],
+  ['Inter', "'Inter', system-ui, sans-serif"],
+  ['Bebas Neue', "'Bebas Neue', system-ui, sans-serif"],
+  ['Space Mono', "'Space Mono', ui-monospace, monospace"],
+  ['Systeme', "system-ui, sans-serif"],
+  ['Mono systeme', "ui-monospace, Menlo, Consolas, monospace"],
+];
+const COLOR_KEYS = [['bg','Fond'],['card','Carte'],['border','Bordure'],['text','Texte'],['dim','Attenue'],['accent','Accent'],['hint','Indice'],['ok','Succes'],['danger','Erreur']];
+let THEMES_LIB = [];
+function themeMsg(t,c){ const m=$('theme-msg'); m.textContent=t; m.className='msg '+(c||''); }
+async function loadThemesLib(){
+  try{
+    const { data, error } = await sb.from('themes').select('*').order('name');
+    if(error) throw error;
+    THEMES_LIB = data||[]; renderThemesList();
+  }catch(e){ $('themes-list').innerHTML = '<div class="state" style="color:var(--danger)">'+esc(e.message)+'</div>'; }
+}
+function renderThemesList(){
+  if(!THEMES_LIB.length){ $('themes-list').innerHTML='<div class="state">Aucun theme.</div>'; return; }
+  $('themes-list').innerHTML = THEMES_LIB.map(t=>`<button class="themeitem" onclick="editTheme('${t.id}')"><span class="dot" style="background:${esc((t.colors&&t.colors.accent)||'#888')}"></span>${esc(t.name)}</button>`).join('');
+}
+function buildColorInputs(colors){
+  $('t-colors').innerHTML = COLOR_KEYS.map(([k,label])=>{
+    const v=(colors&&colors[k])||'#888888';
+    return `<div class="colorrow"><label>${label}</label><input type="color" id="tc-${k}" value="${v}" oninput="document.getElementById('tx-${k}').value=this.value;updatePreview()"><input id="tx-${k}" value="${v}" oninput="document.getElementById('tc-${k}').value=this.value;updatePreview()"></div>`;
+  }).join('');
+}
+function buildFontSelects(fonts){
+  ['display','body','mono'].forEach(f=>{
+    const sel=$('t-font-'+f);
+    sel.innerHTML = FONT_OPTS.map(([l,s])=>`<option value="${esc(s)}">${esc(l)}</option>`).join('');
+    if(fonts&&fonts[f]){
+      if(![...sel.options].some(o=>o.value===fonts[f])){ const o=document.createElement('option'); o.value=fonts[f]; o.textContent='(actuel)'; sel.insertBefore(o,sel.firstChild); }
+      sel.value=fonts[f];
+    }
+    sel.onchange=updatePreview;
+  });
+}
+function editTheme(id){
+  const t=THEMES_LIB.find(x=>x.id===id); if(!t) return;
+  $('t-id').value=t.id; $('t-id').disabled=true; $('t-name').value=t.name||'';
+  buildColorInputs(t.colors||{}); buildFontSelects(t.fonts||{});
+  $('t-radius').value=(t.radius!=null?t.radius:12); $('t-glow').checked=!!t.glow;
+  $('theme-edit').style.display='block'; updatePreview();
+}
+function newTheme(){
+  $('t-id').value=''; $('t-id').disabled=false; $('t-name').value='';
+  buildColorInputs({bg:'#0a0a0f',card:'#1a1a28',border:'#2a2a3a',text:'#e0e8f0',dim:'#667788',accent:'#00f0ff',hint:'#ffd700',ok:'#00ff88',danger:'#ff3366'});
+  buildFontSelects({}); $('t-radius').value=12; $('t-glow').checked=false;
+  $('theme-edit').style.display='block'; updatePreview();
+}
+function collectTheme(){
+  const colors={}; COLOR_KEYS.forEach(([k])=>{ const el=$('tx-'+k); if(el) colors[k]=el.value; });
+  return { id:slugify($('t-id').value), name:$('t-name').value.trim(), colors,
+    fonts:{ display:$('t-font-display').value, body:$('t-font-body').value, mono:$('t-font-mono').value },
+    radius:parseInt($('t-radius').value)||12, glow:$('t-glow').checked };
+}
+function updatePreview(){
+  const t=collectTheme(), c=t.colors;
+  $('t-preview').innerHTML = `<div style="background:${c.bg};border:1px solid ${c.border};border-radius:${t.radius}px;padding:18px;font-family:${t.fonts.body}">
+    <div style="font-family:${t.fonts.display};color:${c.text};font-size:1.3rem;margin-bottom:8px">${esc(t.name||'Apercu')}</div>
+    <div style="background:${c.card};border:1px solid ${c.border};border-radius:${Math.max(0,t.radius-4)}px;padding:12px;margin-bottom:10px;color:${c.dim};font-size:.85rem">Carte d'exemple, texte attenue.</div>
+    <button style="background:${c.accent};color:${c.bg};border:none;border-radius:8px;padding:8px 14px;font-weight:700">Accent</button>
+    <span style="color:${c.ok};margin-left:12px">ok</span> <span style="color:${c.danger};margin-left:6px">erreur</span> <span style="color:${c.hint};margin-left:6px">indice</span>
+  </div>`;
+}
+async function saveTheme(){
+  const t=collectTheme();
+  if(!t.id||!t.name){ themeMsg('Donne un identifiant et un nom.','err'); return; }
+  try{ await callFn('theme-save',{ method:'POST', body:t }); themeMsg('Theme enregistre.','ok'); await loadThemesLib(); }
+  catch(e){ themeMsg('Enregistrement impossible (serveur requis) : '+e.message,'err'); }
+}
+async function deleteTheme(){
+  const id=slugify($('t-id').value); if(!id) return;
+  if(!confirm('Supprimer ce theme ?')) return;
+  try{ await callFn('theme-delete',{ method:'POST', body:{ id } }); themeMsg('Theme supprime.','ok'); $('theme-edit').style.display='none'; await loadThemesLib(); }
+  catch(e){ themeMsg('Erreur : '+e.message,'err'); }
 }
 async function renderJeux(){
   try{
