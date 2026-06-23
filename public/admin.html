@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Escape Engine</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0a0a0f;--card:#15151f;--card2:#1b1b27;--border:#262635;--border-bright:#33334a;
+    --text:#e9e9f2;--dim:#8a8aa0;--faint:#5a5a70;--accent:#00e0d0;--danger:#ff4d6d;--ok:#39d98a;
+    --mono:ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;min-height:100vh}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--card)}
+  .topbar .brand{font-family:var(--mono);font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--accent)}
+  .topbar .me{font-size:.78rem;color:var(--dim)}
+  .topbar button{background:none;border:1px solid var(--border);color:var(--dim);border-radius:7px;padding:6px 12px;font-size:.74rem;cursor:pointer}
+  .topbar button:hover{border-color:var(--danger);color:var(--danger)}
+  .wrap{max-width:1000px;margin:0 auto;padding:30px 24px}
+  .login{max-width:360px;margin:80px auto;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:30px 26px}
+  .login h1{font-size:1.2rem;margin-bottom:6px}
+  .login p{font-size:.82rem;color:var(--dim);margin-bottom:22px}
+  label{display:block;font-family:var(--mono);font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--dim);margin:0 0 6px}
+  input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;color:var(--text);padding:11px 13px;font-size:.9rem;margin-bottom:14px}
+  input:focus{outline:none;border-color:var(--accent)}
+  .btn{width:100%;background:var(--accent);color:#04140f;font-weight:700;font-size:.9rem;border:none;border-radius:9px;padding:12px;cursor:pointer}
+  .btn:disabled{opacity:.5}
+  h2{font-size:1.05rem;margin-bottom:4px}
+  .sub{font-size:.82rem;color:var(--dim);margin-bottom:20px}
+  table{width:100%;border-collapse:collapse;font-size:.84rem}
+  th{text-align:left;font-family:var(--mono);font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--faint);padding:9px 10px;border-bottom:1px solid var(--border)}
+  td{padding:11px 10px;border-bottom:1px solid var(--border)}
+  tr:hover td{background:var(--card)}
+  .pill{display:inline-block;font-family:var(--mono);font-size:.62rem;padding:2px 8px;border-radius:5px;background:var(--card2);color:var(--dim);border:1px solid var(--border)}
+  .pill.ok{color:var(--ok);border-color:rgba(57,217,138,.3)}
+  .msg{font-size:.82rem;border-radius:8px;padding:10px 12px;margin-bottom:14px;display:none}
+  .msg.err{display:block;background:rgba(255,77,109,.12);color:var(--danger)}
+  .msg.ok{display:block;background:rgba(57,217,138,.12);color:var(--ok)}
+  .state{padding:40px;text-align:center;color:var(--faint)}
+</style>
+</head>
+<body>
+<div id="login" class="login">
+  <h1>Espace administrateur</h1>
+  <p>Connecte-toi avec ton compte admin.</p>
+  <div class="msg" id="login-msg"></div>
+  <label>Email</label>
+  <input id="email" type="email" placeholder="ton@email" autocomplete="username">
+  <label>Mot de passe</label>
+  <input id="password" type="password" placeholder="********" autocomplete="current-password">
+  <button class="btn" id="login-btn" onclick="login()">Se connecter</button>
+</div>
+<div id="app" style="display:none">
+  <div class="topbar">
+    <span class="brand">Escape Engine - Admin</span>
+    <span><span class="me" id="me"></span> &nbsp; <button onclick="logout()">Deconnexion</button></span>
+  </div>
+  <div class="wrap">
+    <h2>Joueurs</h2>
+    <div class="sub" id="count">Chargement...</div>
+    <div class="msg" id="app-msg"></div>
+    <div id="list"><div class="state">Chargement...</div></div>
+  </div>
+</div>
+<script>
+const SUPABASE_URL  = "https://gpwdnflaxuuselxxkepn.supabase.co";
+const SUPABASE_ANON = "sb_publishable_3ScfE7ewhH-FaPoaxA1zxw_jQ-BEBJA";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const $ = id => document.getElementById(id);
+
+async function callFn(name, options = {}){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) throw new Error('Session expiree');
+  const res = await fetch(`/.netlify/functions/${name}`, {
+    method: options.method || 'GET',
+    headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'Erreur serveur');
+  return json;
+}
+async function login(){
+  const msg = $('login-msg'); msg.className='msg';
+  $('login-btn').disabled = true;
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+    if (error) throw error;
+    await showApp();
+  } catch(e){
+    msg.textContent = "Connexion impossible : " + (e.message || e);
+    msg.className = 'msg err';
+    $('login-btn').disabled = false;
+  }
+}
+async function logout(){ await sb.auth.signOut(); location.reload(); }
+async function showApp(){
+  const { data: { user } } = await sb.auth.getUser();
+  $('login').style.display = 'none';
+  $('app').style.display = 'block';
+  $('me').textContent = user ? user.email : '';
+  loadJoueurs();
+}
+async function loadJoueurs(){
+  try {
+    const { joueurs } = await callFn('joueurs-list');
+    render(joueurs || []);
+  } catch(e){
+    $('list').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`;
+  }
+}
+function render(joueurs){
+  $('count').textContent = `${joueurs.length} joueur(s) inscrit(s)`;
+  if (!joueurs.length){ $('list').innerHTML = '<div class="state">Aucun joueur inscrit.</div>'; return; }
+  $('list').innerHTML = `<table>
+    <thead><tr><th>Pseudo</th><th>Jeu</th><th>Progression</th><th>Inscrit le</th></tr></thead>
+    <tbody>${joueurs.map(rowHtml).join('')}</tbody></table>`;
+}
+function rowHtml(j){
+  const p = Array.isArray(j.partie) ? j.partie[0] : j.partie;
+  const prog = p ? (p.termine ? '<span class="pill ok">Termine</span>' : `enigme ${p.enigme_courante||0}`) : '<span class="pill">pas commence</span>';
+  const jeu = j.jeu ? j.jeu.name : '-';
+  const date = j.created_at ? new Date(j.created_at).toLocaleDateString('fr-FR') : '';
+  return `<tr><td><strong>${esc(j.pseudo)}</strong></td><td>${esc(jeu)}</td><td>${prog}</td><td>${date}</td></tr>`;
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+(async()=>{ const { data:{ session } } = await sb.auth.getSession(); if (session) showApp(); })();
+</script>
+</body>
+</html>
