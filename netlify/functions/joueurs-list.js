@@ -9,7 +9,7 @@ export default async (req) => {
   // 1) les joueurs + le nom du jeu (relation directe joueurs → jeux, celle-là existe)
   const { data: joueurs, error } = await sb
     .from('joueurs')
-    .select('id, pseudo, created_at, jeu_id, jeu:jeux(name, slug)')
+    .select('id, pseudo, created_at, actif, jeu_id, jeu:jeux(name, slug)')
     .order('created_at', { ascending: false });
   if (error) return json({ error: error.message }, 500);
 
