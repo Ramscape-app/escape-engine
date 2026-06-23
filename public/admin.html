@@ -192,6 +192,7 @@ function rowHtml(j){
   return `<tr${rowStyle}><td><strong>${esc(j.pseudo)}</strong></td><td>${esc(jeu)}</td><td>${prog}</td><td>${date}</td><td>${statut}</td>`
     + `<td style="text-align:right;white-space:nowrap">`
     + `<button class="tog" onclick="basculer('${j.id}','${esc(j.pseudo)}',${inactif})">${toggleLabel}</button> `
+    + `<button class="tog" onclick="resetMdp('${j.id}','${esc(j.pseudo)}')">Reset mdp</button> `
     + `<button class="del" onclick="supprimer('${j.id}','${esc(j.pseudo)}')">Supprimer</button></td></tr>`;
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -218,6 +219,20 @@ async function basculer(id, pseudo, estInactif){
     await callFn('joueur-toggle', { method:'POST', body:{ id, actif } });
     m.textContent = `Joueur "${pseudo}" ${actif?'reactive':'desactive'}.`; m.className='msg ok';
     loadJoueurs();
+  } catch(e){
+    m.textContent = "Erreur : " + e.message; m.className='msg err';
+  }
+}
+
+async function resetMdp(id, pseudo){
+  if(!confirm(`Generer un nouveau mot de passe pour "${pseudo}" ?`)) return;
+  const c='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let pwd=''; for(let i=0;i<8;i++) pwd+=c[Math.floor(Math.random()*c.length)];
+  const m=$('app-msg'); m.className='msg';
+  try {
+    await callFn('joueur-reset', { method:'POST', body:{ id, password: pwd } });
+    m.innerHTML = `Nouveau mot de passe pour <strong>${esc(pseudo)}</strong> : <strong style="font-family:var(--mono)">${pwd}</strong> &mdash; a lui transmettre.`;
+    m.className='msg ok';
   } catch(e){
     m.textContent = "Erreur : " + e.message; m.className='msg err';
   }
