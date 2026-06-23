@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rejoindre un jeu</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0a0a0f;--card:#15151f;--border:#262635;--border-bright:#33334a;
+    --text:#e9e9f2;--dim:#8a8aa0;--faint:#5a5a70;--accent:#00e0d0;--accent-dim:rgba(0,224,208,.14);
+    --danger:#ff4d6d;--ok:#39d98a;--mono:ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:22px}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(800px 500px at 50% -10%,rgba(0,224,208,.08),transparent 60%)}
+  .box{position:relative;width:100%;max-width:380px;background:linear-gradient(165deg,#1b1b27,var(--card));border:1px solid var(--border);border-radius:18px;padding:30px 26px}
+  .eyebrow{font-family:var(--mono);font-size:.6rem;letter-spacing:2px;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  h1{font-size:1.3rem;margin-bottom:4px}
+  .game{font-size:.9rem;color:var(--accent);margin-bottom:22px;min-height:20px}
+  .game.muted{color:var(--faint)}
+  label{display:block;font-family:var(--mono);font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--dim);margin:0 0 6px}
+  input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:12px 14px;font-size:.92rem;margin-bottom:15px}
+  input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+  .btn{width:100%;background:var(--accent);color:#04140f;font-weight:700;font-size:.92rem;border:none;border-radius:10px;padding:13px;cursor:pointer;transition:.15s}
+  .btn:hover{filter:brightness(1.1)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .switch{text-align:center;margin-top:18px;font-size:.82rem;color:var(--dim)}
+  .switch a{color:var(--accent);cursor:pointer;text-decoration:none}
+  .msg{font-size:.82rem;border-radius:9px;padding:10px 12px;margin-bottom:15px;display:none;line-height:1.45}
+  .msg.err{display:block;background:rgba(255,77,109,.12);color:var(--danger);border:1px solid rgba(255,77,109,.3)}
+  .msg.ok{display:block;background:rgba(57,217,138,.12);color:var(--ok);border:1px solid rgba(57,217,138,.3)}
+  .hint{font-size:.7rem;color:var(--faint);margin-top:-8px;margin-bottom:15px;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="eyebrow">Escape Engine</div>
+  <h1 id="title">Rejoindre le jeu</h1>
+  <div class="game muted" id="game">Vérification du code…</div>
+
+  <div class="msg" id="msg"></div>
+
+  <div id="code-field" style="display:none">
+    <label>Code d'invitation</label>
+    <input id="code" placeholder="Ex : MARIAGE-DUPONT" autocomplete="off">
+  </div>
+
+  <label>Pseudo</label>
+  <input id="pseudo" placeholder="Ton pseudo" autocomplete="off">
+
+  <label>Mot de passe</label>
+  <input id="password" type="password" placeholder="••••••••" autocomplete="new-password">
+  <div class="hint" id="pw-hint">Au moins 6 caractères. Note-le bien : sans email, seul l'organisateur peut le réinitialiser.</div>
+
+  <button class="btn" id="submit" onclick="submit()">Créer mon compte et jouer</button>
+
+  <div class="switch" id="switch">
+    Déjà un compte ? <a onclick="toggleMode()">Se connecter</a>
+  </div>
+</div>
+
+<script>
+// ╔═══ À REMPLIR (Supabase → Settings → API) ═══╗
+const SUPABASE_URL  = "https://gpwdnflaxuuselxxkepn.supabase.co";
+const SUPABASE_ANON = "sb_publishable_3ScfE7ewhH-FaPoaxA1zxw_jQ-BEBJA";
+// ╚═════════════════════════════════════════════╝
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let mode = 'signup';          // 'signup' | 'login'
+let currentGame = null;       // { id, slug, name }
+const $ = id => document.getElementById(id);
+
+// Fabrique l'email technique à partir du pseudo + slug du jeu (jamais montré au joueur)
+function synthEmail(pseudo, slug){
+  const clean = pseudo.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+  return `${clean}@${slug}.joueurs.local`;
+}
+function showMsg(text, type){ const m=$('msg'); m.textContent=text; m.className='msg '+type; }
+function clearMsg(){ $('msg').className='msg'; }
+
+// ── Résoudre le code → jeu ──
+async function resolveCode(code){
+  if (!code) { needCode(); return; }
+  $('game').textContent = 'Vérification du code…';
+  $('game').className = 'game muted';
+  const { data, error } = await sb
+    .from('codes')
+    .select('code, jeu:jeux(id, slug, name)')
+    .eq('code', code.trim())
+    .eq('actif', true)
+    .maybeSingle();
+  if (error || !data || !data.jeu){
+    currentGame = null;
+    $('game').textContent = 'Code invalide ou désactivé.';
+    $('game').className = 'game muted';
+    needCode();
+    return;
+  }
+  currentGame = data.jeu;
+  $('code-field').style.display = 'none';
+  $('game').textContent = 'Tu rejoins : ' + currentGame.name;
+  $('game').className = 'game';
+}
+function needCode(){ $('code-field').style.display = 'block'; }
+
+// ── Inscription / connexion ──
+async function submit(){
+  clearMsg();
+  const pseudo = $('pseudo').value.trim();
+  const password = $('password').value;
+  const codeTyped = $('code') ? $('code').value.trim() : '';
+
+  // Si pas encore de jeu résolu mais un code saisi à la main → le résoudre d'abord
+  if (!currentGame && codeTyped){ await resolveCode(codeTyped); }
+  if (!currentGame){ showMsg("Entre un code d'invitation valide pour rejoindre un jeu.", 'err'); return; }
+  if (pseudo.length < 2){ showMsg("Choisis un pseudo d'au moins 2 caractères.", 'err'); return; }
+  if (password.length < 6){ showMsg("Le mot de passe doit faire au moins 6 caractères.", 'err'); return; }
+
+  $('submit').disabled = true;
+  const email = synthEmail(pseudo, currentGame.slug);
+
+  try {
+    if (mode === 'signup'){
+      // 1) créer le compte (auth)
+      const { data: signUp, error: e1 } = await sb.auth.signUp({ email, password });
+      if (e1) throw e1;
+      const uid = signUp.user && signUp.user.id;
+      // 2) créer le profil joueur (pseudo + jeu + code)
+      const { error: e2 } = await sb.from('joueurs').insert({
+        id: uid, pseudo, jeu_id: currentGame.id, code_utilise: currentGame.codeUsed || codeTyped || null
+      });
+      if (e2) throw e2;
+      goToGame();
+    } else {
+      // connexion
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      goToGame();
+    }
+  } catch (err){
+    $('submit').disabled = false;
+    showMsg(traduire(err.message || String(err)), 'err');
+    console.error(err);
+  }
+}
+
+function goToGame(){
+  showMsg('Connexion réussie — chargement du jeu…', 'ok');
+  // Redirige vers le jeu (adapte le nom du fichier moteur si besoin)
+  setTimeout(()=>{ location.href = `index.html?slug=${encodeURIComponent(currentGame.slug)}`; }, 700);
+}
+
+function toggleMode(){
+  mode = (mode === 'signup') ? 'login' : 'signup';
+  if (mode === 'login'){
+    $('title').textContent = 'Se connecter';
+    $('submit').textContent = 'Se connecter';
+    $('pw-hint').style.display = 'none';
+    $('switch').innerHTML = "Pas encore de compte ? <a onclick=\"toggleMode()\">Créer un compte</a>";
+  } else {
+    $('title').textContent = 'Rejoindre le jeu';
+    $('submit').textContent = 'Créer mon compte et jouer';
+    $('pw-hint').style.display = 'block';
+    $('switch').innerHTML = "Déjà un compte ? <a onclick=\"toggleMode()\">Se connecter</a>";
+  }
+  clearMsg();
+}
+
+// Messages d'erreur Supabase → français lisible
+function traduire(m){
+  if (/already registered|already exists/i.test(m)) return "Ce pseudo est déjà pris sur ce jeu. Choisis-en un autre, ou connecte-toi.";
+  if (/Invalid login credentials/i.test(m)) return "Pseudo ou mot de passe incorrect.";
+  if (/at least 6/i.test(m)) return "Le mot de passe doit faire au moins 6 caractères.";
+  return "Une erreur est survenue : " + m;
+}
+
+// ── Init : lire le code dans l'URL ──
+(function(){
+  const code = new URLSearchParams(location.search).get('code');
+  if (code){ $('code').value = code; resolveCode(code); }
+  else { $('game').textContent = "Entre ton code d'invitation."; needCode(); }
+})();
+</script>
+</body>
+</html>
