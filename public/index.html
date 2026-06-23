@@ -958,6 +958,41 @@ html, body {
   <div class="acts-container" id="acts-container"></div>
 </div>
 
+<!-- ACCUEIL JOUEUR -->
+<div id="player-home" class="screen">
+  <div style="max-width:440px;margin:0 auto;width:100%;">
+    <div style="font-family:var(--font-mono);font-size:.6rem;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">Espace joueur</div>
+    <div style="font-family:var(--font-display);font-size:1.5rem;margin:6px 0 2px;" id="ph-game">—</div>
+    <div style="color:var(--text-dim);font-size:.9rem;margin-bottom:22px;">Bienvenue <strong id="ph-pseudo" style="color:var(--accent)">—</strong></div>
+
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;font-size:.8rem;color:var(--text-dim);margin-bottom:6px;">
+        <span>Progression</span><span id="ph-prog-txt">0/0</span>
+      </div>
+      <div style="height:8px;background:var(--bg-deep);border-radius:99px;overflow:hidden;">
+        <div id="ph-prog-bar" style="height:100%;width:0%;background:var(--accent);border-radius:99px;transition:width .4s;"></div>
+      </div>
+      <div style="font-size:.78rem;color:var(--text-dim);margin-top:12px;">Acte en cours : <strong id="ph-act" style="color:var(--text)">—</strong></div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:14px;">
+      <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;">
+        <div style="font-size:1.2rem;font-weight:700;" id="ph-time">—</div>
+        <div style="font-size:.62rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Temps total</div>
+      </div>
+      <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;">
+        <div style="font-size:1.2rem;font-weight:700;" id="ph-hints">0</div>
+        <div style="font-size:.62rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Indices utilises</div>
+      </div>
+    </div>
+
+    <div id="ph-acts" style="margin-bottom:20px;"></div>
+
+    <button class="btn-primary" id="ph-enter" onclick="enterGame()" style="width:100%;">REPRENDRE</button>
+    <button class="btn-ghost" onclick="playerLogout()" style="width:100%;margin-top:10px;">Se deconnecter</button>
+  </div>
+</div>
+
 <!-- ENIGMA -->
 <div id="enigma-screen" class="screen">
   <div class="enigma-header">
@@ -1691,6 +1726,7 @@ const SUPABASE_ANON = "sb_publishable_3ScfE7ewhH-FaPoaxA1zxw_jQ-BEBJA";
 const SB_READY = !SUPABASE_URL.includes("TON-PROJET") && !SUPABASE_ANON.includes("TA_CLE");
 const SB = SB_READY && window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
 let JOUEUR_ID = null, JEU_ID = null;   // remplis par le verrou (authGuard)
+let PSEUDO = '', GAME_NAME = '';        // pour l'écran d'accueil joueur
 
 function gameSlugFromURL() {
   return new URLSearchParams(location.search).get('slug');
@@ -1715,6 +1751,7 @@ async function loadFromSupabase(slug) {
       enigmas: data.enigmas,
     });
     if (data.theme) applyTheme(data.theme);
+    GAME_NAME = data.name || '';
     return true;
   } catch (e) {
     console.log('Erreur Supabase', e);
@@ -1734,7 +1771,7 @@ async function authGuard() {
   // Connecté : est-il rattaché à ce jeu ?
   const { data, error } = await SB
     .from('joueurs')
-    .select('jeu_id, pseudo, actif, jeu:jeux(slug)')
+    .select('jeu_id, pseudo, jeu:jeux(slug)')
     .eq('id', session.user.id)
     .maybeSingle();
   if (error || !data || !data.jeu || data.jeu.slug !== slug) {
@@ -1742,13 +1779,9 @@ async function authGuard() {
     location.replace('rejoindre.html');
     return false;
   }
-  if (data.actif === false) {
-    alert("Ton accès à ce jeu a été désactivé.");
-    location.replace('rejoindre.html');
-    return false;
-  }
   JOUEUR_ID = session.user.id;          // pour la progression (phase 3)
   JEU_ID = data.jeu_id;
+  PSEUDO = data.pseudo || '';
   return true;                          // connecté ET autorisé
 }
 
@@ -1813,6 +1846,67 @@ function logTentative(idx, reussie, reponse = null) {
 function logEvent(type, enigmeIndex = null) {
   if (!SB || !JOUEUR_ID || !JEU_ID) return;
   SB.from('evenements').insert({ joueur_id: JOUEUR_ID, jeu_id: JEU_ID, type, enigme_index: enigmeIndex }).then(()=>{});
+}
+
+// ── Écran d'accueil joueur ──
+async function loadPlayerEvents() {
+  if (!SB || !JOUEUR_ID || !JEU_ID) return [];
+  const { data } = await SB.from('evenements')
+    .select('type, enigme_index, created_at')
+    .eq('joueur_id', JOUEUR_ID).eq('jeu_id', JEU_ID)
+    .order('created_at', { ascending: true });
+  return data || [];
+}
+function fmtDur(ms) {
+  if (!ms || ms < 0) return '—';
+  const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+  return h ? `${h}h${String(m).padStart(2,'0')}` : (m ? `${m}min ${String(ss).padStart(2,'0')}s` : `${ss}s`);
+}
+async function showPlayerHome() {
+  const g = (id) => document.getElementById(id);
+  g('ph-game').textContent = GAME_NAME || (GAME_CONFIG.meta && GAME_CONFIG.meta.name) || 'Escape Game';
+  g('ph-pseudo').textContent = PSEUDO || 'joueur';
+  const solved = STATE.solved.length;
+  g('ph-prog-txt').textContent = `${solved}/${TOTAL}`;
+  g('ph-prog-bar').style.width = `${TOTAL ? Math.round(solved/TOTAL*100) : 0}%`;
+  const ai = getActForIndex(Math.min(STATE.currentEnigma, Math.max(0, TOTAL-1)));
+  g('ph-act').textContent = (ACTS[ai] && ACTS[ai].name) ? `${ai+1}. ${ACTS[ai].name}` : '—';
+  g('ph-hints').textContent = STATE.hintUsed.length;
+  g('ph-enter').textContent = (STATE.started && solved > 0) ? 'REPRENDRE' : 'COMMENCER';
+
+  const events = await loadPlayerEvents();
+  if (events.length) {
+    const t0 = new Date(events[0].created_at).getTime();
+    const fin = events.find(e => e.type === 'fin');
+    const tEnd = fin ? new Date(fin.created_at).getTime() : Date.now();
+    g('ph-time').textContent = fmtDur(tEnd - t0);
+    // Temps par acte (approx : de l'entrée dans l'acte à sa dernière résolution)
+    const actLast = {};
+    events.filter(e => e.type === 'resolue').forEach(e => {
+      const a = getActForIndex(e.enigme_index), t = new Date(e.created_at).getTime();
+      actLast[a] = Math.max(actLast[a] || 0, t);
+    });
+    let prevEnd = t0; const rows = [];
+    Object.keys(actLast).map(Number).sort((a,b)=>a-b).forEach(a => {
+      const dur = actLast[a] - prevEnd; prevEnd = actLast[a];
+      rows.push(`<div style="display:flex;justify-content:space-between;font-size:.78rem;color:var(--text-dim);padding:5px 0;border-bottom:1px solid var(--border);"><span>${(ACTS[a]&&ACTS[a].name)||('Acte '+(a+1))}</span><span style="color:var(--text)">${fmtDur(dur)}</span></div>`);
+    });
+    g('ph-acts').innerHTML = rows.length
+      ? `<div style="font-size:.62rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Temps par acte</div>` + rows.join('')
+      : '';
+  } else {
+    g('ph-time').textContent = '0s';
+    g('ph-acts').innerHTML = '';
+  }
+  showScreen('player-home');
+}
+function enterGame() {
+  if (STATE.started && STATE.solved.length > 0) showHub();
+  else showScreen('preboot-screen');
+}
+async function playerLogout() {
+  if (SB) { try { await SB.auth.signOut(); } catch(e){} }
+  location.href = 'rejoindre.html';
 }
 
 // ═══════════════════════ AUDIO ═══════════════════════
@@ -3383,8 +3477,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
   await loadProgress();                 // récupère la progression sauvegardée en base
   document.getElementById('total-display').textContent = TOTAL + ' épreuves';
-  // Le boot sera lancé par launchBoot() au clic
-  if (STATE.started && STATE.solved.length > 0) {
+  // Écran d'accueil joueur (contexte authentifié) ; sinon flux d'origine
+  if (SB_READY && gameSlugFromURL()) {
+    await showPlayerHome();
+  } else if (STATE.started && STATE.solved.length > 0) {
     showHub();
   }
   if ('serviceWorker' in navigator) {
