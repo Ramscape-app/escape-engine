@@ -85,6 +85,7 @@
     <div class="tabs">
       <button id="tab-joueurs" class="tab active" onclick="setTab('joueurs')">Joueurs</button>
       <button id="tab-stats" class="tab" onclick="setTab('stats')">Tableau de bord</button>
+      <button id="tab-jeux" class="tab" onclick="setTab('jeux')">Jeux</button>
     </div>
 
     <div id="view-joueurs">
@@ -117,6 +118,12 @@
       <div class="sub">Enigmes les plus ratees (tous jeux).</div>
       <div id="blocages"><div class="state">Chargement...</div></div>
     </div><!-- /view-stats -->
+
+    <div id="view-jeux" style="display:none">
+      <h2>Jeux</h2>
+      <div class="sub">Cliquer sur Editer pour modifier le contenu en ligne.</div>
+      <div id="jeux-list"><div class="state">Chargement...</div></div>
+    </div><!-- /view-jeux -->
   </div>
 </div>
 <script>
@@ -162,12 +169,24 @@ async function showApp(){
 
 let JEUX = [];
 let statsLoaded = false;
+let jeuxLoaded = false;
 function setTab(t){
-  document.getElementById('tab-joueurs').classList.toggle('active', t==='joueurs');
-  document.getElementById('tab-stats').classList.toggle('active', t==='stats');
-  $('view-joueurs').style.display = t==='joueurs' ? 'block' : 'none';
-  $('view-stats').style.display = t==='stats' ? 'block' : 'none';
+  ['joueurs','stats','jeux'].forEach(v=>{
+    document.getElementById('tab-'+v).classList.toggle('active', t===v);
+    $('view-'+v).style.display = (t===v)?'block':'none';
+  });
   if(t==='stats' && !statsLoaded){ loadStats(); statsLoaded = true; }
+  if(t==='jeux' && !jeuxLoaded){ renderJeux(); jeuxLoaded = true; }
+}
+async function renderJeux(){
+  try{
+    if(!JEUX.length) await loadJeux();
+    if(!JEUX.length){ $('jeux-list').innerHTML='<div class="state">Aucun jeu.</div>'; return; }
+    $('jeux-list').innerHTML = `<table><thead><tr><th>Jeu</th><th>Slug</th><th></th></tr></thead><tbody>`
+      + JEUX.map(j=>`<tr><td><strong>${esc(j.name)}</strong></td><td><span class="pill">${esc(j.slug)}</span></td>`
+      + `<td style="text-align:right"><a class="tog" style="text-decoration:none" href="editeur.html?id=${j.id}">Editer</a></td></tr>`).join('')
+      + `</tbody></table>`;
+  }catch(e){ $('jeux-list').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`; }
 }
 async function loadStats(){
   try {
