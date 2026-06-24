@@ -171,12 +171,8 @@
   <div class="spacer"></div>
   <div class="proj-pill"><b id="pill-name">—</b><span class="v" id="pill-ver">v1</span></div>
   <span class="savestate" id="savestate">brouillon non sauvegardé</span>
-  <button class="btn ghost sm" onclick="document.getElementById('importer').click()">⇪ Importer</button>
   <button class="btn primary sm" onclick="saveOnline()">💾 Enregistrer en ligne</button>
-  <button class="btn ghost sm" onclick="exportConfig()">⇩ Exporter (sauvegarde)</button>
   <a class="btn ghost sm" href="admin.html" style="text-decoration:none">↩ Admin</a>
-  <button class="btn ghost sm" onclick="openRepoSettings()" title="Régler le dépôt">⚙</button>
-  <input type="file" id="importer" accept="application/json,.json" onchange="importConfig(event)">
 </header>
 
 <!-- Réglage dépôt (stocké en localStorage, jamais dans les fichiers) -->
@@ -206,7 +202,6 @@
       <button data-view="enigmas" class="active" onclick="setView('enigmas')">Énigmes</button>
       <button data-view="project" onclick="setView('project')">Projet</button>
       <button data-view="acts" onclick="setView('acts')">Actes</button>
-      <button data-view="json" onclick="setView('json')">JSON</button>
     </div>
     <div id="sidebar-body" style="display:flex;flex-direction:column;min-height:0;flex:1"></div>
   </aside>
@@ -849,6 +844,54 @@ async function loadThemes(){
     }
   }catch(e){}
 }
+// ════════════ UPLOAD D'IMAGES (Storage par jeu) ════════════
+const ASSET_BASE = "https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/";
+function assetUrlEditor(p){ if(!p) return ''; if(/^https?:\/\//.test(p)) return p; return ASSET_BASE + String(p).replace(/^\.?\//,''); }
+function compressImage(file, maxDim=1400){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(); const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      let w=img.width, h=img.height;
+      if(w>maxDim||h>maxDim){ if(w>=h){ h=Math.round(h*maxDim/w); w=maxDim; } else { w=Math.round(w*maxDim/h); h=maxDim; } }
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const isPng=/png/i.test(file.type);
+      const type=isPng?'image/png':'image/jpeg';
+      const dataUrl=cv.toDataURL(type, isPng?undefined:0.82);
+      resolve({ base64:dataUrl.split(',')[1], contentType:type, filename:(file.name||'image').replace(/\.[^.]+$/,'')+(isPng?'.png':'.jpg') });
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('Image illisible')); };
+    img.src=url;
+  });
+}
+async function handleImageUpload(inputEl, path){
+  const file=inputEl.files&&inputEl.files[0]; if(!file) return;
+  if(!/^image\//.test(file.type)){ toast('Fichier image requis'); inputEl.value=''; return; }
+  const slug = CFG.meta && CFG.meta.id;
+  if(!slug){ alert("Le jeu doit avoir un identifiant (slug) avant d'uploader."); return; }
+  try{
+    toast('Compression…');
+    const { base64, contentType, filename } = await compressImage(file);
+    toast('Envoi…');
+    const r = await callFn('asset-upload', { method:'POST', body:{ slug, filename, dataBase64:base64, contentType } });
+    onInput(path, r.path, false);
+    render();
+    toast('Image ajoutée ✓');
+  }catch(e){ alert('Upload impossible : '+e.message); }
+  inputEl.value='';
+}
+function inpImage(label,path,val,help){
+  const id='up-'+path.replace(/[^a-z0-9]/gi,'-');
+  return `<div class="field"><label>${label}</label>
+    <div style="display:flex;gap:8px">
+      <input class="inp" type="text" value="${esc(val)}" oninput="onInput('${path}',this.value,false)" placeholder="chemin ou upload" style="flex:1">
+      <button class="btn sm" type="button" onclick="document.getElementById('${id}').click()">⇪ Upload</button>
+    </div>
+    <input type="file" id="${id}" accept="image/*" style="display:none" onchange="handleImageUpload(this,'${path}')">
+    ${val?`<img src="${assetUrlEditor(val)}" alt="" style="max-height:90px;margin-top:8px;border-radius:8px;border:1px solid var(--border)" onerror="this.style.display='none'">`:''}
+    ${help?`<div class="help">${help}</div>`:''}</div>`;
+}
 function configFileFromURL(){
   // Permet ?config=projet-1986/config.json — sous-dossier autorisé, pas de remontée (..).
   const p = new URLSearchParams(location.search).get('config');
@@ -1020,7 +1063,6 @@ function renderEditor(){
   const ed=document.getElementById('editor');
   if(view==='project') return ed.innerHTML=tplProject();
   if(view==='acts')    return ed.innerHTML=tplActs();
-  if(view==='json')    return ed.innerHTML=tplJson();
   // enigmas
   if(!CFG.enigmas.length){ ed.innerHTML=`<div class="empty">Aucune énigme. <button class="btn primary sm" onclick="addEnigma()">+ Ajouter la première</button></div>`; return; }
   if(sel>=CFG.enigmas.length) sel=CFG.enigmas.length-1;
@@ -1063,7 +1105,7 @@ function tplProject(){
       ${inp('Codename (hub)','branding.codename',b.codename||'')}
       ${inp('Mention « confidentiel »','branding.classified',b.classified||'')}
     </div>
-    ${inp('Avatar (chemin image)','branding.avatar',b.avatar||'','Ex : icons/avatar.png')}
+    ${inpImage('Avatar (image)','branding.avatar',b.avatar||'','Upload ou chemin. Ex : icons/avatar.png')}
   </fieldset>`;
 }
 function tplThemeSelect(){
@@ -1115,8 +1157,8 @@ function tplEnigma(e,i){
   // médias (dispo pour tous formats — vos énigmes texte les utilisent)
   extra+=`<fieldset class="box"><legend>Médias & intégrations</legend>
     <div class="grid2">
-      ${inp('Image','enigmas.'+i+'.image',e.image||'','Chemin, ex : icons/pieds.png')}
-      ${inp('Image 2','enigmas.'+i+'.image2',e.image2||'')}
+      ${inpImage('Image','enigmas.'+i+'.image',e.image||'','Upload ou chemin')}
+      ${inpImage('Image 2','enigmas.'+i+'.image2',e.image2||'')}
     </div>
     ${inp('Iframe (cadenas externe…)','enigmas.'+i+'.iframe',e.iframe||'','URL d\'un module externe (lockee, etc.)')}
     ${inp('Iframe 2','enigmas.'+i+'.iframe2',e.iframe2||'')}
