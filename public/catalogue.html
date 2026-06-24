@@ -1,108 +1,53 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Catalogue — Escape Engine</title>
-
-<!-- Client Supabase chargé comme une librairie (pas d'installation) -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Escape Engine — Catalogue</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <style>
-  :root{
-    --bg:#0a0a0f;--card:#15151f;--card2:#1b1b27;--border:#262635;--border-bright:#33334a;
-    --text:#e9e9f2;--dim:#8a8aa0;--faint:#5a5a70;--accent:#00e0d0;--danger:#ff4d6d;
-    --mono:ui-monospace,Menlo,monospace;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;padding:44px 22px;min-height:100vh}
-  body::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(1000px 600px at 85% -15%,rgba(0,224,208,.07),transparent 60%)}
-  .wrap{position:relative;max-width:920px;margin:0 auto}
-  .eyebrow{font-family:var(--mono);font-size:.62rem;letter-spacing:2px;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
-  h1{font-size:1.7rem;margin-bottom:6px}
-  .sub{color:var(--dim);margin-bottom:28px;font-size:.9rem}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:15px}
-  .card{background:linear-gradient(165deg,var(--card2),var(--card));border:1px solid var(--border);border-radius:14px;padding:20px;position:relative;transition:.18s}
-  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
-  .card .v{position:absolute;top:16px;right:16px;font-family:var(--mono);font-size:.6rem;color:var(--accent);border:1px solid rgba(0,224,208,.2);padding:2px 7px;border-radius:5px}
-  .card h2{font-size:1.05rem;margin-bottom:5px;padding-right:42px}
-  .card .client{font-family:var(--mono);font-size:.64rem;color:var(--dim);margin-bottom:16px}
-  .card .meta{font-size:.74rem;color:var(--dim);margin-bottom:16px;display:flex;align-items:center;gap:6px}
-  .card .meta i{width:9px;height:9px;border-radius:50%;display:inline-block}
-  .card .go{font-size:.82rem;color:var(--accent);font-weight:600;text-decoration:none}
-  .state{padding:50px 20px;text-align:center;color:var(--faint);font-size:.9rem;line-height:1.6}
-  .state.err{color:var(--danger)}
-  .badge{display:inline-block;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-family:var(--mono);font-size:.62rem;color:var(--dim);margin-top:10px}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="eyebrow">Escape Engine</div>
-  <h1>Catalogue des jeux</h1>
-  <div class="sub">Lu en direct depuis Supabase.</div>
-  <div id="content"><div class="state">Chargement…</div></div>
-</div>
-
+:root{--bg:#0a0a0f;--card:#15151f;--border:#262635;--text:#e9e9f2;--dim:#8a8aa0;--accent:#00e0d0;--mono:ui-monospace,Menlo,monospace}
+*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;padding:44px 22px;min-height:100vh}
+.wrap{max-width:920px;margin:0 auto}.eyebrow{font-family:var(--mono);font-size:.62rem;letter-spacing:2px;text-transform:uppercase;color:#5a5a70;margin-bottom:8px}
+h1{font-size:1.7rem;margin-bottom:6px}.sub{color:var(--dim);margin-bottom:30px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:15px}
+.card{display:block;background:linear-gradient(165deg,#1b1b27,#15151f);border:1px solid var(--border);border-radius:14px;padding:20px;text-decoration:none;color:inherit;position:relative;transition:.18s}
+.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.card .v{position:absolute;top:16px;right:16px;font-family:var(--mono);font-size:.6rem;color:var(--accent);border:1px solid rgba(0,224,208,.2);padding:2px 7px;border-radius:5px}
+.card h2{font-size:1.05rem;margin-bottom:5px;padding-right:42px}.card .client{font-family:var(--mono);font-size:.64rem;color:var(--dim);margin-bottom:16px}
+.card .meta{font-size:.74rem;color:var(--dim);margin-bottom:14px}.card .go{font-size:.78rem;color:var(--accent);font-weight:600}
+.state{padding:50px;text-align:center;color:#5a5a70}
+</style></head><body><div class="wrap"><div class="eyebrow">Escape Engine</div>
+<h1>Catalogue des jeux</h1><div class="sub" id="sub">Chargement…</div>
+<div class="grid" id="grid"><div class="state">Chargement des jeux…</div></div></div>
 <script>
-// ╔══════════════════════════════════════════════════════════╗
-// ║  À REMPLIR : tes 2 infos Supabase (Settings → API)        ║
-// ╚══════════════════════════════════════════════════════════╝
-const SUPABASE_URL  = "https://gpwdnflaxuuselxxkepn.supabase.co";   // ← Project URL
-const SUPABASE_ANON = "sb_publishable_3ScfE7ewhH-FaPoaxA1zxw_jQ-BEBJA";               // ← clé anon public
-
-// ── Connexion ──
+const SUPABASE_URL  = "https://gpwdnflaxuuselxxkepn.supabase.co";
+const SUPABASE_ANON = "sb_publishable_3ScfE7ewhH-FaPoaxA1zxw_jQ-BEBJA";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-const content = document.getElementById('content');
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-async function chargerJeux(){
-  // Garde-fou : clés non renseignées
-  if (SUPABASE_URL.includes("TON-PROJET") || SUPABASE_ANON.includes("TA_CLE")){
-    content.innerHTML = `<div class="state err">⚠ Renseigne d'abord SUPABASE_URL et SUPABASE_ANON en haut du fichier
-      (Supabase → Settings → API).</div>`;
-    return;
-  }
-  try {
-    // On demande les jeux PUBLIÉS + le thème lié (jointure)
-    const { data, error } = await sb
-      .from('jeux')
-      .select('slug, name, client, version, enigmas, theme:themes(name, colors)')
-      .eq('statut', 'publie')
-      .order('name');
-
+(async ()=>{
+  try{
+    const { data, error } = await sb.from('jeux')
+      .select('slug, name, client, note, version, enigmas')
+      .eq('statut','publie').order('name');
     if (error) throw error;
-    if (!data || !data.length){
-      content.innerHTML = `<div class="state">Aucun jeu publié pour l'instant.
-        <div class="badge">Connexion Supabase OK ✓</div></div>`;
-      return;
-    }
-    afficher(data);
-  } catch (e){
-    content.innerHTML = `<div class="state err">Erreur de chargement : ${escapeHtml(e.message || String(e))}
-      <div class="badge">Vérifie l'URL, la clé, et les politiques RLS</div></div>`;
-    console.error(e);
+    const jeux = data || [];
+    document.getElementById('sub').textContent = `${jeux.length} jeu(x) disponible(s).`;
+    if (!jeux.length){ document.getElementById('grid').innerHTML='<div class="state">Aucun jeu publié pour le moment.</div>'; return; }
+    document.getElementById('grid').innerHTML = jeux.map(j=>{
+      const nb = Array.isArray(j.enigmas) ? j.enigmas.length : 0;
+      const client = j.client ? esc(j.client) : 'sans client';
+      const ver = j.version ? ('v'+esc(String(j.version))) : 'v1';
+      return `<a class="card" href="rejoindre.html?slug=${encodeURIComponent(j.slug)}">
+        <div class="v">${ver}</div>
+        <h2>${esc(j.name)}</h2>
+        <div class="client">${client}</div>
+        <div class="meta">${nb} énigme(s)</div>
+        <div class="go">Rejoindre →</div>
+      </a>`;
+    }).join('');
+  }catch(e){
+    document.getElementById('grid').innerHTML = `<div class="state" style="color:#ff4d6d">${esc(e.message)}</div>`;
+    document.getElementById('sub').textContent = 'Erreur de chargement.';
   }
-}
-
-function afficher(jeux){
-  content.innerHTML = `<div class="grid">${jeux.map(carte).join('')}</div>`;
-}
-function carte(j){
-  const nbEnig = Array.isArray(j.enigmas) ? j.enigmas.length : 0;
-  const t = j.theme; // { name, colors } ou null
-  const chip = t && t.colors
-    ? `<i style="background:${escapeHtml(t.colors.accent||'#888')}"></i>${escapeHtml(t.name||'')}`
-    : 'thème par défaut';
-  return `<div class="card">
-    <div class="v">v${j.version||1}</div>
-    <h2>${escapeHtml(j.name||'Sans titre')}</h2>
-    <div class="client">${escapeHtml(j.client||'sans client')}</div>
-    <div class="meta">${nbEnig} énigmes · ${chip}</div>
-    <a class="go" href="#" onclick="return false">Ouvrir le jeu →</a>
-  </div>`;
-}
-function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-
-chargerJeux();
+})();
 </script>
-</body>
-</html>
+</body></html>
