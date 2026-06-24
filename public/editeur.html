@@ -1151,7 +1151,7 @@ function tplIntro(){
     ${inp('Sous-titre','intro.preboot.subtitle',pb.subtitle||'')}
     <div class="field"><label>Consignes affichées</label>${consHtml||'<div class="help">Aucune consigne pour le moment.</div>'}
       <button class="btn sm" onclick="addConsigne()">+ Ajouter une consigne</button></div>
-    ${ta('Encadré d\\'avertissement','intro.preboot.warning',pb.warning||'','',true)}
+    ${ta('Encadré d\'avertissement','intro.preboot.warning',pb.warning||'','',true)}
     ${inp('Libellé du bouton','intro.preboot.button',pb.button||'')}
     ${inp('Pied de page','intro.preboot.footer',pb.footer||'')}
 
@@ -1159,13 +1159,13 @@ function tplIntro(){
     <h3 style="margin:6px 0 12px">Page 2 — Réactivation (boot)</h3>
     ${inp('Logo / titre','intro.boot.logo',bt.logo||'')}
     ${inp('Sous-titre','intro.boot.subtitle',bt.subtitle||'')}
-    ${ta('Lignes qui défilent (une par ligne, {total} = nb d\\'énigmes)','intro.boot.lines',(bt.lines||[]).join('\n'),'list')}
-    ${inp('Musique d\\'intro (chemin Storage, vide = défaut)','intro.boot.music',bt.music||'','Uploade ton audio dans le bucket Storage, puis colle son chemin. Ex : mariage-dupont/musique.m4a')}
+    ${ta('Lignes qui défilent (une par ligne, {total} = nb d\'énigmes)','intro.boot.lines',(bt.lines||[]).join('\n'),'list')}
+    ${inp('Musique d\'intro (chemin Storage, vide = défaut)','intro.boot.music',bt.music||'','Uploade ton audio dans le bucket Storage, puis colle son chemin. Ex : mariage-dupont/musique.m4a')}
 
     <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
     <h3 style="margin:6px 0 12px">Page 3 — Briefing (intro)</h3>
     ${inp('Bandeau confidentiel','intro.intro.classified',it.classified||'')}
-    ${ta('Texte de briefing (HTML autorisé : <strong>, <br>… — {total} = nb d\\'énigmes)','intro.intro.brief',it.brief||'','')}
+    ${ta('Texte de briefing (HTML autorisé : <strong>, <br>… — {total} = nb d\'énigmes)','intro.intro.brief',it.brief||'','')}
     ${inp('Libellé du bouton','intro.intro.button',it.button||'')}
   `;
 }
