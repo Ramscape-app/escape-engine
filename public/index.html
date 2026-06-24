@@ -946,6 +946,7 @@ html, body {
     <span style="color:var(--warn)">Bonne chance.</span>
   </div>
   <button class="btn-primary" onclick="startGame()">ACCEPTER LA MISSION</button>
+  <button class="btn-primary" id="intro-install" onclick="installPWA()" style="display:none;margin-top:12px;">📲 INSTALLER L'APP</button>
 </div>
 
 <!-- HUB -->
@@ -3440,6 +3441,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
 function revealHomeInstall() {
   const b = document.getElementById('ph-install');
   if (b) b.style.display = (deferredPrompt && !isStandalone()) ? 'block' : 'none';
+  const i = document.getElementById('intro-install');
+  if (i) i.style.display = (deferredPrompt && !isStandalone()) ? 'block' : 'none';
 }
 
 window.addEventListener('appinstalled', () => {
