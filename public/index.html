@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0a0f">
 <title>PROJET 1986 : RÉACTIVATION</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="/.netlify/functions/manifest">
 <link rel="apple-touch-icon" href="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png">
 <link rel="icon" type="image/png" sizes="192x192" href="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600&family=Playfair+Display:wght@600;700&family=Bebas+Neue&family=Caveat:wght@600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -1732,6 +1732,14 @@ function assetUrl(p) {
   if (/^https?:\/\//.test(p)) return p;            // déjà une URL complète
   return ASSET_BASE + String(p).replace(/^\.?\//, '');
 }
+// Manifest PWA spécifique au jeu (s'ouvre sur le bon slug une fois installé)
+(function () {
+  const slug = new URLSearchParams(location.search).get('slug');
+  if (slug) {
+    const link = document.querySelector('link[rel="manifest"]');
+    if (link) link.href = '/.netlify/functions/manifest?slug=' + encodeURIComponent(slug);
+  }
+})();
 let JOUEUR_ID = null, JEU_ID = null;   // remplis par le verrou (authGuard)
 let PSEUDO = '', GAME_NAME = '';        // pour l'écran d'accueil joueur
 
@@ -1807,6 +1815,8 @@ function applyTheme(t) {
   set('--warn', c.danger); set('--warn-dim', a(c.danger,'33')); set('--success', c.ok); set('--success-dim', a(c.ok,'33'));
   set('--gold', c.hint); set('--text', c.text); set('--text-dim', c.dim); set('--border', c.border);
   if (t.fonts) { set('--font-display', t.fonts.display); set('--font-body', t.fonts.body); set('--font-mono', t.fonts.mono); }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta && c.bg) meta.content = c.bg;
 }
 
 // ═══════════════════════ STATE ═══════════════════════
