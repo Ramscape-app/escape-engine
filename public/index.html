@@ -1685,6 +1685,12 @@ function configFileFromURL() {
   return './config.json';
 }
 async function loadConfig() {
+  // 0) Mode aperçu admin : charge le jeu par id via la fonction sécurisée
+  const previewId = previewIdFromURL();
+  if (previewId && SB) {
+    const ok = await loadPreview(previewId);
+    if (ok) return;
+  }
   // 1) Supabase en priorité si un ?slug= est présent et les clés renseignées
   const slug = gameSlugFromURL();
   if (slug && SB_READY) {
@@ -1752,8 +1758,31 @@ let PSEUDO = '', GAME_NAME = '';        // pour l'écran d'accueil joueur
 function gameSlugFromURL() {
   return new URLSearchParams(location.search).get('slug');
 }
-async function loadFromSupabase(slug) {
-  if (!SB) return false;
+function previewIdFromURL() {
+  return new URLSearchParams(location.search).get('previewId');
+}
+let PREVIEW = false;
+// Aperçu admin : charge la config d'un jeu (même brouillon) via la fonction sécurisée
+async function loadPreview(id) {
+  try {
+    const { data: { session } } = await SB.auth.getSession();
+    if (!session) return false;
+    const res = await fetch('/.netlify/functions/jeu-get?id=' + encodeURIComponent(id), {
+      headers: { 'Authorization': 'Bearer ' + session.access_token },
+    });
+    const j = await res.json();
+    if (!res.ok) { alert('Aperçu impossible : ' + (j.error || 'accès refusé')); return false; }
+    applyConfig(j.config);
+    GAME_NAME = (j.config.meta && j.config.meta.name) || '';
+    if (j.config.theme) {
+      const { data: th } = await SB.from('themes').select('id,name,colors,fonts,radius,glow').eq('id', j.config.theme).maybeSingle();
+      if (th) applyTheme(th);
+    }
+    return true;
+  } catch (e) { console.log('preview err', e); return false; }
+}
+
+async function loadFromSupabase(slug) {  if (!SB) return false;
   try {
     const { data, error } = await SB
       .from('jeux')
@@ -1781,6 +1810,15 @@ async function loadFromSupabase(slug) {
 }
 // Vérifie qu'un joueur connecté a le droit d'accéder à CE jeu
 async function authGuard() {
+  // Mode aperçu admin (?previewId=) : nécessite une session ; l'autorisation réelle
+  // est vérifiée côté serveur par jeu-get (requireAdmin) lors du chargement.
+  if (previewIdFromURL()) {
+    if (!SB) { location.replace('admin.html'); return false; }
+    const { data: { session } } = await SB.auth.getSession();
+    if (!session) { location.replace('admin.html'); return false; }
+    PREVIEW = true;
+    return true;
+  }
   const slug = gameSlugFromURL();
   // Mode libre (pas de Supabase configuré, ou pas de slug) → on laisse passer (test/hors-ligne)
   if (!SB || !slug) return true;
