@@ -166,6 +166,8 @@ html, body {
 
 /* ═══════════ HUB SCREEN ═══════════ */
 #hub-screen { background: var(--bg-deep); }
+.profile-btn{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:6px 12px;font-size:.72rem;cursor:pointer;margin-bottom:14px;font-family:var(--font-mono)}
+.profile-btn:hover{border-color:var(--accent);color:var(--accent)}
 .hub-header { padding: 20px 20px 0; text-align: center; }
 .hub-header .codename {
   font-family: var(--font-display);
@@ -949,6 +951,7 @@ html, body {
 <!-- HUB -->
 <div id="hub-screen" class="screen">
   <div class="hub-header">
+    <button class="profile-btn" onclick="showPlayerHome()">↩ Profil</button>
     <div class="codename">/// PROJET 1986 ///</div>
     <div class="progress-label">PROGRESSION : <span id="progress-text">0/17</span></div>
     <div class="progress-bar-wrap">
@@ -989,6 +992,7 @@ html, body {
     <div id="ph-acts" style="margin-bottom:20px;"></div>
 
     <button class="btn-primary" id="ph-enter" onclick="enterGame()" style="width:100%;">REPRENDRE</button>
+    <button class="btn-primary" id="ph-install" onclick="installPWA()" style="width:100%;margin-top:10px;display:none;">📲 Installer l'application</button>
     <button class="btn-ghost" onclick="playerLogout()" style="width:100%;margin-top:10px;">Se deconnecter</button>
   </div>
 </div>
@@ -1916,10 +1920,11 @@ async function showPlayerHome() {
     g('ph-acts').innerHTML = '';
   }
   showScreen('player-home');
+  revealHomeInstall();
 }
 function enterGame() {
-  if (STATE.started && STATE.solved.length > 0) showHub();
-  else showScreen('preboot-screen');
+  // L'intro a déjà été jouée avant l'accueil profil : on entre directement dans le hub
+  showHub();
 }
 async function playerLogout() {
   if (SB) { try { await SB.auth.signOut(); } catch(e){} }
@@ -2031,7 +2036,9 @@ function startGame() {
   if (!STATE.started) logEvent('debut');
   STATE.started = true;
   saveState();
-  showHub();
+  // Après l'intro : accueil profil si joueur authentifié, sinon le hub directement
+  if (SB_READY && gameSlugFromURL()) showPlayerHome();
+  else showHub();
 }
 
 // ═══════════════════════ HUB ═══════════════════════
@@ -3428,7 +3435,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
   deferredPrompt = e;
   console.log('Install prompt captured');
   showInstallButton();
+  revealHomeInstall();
 });
+function revealHomeInstall() {
+  const b = document.getElementById('ph-install');
+  if (b) b.style.display = (deferredPrompt && !isStandalone()) ? 'block' : 'none';
+}
 
 window.addEventListener('appinstalled', () => {
   console.log('PWA installed');
@@ -3494,10 +3506,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
   await loadProgress();                 // récupère la progression sauvegardée en base
   document.getElementById('total-display').textContent = TOTAL + ' épreuves';
-  // Écran d'accueil joueur (contexte authentifié) ; sinon flux d'origine
-  if (SB_READY && gameSlugFromURL()) {
-    await showPlayerHome();
-  } else if (STATE.started && STATE.solved.length > 0) {
+  // Joueur authentifié : on laisse l'intro de présentation se dérouler (écran preboot par défaut),
+  // puis startGame() débouchera sur l'accueil profil. Hors authentification : comportement d'origine.
+  if (!(SB_READY && gameSlugFromURL()) && STATE.started && STATE.solved.length > 0) {
     showHub();
   }
   if ('serviceWorker' in navigator) {
