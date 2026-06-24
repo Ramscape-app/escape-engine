@@ -18,6 +18,7 @@ export default async (req) => {
     enigmas: config.enigmas || [],
     acts: config.acts || [],
     act_boundaries: config.actBoundaries || [],
+    intro: config.intro || {},
     updated_at: new Date().toISOString()
   };
   const sb = adminClient();
