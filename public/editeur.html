@@ -202,6 +202,7 @@
       <button data-view="enigmas" class="active" onclick="setView('enigmas')">Énigmes</button>
       <button data-view="project" onclick="setView('project')">Projet</button>
       <button data-view="acts" onclick="setView('acts')">Actes</button>
+      <button data-view="intro" onclick="setView('intro')">Intro</button>
     </div>
     <div id="sidebar-body" style="display:flex;flex-direction:column;min-height:0;flex:1"></div>
   </aside>
@@ -1063,6 +1064,7 @@ function renderEditor(){
   const ed=document.getElementById('editor');
   if(view==='project') return ed.innerHTML=tplProject();
   if(view==='acts')    return ed.innerHTML=tplActs();
+  if(view==='intro')   return ed.innerHTML=tplIntro();
   // enigmas
   if(!CFG.enigmas.length){ ed.innerHTML=`<div class="empty">Aucune énigme. <button class="btn primary sm" onclick="addEnigma()">+ Ajouter la première</button></div>`; return; }
   if(sel>=CFG.enigmas.length) sel=CFG.enigmas.length-1;
@@ -1121,6 +1123,52 @@ function tplThemeSelect(){
     <div class="help">Géré dans la bibliothèque de thèmes. Le rendu réel s'applique à la génération du jeu.</div>${note}</div>`;
 }
 
+function ensureIntro(){
+  if(!CFG.intro) CFG.intro={};
+  if(!CFG.intro.preboot) CFG.intro.preboot={};
+  if(!CFG.intro.preboot.consignes) CFG.intro.preboot.consignes=[];
+}
+function addConsigne(){ ensureIntro(); CFG.intro.preboot.consignes.push({icon:'•',titre:'TITRE',texte:''}); markDirty(); render(); }
+function removeConsigne(i){ ensureIntro(); CFG.intro.preboot.consignes.splice(i,1); markDirty(); render(); }
+function tplIntro(){
+  const I = CFG.intro||{}; const pb=I.preboot||{}, bt=I.boot||{}, it=I.intro||{};
+  const consignes = pb.consignes||[];
+  const consHtml = consignes.map((c,i)=>`
+    <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--bg-card)">
+      <div style="display:flex;gap:8px">
+        <div style="width:70px">${inp('Icône','intro.preboot.consignes.'+i+'.icon',c.icon||'')}</div>
+        <div style="flex:1">${inp('Titre','intro.preboot.consignes.'+i+'.titre',c.titre||'')}</div>
+      </div>
+      ${ta('Texte','intro.preboot.consignes.'+i+'.texte',c.texte||'','',true)}
+      <button class="btn ghost sm" onclick="removeConsigne(${i})">✕ Retirer</button>
+    </div>`).join('');
+  return `
+    <div class="panel-head"><div><div class="eyebrow">Pages d'introduction</div><h2>Ambiance & textes du début</h2></div></div>
+
+    <h3 style="margin:6px 0 12px">Page 1 — Sécurité / Accueil</h3>
+    ${inp('Icône (emoji)','intro.preboot.icon',pb.icon||'')}
+    ${inp('Bandeau','intro.preboot.banner',pb.banner||'')}
+    ${inp('Sous-titre','intro.preboot.subtitle',pb.subtitle||'')}
+    <div class="field"><label>Consignes affichées</label>${consHtml||'<div class="help">Aucune consigne pour le moment.</div>'}
+      <button class="btn sm" onclick="addConsigne()">+ Ajouter une consigne</button></div>
+    ${ta('Encadré d\\'avertissement','intro.preboot.warning',pb.warning||'','',true)}
+    ${inp('Libellé du bouton','intro.preboot.button',pb.button||'')}
+    ${inp('Pied de page','intro.preboot.footer',pb.footer||'')}
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
+    <h3 style="margin:6px 0 12px">Page 2 — Réactivation (boot)</h3>
+    ${inp('Logo / titre','intro.boot.logo',bt.logo||'')}
+    ${inp('Sous-titre','intro.boot.subtitle',bt.subtitle||'')}
+    ${ta('Lignes qui défilent (une par ligne, {total} = nb d\\'énigmes)','intro.boot.lines',(bt.lines||[]).join('\n'),'list')}
+    ${inp('Musique d\\'intro (chemin Storage, vide = défaut)','intro.boot.music',bt.music||'','Uploade ton audio dans le bucket Storage, puis colle son chemin. Ex : mariage-dupont/musique.m4a')}
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
+    <h3 style="margin:6px 0 12px">Page 3 — Briefing (intro)</h3>
+    ${inp('Bandeau confidentiel','intro.intro.classified',it.classified||'')}
+    ${ta('Texte de briefing (HTML autorisé : <strong>, <br>… — {total} = nb d\\'énigmes)','intro.intro.brief',it.brief||'','')}
+    ${inp('Libellé du bouton','intro.intro.button',it.button||'')}
+  `;
+}
 function tplActs(){
   const b=CFG.actBoundaries;
   let h=`<div class="panel-head"><div><div class="eyebrow">Structure</div><h2>Actes</h2></div></div>
