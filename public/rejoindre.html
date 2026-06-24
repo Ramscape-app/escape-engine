@@ -175,10 +175,23 @@ function traduire(m){
   return "Une erreur est survenue : " + m;
 }
 
-// ── Init : lire le code dans l'URL ──
+// ── Pré-remplir le jeu via ?slug= (affichage seulement, le code reste requis) ──
+async function resolveSlug(slug){
+  try{
+    const { data } = await sb.from('jeux').select('name').eq('slug', slug).eq('statut','publie').maybeSingle();
+    if (data){ $('title').textContent = 'Rejoindre : ' + data.name; $('game').textContent = "Entre ton code d'invitation pour ce jeu."; }
+    else { $('game').textContent = "Entre ton code d'invitation."; }
+  }catch(e){ $('game').textContent = "Entre ton code d'invitation."; }
+  needCode();
+}
+
+// ── Init : lire le code ou le slug dans l'URL ──
 (function(){
-  const code = new URLSearchParams(location.search).get('code');
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  const slug = params.get('slug');
   if (code){ $('code').value = code; resolveCode(code); }
+  else if (slug){ resolveSlug(slug); }
   else { $('game').textContent = "Entre ton code d'invitation."; needCode(); }
 })();
 </script>
