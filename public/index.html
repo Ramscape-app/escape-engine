@@ -2405,10 +2405,7 @@ function checkTextAnswer(idx) {
   const val = normalize(field.value);
   if (!val) return;
   const e = ENIGMAS[idx];
-  const correct = e.answer.some(a => {
-    const na = normalize(a);
-    return na === val || val.includes(na) || na.includes(val);
-  });
+  const correct = e.answer.some(a => normalize(a) === val);
   if (correct) {
     logTentative(idx, true, raw);
     feedback.className = 'feedback-msg success';
