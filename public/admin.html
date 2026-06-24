@@ -66,6 +66,11 @@
   .tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--dim);padding:10px 16px;font-size:.86rem;cursor:pointer;margin-bottom:-1px}
   .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+  .kpi .v{font-size:1.7rem;font-weight:700;line-height:1}
+  .kpi .l{font-size:.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-top:6px}
+  .kpi .sub2{font-size:.7rem;color:var(--faint);margin-top:3px}
   .scard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}
   .scard h3{font-size:.95rem;margin-bottom:12px}
   .scard .stat{display:flex;justify-content:space-between;font-size:.8rem;color:var(--dim);padding:3px 0}
@@ -149,12 +154,24 @@
     </div><!-- /view-joueurs -->
 
     <div id="view-stats" style="display:none">
-      <h2>Vue d'ensemble</h2>
-      <div class="sub">Joueurs et taux de completion par jeu.</div>
+      <h2>Chiffres cles</h2>
+      <div class="sub">Vue d'ensemble de l'ecosysteme.</div>
+      <div id="kpis" class="kpis"><div class="state">Chargement...</div></div>
+
+      <h2 style="margin-top:34px">Activite recente</h2>
+      <div id="engagement" class="kpis"></div>
+
+      <h2 style="margin-top:34px">Detail par jeu</h2>
+      <div class="sub">Completion, progression moyenne et theme.</div>
       <div id="overview"><div class="state">Chargement...</div></div>
+
       <h2 style="margin-top:34px">Ou ca bloque</h2>
-      <div class="sub">Enigmes les plus ratees (tous jeux).</div>
+      <div class="sub">Enigmes les plus ratees, avec taux d'echec.</div>
       <div id="blocages"><div class="state">Chargement...</div></div>
+
+      <h2 style="margin-top:34px">Themes</h2>
+      <div class="sub">Utilisation des themes par les jeux.</div>
+      <div id="themeusage"><div class="state">Chargement...</div></div>
     </div><!-- /view-stats -->
 
     <div id="view-jeux" style="display:none">
@@ -384,43 +401,83 @@ async function deleteTheme(){
   try{ await callFn('theme-delete',{ method:'POST', body:{ id } }); themeMsg('Theme supprime.','ok'); $('theme-edit').style.display='none'; await loadThemesLib(); }
   catch(e){ themeMsg('Erreur : '+e.message,'err'); }
 }
+async function togglePublish(id, estPublie){
+  const statut = estPublie ? 'brouillon' : 'publie';
+  if(!confirm(estPublie ? 'Depublier ce jeu (il ne sera plus jouable) ?' : 'Publier ce jeu (il devient jouable) ?')) return;
+  try{
+    await callFn('jeu-statut', { method:'POST', body:{ id, statut } });
+    jeuxLoaded=false; await loadJeux(); await renderJeux(); jeuxLoaded=true;
+  }catch(e){ alert("Erreur : " + e.message); }
+}
 async function renderJeux(){
   try{
     if(!JEUX.length) await loadJeux();
     if(!JEUX.length){ $('jeux-list').innerHTML='<div class="state">Aucun jeu.</div>'; return; }
-    $('jeux-list').innerHTML = `<table><thead><tr><th>Jeu</th><th>Slug</th><th></th></tr></thead><tbody>`
-      + JEUX.map(j=>`<tr><td><strong>${esc(j.name)}</strong></td><td><span class="pill">${esc(j.slug)}</span></td>`
-      + `<td style="text-align:right"><a class="tog" style="text-decoration:none" href="editeur.html?id=${j.id}">Editer</a></td></tr>`).join('')
+    $('jeux-list').innerHTML = `<table><thead><tr><th>Jeu</th><th>Slug</th><th>Statut</th><th></th></tr></thead><tbody>`
+      + JEUX.map(j=>{
+          const pub = (j.statut==='publie');
+          const badge = pub?'<span class="pill ok">Publie</span>':(j.statut==='archive'?'<span class="pill off">Archive</span>':'<span class="pill">Brouillon</span>');
+          const tog = pub?'Depublier':'Publier';
+          return `<tr><td><strong>${esc(j.name)}</strong></td><td><span class="pill">${esc(j.slug)}</span></td><td>${badge}</td>`
+            + `<td style="text-align:right;white-space:nowrap">`
+            + `<button class="tog" onclick="togglePublish('${j.id}',${pub})">${tog}</button> `
+            + `<a class="tog" style="text-decoration:none" href="editeur.html?id=${j.id}">Editer</a></td></tr>`;
+        }).join('')
       + `</tbody></table>`;
   }catch(e){ $('jeux-list').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`; }
 }
 async function loadStats(){
   try {
-    const { overview, blocages } = await callFn('stats');
-    renderOverview(overview||[]);
-    renderBlocages(blocages||[]);
+    const r = await callFn('stats');
+    renderKpis(r.global||{});
+    renderEngagement(r.engagement||{});
+    renderOverview(r.overview||[]);
+    renderBlocages(r.blocages||[]);
+    renderThemeUsage(r.themeUsage||[]);
   } catch(e){
-    $('overview').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`;
-    $('blocages').innerHTML = '';
+    $('kpis').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`;
   }
+}
+function kpi(v, l, sub2){ return `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div>${sub2?`<div class="sub2">${sub2}</div>`:''}</div>`; }
+function renderKpis(g){
+  $('kpis').innerHTML =
+    kpi(g.jeux_total||0,'Jeux',`${g.jeux_publies||0} publies / ${g.jeux_brouillons||0} brouillons`) +
+    kpi(g.joueurs_total||0,'Joueurs',`${g.joueurs_actifs||0} actifs / ${g.joueurs_inactifs||0} inactifs`) +
+    kpi(g.parties_en_cours||0,'Parties en cours') +
+    kpi(g.parties_terminees||0,'Parties finies') +
+    kpi((g.completion_moyenne||0)+'%','Completion moy.') +
+    kpi(g.themes_total||0,'Themes');
+}
+function renderEngagement(e){
+  $('engagement').innerHTML =
+    kpi(e.inscrits_7j||0,'Inscrits 7j') +
+    kpi(e.inscrits_30j||0,'Inscrits 30j') +
+    kpi(e.parties_actives_7j||0,'Parties actives 7j') +
+    kpi(e.fins_30j||0,'Jeux finis 30j');
 }
 function renderOverview(ov){
   if(!ov.length){ $('overview').innerHTML='<div class="state">Aucun jeu.</div>'; return; }
-  $('overview').innerHTML = '<div class="cards">' + ov.map(o=>`
-    <div class="scard">
-      <h3>${esc(o.jeu)}</h3>
-      <div class="stat"><span>Joueurs</span><b>${o.joueurs}</b></div>
-      <div class="stat"><span>Actifs</span><b>${o.actifs}</b></div>
-      <div class="stat"><span>Ont fini</span><b>${o.ont_fini}</b></div>
-      <div class="stat"><span>Taux de fin</span><b>${o.taux_fin}%</b></div>
-      <div class="bar"><i style="width:${o.taux_fin}%"></i></div>
-    </div>`).join('') + '</div>';
+  $('overview').innerHTML = `<table>
+    <thead><tr><th>Jeu</th><th>Statut</th><th>Theme</th><th>Joueurs</th><th>En cours</th><th>Finis</th><th>Completion</th><th>Enigme moy.</th></tr></thead>
+    <tbody>${ov.map(o=>{
+      const badge = o.statut==='publie'?'<span class="pill ok">Publie</span>':(o.statut==='archive'?'<span class="pill off">Archive</span>':'<span class="pill">Brouillon</span>');
+      return `<tr><td><strong>${esc(o.jeu)}</strong></td><td>${badge}</td><td><span class="pill">${esc(o.theme)}</span></td>`
+        + `<td>${o.joueurs} <span style="color:var(--faint)">(${o.actifs})</span></td><td>${o.en_cours}</td><td>${o.ont_fini}</td>`
+        + `<td><div style="display:flex;align-items:center;gap:8px"><div class="bar" style="flex:1;margin:0"><i style="width:${o.taux_fin}%"></i></div><span style="font-size:.78rem">${o.taux_fin}%</span></div></td>`
+        + `<td>${o.enigme_moyenne}/${o.total_enigmes}</td></tr>`;
+    }).join('')}</tbody></table>`;
 }
 function renderBlocages(bl){
   if(!bl.length){ $('blocages').innerHTML='<div class="state">Pas encore de donnees de tentatives.</div>'; return; }
   $('blocages').innerHTML = `<table>
-    <thead><tr><th>Jeu</th><th>Enigme</th><th>Echecs</th><th>Reussites</th></tr></thead>
-    <tbody>${bl.map(b=>`<tr><td>${esc(b.jeu)}</td><td>enigme ${b.enigme}</td><td style="color:var(--danger)"><strong>${b.echecs}</strong></td><td style="color:var(--ok)">${b.reussites}</td></tr>`).join('')}</tbody></table>`;
+    <thead><tr><th>Jeu</th><th>Enigme</th><th>Echecs</th><th>Reussites</th><th>Taux d'echec</th></tr></thead>
+    <tbody>${bl.map(b=>`<tr><td>${esc(b.jeu)}</td><td>enigme ${b.enigme}</td><td style="color:var(--danger)"><strong>${b.echecs}</strong></td><td style="color:var(--ok)">${b.reussites}</td><td>${b.taux_echec}%</td></tr>`).join('')}</tbody></table>`;
+}
+function renderThemeUsage(tu){
+  if(!tu.length){ $('themeusage').innerHTML='<div class="state">Aucun theme.</div>'; return; }
+  $('themeusage').innerHTML = `<table>
+    <thead><tr><th>Theme</th><th>Jeux utilisant</th></tr></thead>
+    <tbody>${tu.map(t=>`<tr><td><strong>${esc(t.nom)}</strong></td><td>${t.jeux.length?esc(t.jeux.join(', ')):'<span style="color:var(--faint)">aucun</span>'}</td></tr>`).join('')}</tbody></table>`;
 }
 async function loadJeux(){
   try {
