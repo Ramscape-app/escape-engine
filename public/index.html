@@ -864,53 +864,15 @@ html, body {
  <!-- PRE-BOOT SECURITY -->
 <div id="preboot-screen" class="screen active">
   <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:30px 24px;text-align:center;">
-    <div style="font-size:2.5rem;margin-bottom:16px;">🛡️</div>
-    <div style="font-family:var(--font-display);font-size:.65rem;letter-spacing:6px;color:var(--warn);border:1px solid var(--warn-dim);padding:6px 18px;display:inline-block;margin-bottom:24px;">/// PROTOCOLE DE SÉCURITÉ ///</div>
-    
-    <div style="font-family:var(--font-mono);font-size:.65rem;color:var(--accent);letter-spacing:2px;margin-bottom:20px;">BRIEFING PRÉ-MISSION</div>
-    
-    <div style="text-align:left;max-width:340px;width:100%;display:flex;flex-direction:column;gap:14px;margin-bottom:30px;">
-      
-      <div style="background:var(--bg-card);border:1px solid #222233;border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
-        <span style="font-size:1.3rem;">📍</span>
-        <div>
-          <div style="font-family:var(--font-mono);font-size:.6rem;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">GÉOLOCALISATION</div>
-          <div style="font-size:.8rem;font-weight:300;color:var(--text);line-height:1.5;">Certaines épreuves nécessitent votre position GPS. Autorisez l'accès quand demandé.</div>
-        </div>
-      </div>
-      
-      <div style="background:var(--bg-card);border:1px solid #222233;border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
-        <span style="font-size:1.3rem;">📡</span>
-        <div>
-          <div style="font-family:var(--font-mono);font-size:.6rem;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">MODULE NFC</div>
-          <div style="font-size:.8rem;font-weight:300;color:var(--text);line-height:1.5;">Un scan NFC sera requis. Assurez-vous que le NFC est activé dans vos paramètres.</div>
-        </div>
-      </div>
-      
-      <div style="background:var(--bg-card);border:1px solid #222233;border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
-        <span style="font-size:1.3rem;">📷</span>
-        <div>
-          <div style="font-family:var(--font-mono);font-size:.6rem;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">CAMÉRA & FLASH</div>
-          <div style="font-size:.8rem;font-weight:300;color:var(--text);line-height:1.5;">L'accès à la caméra sera sollicité pour des modules de détection optique.</div>
-        </div>
-      </div>
-      
-      <div style="background:var(--bg-card);border:1px solid #222233;border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
-        <span style="font-size:1.3rem;">🔊</span>
-        <div>
-          <div style="font-family:var(--font-mono);font-size:.6rem;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">AUDIO</div>
-          <div style="font-size:.8rem;font-weight:300;color:var(--text);line-height:1.5;">Activez le son. Des transmissions audio cryptées devront être analysées.</div>
-        </div>
-      </div>
-      
-    </div>
-    
-    <div style="font-family:var(--font-mono);font-size:.5rem;color:var(--warn);letter-spacing:1px;line-height:1.8;max-width:300px;margin-bottom:24px;padding:10px;border:1px solid var(--warn-dim);border-radius:8px;background:var(--warn-dim);">
+    <div id="pb-icon" style="font-size:2.5rem;margin-bottom:16px;">🛡️</div>
+    <div id="pb-banner" style="font-family:var(--font-display);font-size:.65rem;letter-spacing:6px;color:var(--warn);border:1px solid var(--warn-dim);padding:6px 18px;display:inline-block;margin-bottom:24px;">/// PROTOCOLE DE SÉCURITÉ ///</div>
+    <div id="pb-subtitle" style="font-family:var(--font-mono);font-size:.65rem;color:var(--accent);letter-spacing:2px;margin-bottom:20px;">BRIEFING PRÉ-MISSION</div>
+    <div id="pb-consignes" style="text-align:left;max-width:340px;width:100%;display:flex;flex-direction:column;gap:14px;margin-bottom:30px;"></div>
+    <div id="pb-warning" style="font-family:var(--font-mono);font-size:.5rem;color:var(--warn);letter-spacing:1px;line-height:1.8;max-width:300px;margin-bottom:24px;padding:10px;border:1px solid var(--warn-dim);border-radius:8px;background:var(--warn-dim);">
       ⚠ AVERTISSEMENT : Toute tentative de fermeture durant une épreuve entraînera la perte définitive de votre progression. L'agence décline toute responsabilité en cas de surchauffe neuronale.
     </div>
-    
-    <button class="btn-primary" onclick="launchBoot()">J'AI COMPRIS — INITIALISER</button>
-    <div style="font-family:var(--font-mono);font-size:.45rem;color:#333;margin-top:14px;letter-spacing:2px;">CLASSIFICATION : NIVEAU OMEGA</div>
+    <button class="btn-primary" id="pb-button" onclick="launchBoot()">J'AI COMPRIS — INITIALISER</button>
+    <div id="pb-footer" style="font-family:var(--font-mono);font-size:.45rem;color:#333;margin-top:14px;letter-spacing:2px;">CLASSIFICATION : NIVEAU OMEGA</div>
   </div>
 </div>
 
@@ -918,8 +880,8 @@ html, body {
 <!-- BOOT -->
 <div id="boot-screen" class="screen">
   <img src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png" alt="Avatar" width="192" height="192">
-  <div class="logo">PROJET 1986</div>
-  <div class="subtitle">Système de réactivation</div>
+  <div class="logo" id="boot-logo">PROJET 1986</div>
+  <div class="subtitle" id="boot-subtitle">Système de réactivation</div>
   <div id="boot-log"></div>
   <div id="boot-buttons" style="display:none; text-align:center; animation: fadeInUp .6s ease;">
     <button class="btn-primary" id="btn-install" onclick="installPWA()" style="display:none;">
@@ -937,15 +899,15 @@ html, body {
 
 <!-- INTRO -->
 <div id="intro-screen" class="screen">
-  <div class="classified">/// CONFIDENTIEL ///</div>
-  <div class="brief">
+  <div class="classified" id="intro-classified">/// CONFIDENTIEL ///</div>
+  <div class="brief" id="intro-brief">
     Agent, votre profil a été <strong>sélectionné</strong>.<br><br>
     En <strong>1986</strong>, un sujet exceptionnel a vu le jour. Aujourd'hui, <strong>40 ans plus tard</strong>, il est temps de prouver que les années n'ont fait que renforcer ses capacités.<br><br>
     <strong id="total-display">17 épreuves</strong> vous attendent. Logique, mémoire, agilité, culture… chaque réponse correcte vous rapproche de la <strong>récompense finale</strong>.<br><br>
     Aucun retour en arrière possible.<br>
     <span style="color:var(--warn)">Bonne chance.</span>
   </div>
-  <button class="btn-primary" onclick="startGame()">ACCEPTER LA MISSION</button>
+  <button class="btn-primary" id="intro-button" onclick="startGame()">ACCEPTER LA MISSION</button>
   <button class="btn-primary" id="intro-install" onclick="installPWA()" style="display:none;margin-top:12px;">📲 INSTALLER L'APP</button>
 </div>
 
@@ -2030,22 +1992,99 @@ function showScreen(id) {
 }
 
 // ═══════════════════════ BOOT ═══════════════════════
-const bootLines = [
-  { text: "Initialisation du système...", cls: "ok", delay: 400 },
-  { text: "Chargement module PROJET_1986", cls: "ok", delay: 600 },
-  { text: "Vérification profil agent", cls: "ok", delay: 800 },
-  { text: "Connexion base de données", cls: "ok", delay: 500 },
-  { text: "Scan biométrique", cls: "warn", delay: 700 },
-  { text: `Calibration énigmes [${TOTAL}/${TOTAL}]`, cls: "ok", delay: 600 },
-  { text: "Chargement module GUADELOUPE", cls: "ok", delay: 400 },
-  { text: "Activation protocole ANNIVERSAIRE", cls: "ok", delay: 500 },
-  { text: "Système prêt", cls: "ok", delay: 300 },
-];
+// ── Valeurs par défaut des pages d'intro (= 1986 si rien de personnalisé) ──
+const INTRO_DEFAULTS = {
+  preboot: {
+    icon: "🛡️",
+    banner: "/// PROTOCOLE DE SÉCURITÉ ///",
+    subtitle: "BRIEFING PRÉ-MISSION",
+    consignes: [
+      { icon:"📍", titre:"GÉOLOCALISATION", texte:"Certaines épreuves nécessitent votre position GPS. Autorisez l'accès quand demandé." },
+      { icon:"📡", titre:"MODULE NFC", texte:"Un scan NFC sera requis. Assurez-vous que le NFC est activé dans vos paramètres." },
+      { icon:"📷", titre:"CAMÉRA & FLASH", texte:"L'accès à la caméra sera sollicité pour des modules de détection optique." },
+      { icon:"🔊", titre:"AUDIO", texte:"Activez le son. Des transmissions audio cryptées devront être analysées." },
+    ],
+    warning: "⚠ AVERTISSEMENT : Toute tentative de fermeture durant une épreuve entraînera la perte définitive de votre progression. L'agence décline toute responsabilité en cas de surchauffe neuronale.",
+    button: "J'AI COMPRIS — INITIALISER",
+    footer: "CLASSIFICATION : NIVEAU OMEGA",
+  },
+  boot: {
+    logo: "PROJET 1986",
+    subtitle: "Système de réactivation",
+    lines: [
+      "Initialisation du système...", "Chargement module PROJET_1986", "Vérification profil agent",
+      "Connexion base de données", "Scan biométrique", "Calibration énigmes",
+      "Chargement module GUADELOUPE", "Activation protocole ANNIVERSAIRE", "Système prêt",
+    ],
+    music: "",
+  },
+  intro: {
+    classified: "/// CONFIDENTIEL ///",
+    brief: "Agent, votre profil a été <strong>sélectionné</strong>.<br><br>En <strong>1986</strong>, un sujet exceptionnel a vu le jour. Aujourd'hui, <strong>40 ans plus tard</strong>, il est temps de prouver que les années n'ont fait que renforcer ses capacités.<br><br><strong>{total} épreuves</strong> vous attendent. Logique, mémoire, agilité, culture… chaque réponse correcte vous rapproche de la <strong>récompense finale</strong>.<br><br>Aucun retour en arrière possible.<br><span style=\"color:var(--warn)\">Bonne chance.</span>",
+    button: "ACCEPTER LA MISSION",
+  },
+};
+
+// Fusionne la config intro du jeu avec les valeurs par défaut
+function getIntroConfig() {
+  const c = (GAME_CONFIG && GAME_CONFIG.intro) || {};
+  return {
+    preboot: { ...INTRO_DEFAULTS.preboot, ...(c.preboot || {}) },
+    boot:    { ...INTRO_DEFAULTS.boot,    ...(c.boot || {}) },
+    intro:   { ...INTRO_DEFAULTS.intro,   ...(c.intro || {}) },
+  };
+}
+function escHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+
+// Applique les textes/visuels d'intro dans le DOM
+function applyIntro() {
+  const I = getIntroConfig();
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  // Page 1 — preboot
+  set('pb-icon', I.preboot.icon);
+  set('pb-banner', I.preboot.banner);
+  set('pb-subtitle', I.preboot.subtitle);
+  set('pb-warning', I.preboot.warning);
+  set('pb-button', I.preboot.button);
+  set('pb-footer', I.preboot.footer);
+  const cons = document.getElementById('pb-consignes');
+  if (cons) {
+    cons.innerHTML = (I.preboot.consignes || []).map(c => `
+      <div style="background:var(--bg-card);border:1px solid #222233;border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
+        <span style="font-size:1.3rem;">${escHtml(c.icon)}</span>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:.6rem;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">${escHtml(c.titre)}</div>
+          <div style="font-size:.8rem;font-weight:300;color:var(--text);line-height:1.5;">${escHtml(c.texte)}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Page 2 — boot
+  set('boot-logo', I.boot.logo);
+  set('boot-subtitle', I.boot.subtitle);
+  // musique personnalisée éventuelle
+  const music = document.getElementById('intro-music');
+  if (music && I.boot.music) music.src = assetUrl(I.boot.music);
+
+  // Page 3 — intro (brief en HTML, {total} remplacé)
+  set('intro-classified', I.intro.classified);
+  set('intro-button', I.intro.button);
+  const brief = document.getElementById('intro-brief');
+  if (brief) brief.innerHTML = String(I.intro.brief).replace(/\{total\}/g, TOTAL);
+}
+
+// Lignes de boot dynamiques
+function getBootLines() {
+  const I = getIntroConfig();
+  return (I.boot.lines || []).map(t => ({ text: String(t).replace(/\{total\}/g, TOTAL), cls: 'ok', delay: 500 }));
+}
 
 function runBoot() {
   const log = document.getElementById('boot-log');
   let total = 0;
-  bootLines.forEach((line) => {
+  const lines = getBootLines();
+  lines.forEach((line) => {
     total += line.delay;
     setTimeout(() => {
       const el = document.createElement('div');
@@ -3545,6 +3584,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!(await authGuard())) return;     // verrou : stoppe si non autorisé
   await loadConfig();
   await loadProgress();                 // récupère la progression sauvegardée en base
+  applyIntro();                         // applique les textes/visuels d'intro personnalisés
   document.getElementById('total-display').textContent = TOTAL + ' épreuves';
   // Joueur authentifié : on laisse l'intro de présentation se dérouler (écran preboot par défaut),
   // puis startGame() débouchera sur l'accueil profil. Hors authentification : comportement d'origine.
