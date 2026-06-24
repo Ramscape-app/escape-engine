@@ -115,6 +115,7 @@
       <button id="nav-jeux" class="navbtn" onclick="setTab('jeux')">🎮 Jeux</button>
       <button id="nav-themes" class="navbtn" onclick="setTab('themes')">🎨 Thèmes</button>
       <button id="nav-joueurs" class="navbtn" onclick="setTab('joueurs')">👤 Joueurs</button>
+      <button id="nav-codes" class="navbtn" onclick="setTab('codes')">🎟️ Codes</button>
       <button id="nav-stats" class="navbtn" onclick="setTab('stats')">📊 Tableau de bord</button>
     </nav>
     <main class="main">
@@ -190,6 +191,22 @@
       <div class="sub">Cliquer sur Editer pour modifier le contenu en ligne.</div>
       <div id="jeux-list"><div class="state">Chargement...</div></div>
     </div><!-- /view-jeux -->
+
+    <div id="view-codes" style="display:none">
+      <div class="createbox">
+        <h2 style="margin-bottom:14px">Nouveau code d'invitation</h2>
+        <div class="msg" id="code-msg"></div>
+        <div class="formrow">
+          <div><label>Jeu</label><select id="cd-jeu"></select></div>
+          <div><label>Code (vide = auto)</label><input id="cd-code" placeholder="MARIAGE-2025"></div>
+          <div><label>Libelle (optionnel)</label><input id="cd-label" placeholder="Table 1"></div>
+          <div><label>Max joueurs (optionnel)</label><input id="cd-max" type="number" min="1" placeholder="illimite"></div>
+          <div style="display:flex;align-items:flex-end"><button class="btn" style="width:auto;padding:11px 18px" onclick="creerCode()">Creer</button></div>
+        </div>
+      </div>
+      <h2>Codes existants</h2>
+      <div id="codes-list"><div class="state">Chargement...</div></div>
+    </div><!-- /view-codes -->
 
     <div id="view-themes" style="display:none">
       <h2>Themes</h2>
@@ -275,8 +292,9 @@ let JEUX = [];
 let statsLoaded = false;
 let jeuxLoaded = false;
 let themesLoaded = false;
+let codesLoaded = false;
 function setTab(t){
-  const sections = ['accueil','jeux','themes','joueurs','stats'];
+  const sections = ['accueil','jeux','themes','joueurs','codes','stats'];
   sections.forEach(v=>{
     const nav = document.getElementById('nav-'+v); if(nav) nav.classList.toggle('active', t===v);
     const view = $('view-'+v); if(view) view.style.display = (t===v)?'block':'none';
@@ -284,6 +302,7 @@ function setTab(t){
   if(t==='stats' && !statsLoaded){ loadStats(); statsLoaded = true; }
   if(t==='jeux' && !jeuxLoaded){ renderJeux(); jeuxLoaded = true; }
   if(t==='themes' && !themesLoaded){ loadThemesLib(); themesLoaded = true; }
+  if(t==='codes' && !codesLoaded){ loadCodes(); codesLoaded = true; }
 }
 async function loadRecap(){
   try{
@@ -315,6 +334,51 @@ async function creerJeu(){
   }catch(e){
     m.textContent = "Erreur : " + e.message; m.className='msg err';
   }
+}
+
+// ════════ CODES D'INVITATION ════════
+async function loadCodes(){
+  try{
+    if(!JEUX.length) await loadJeux();
+    $('cd-jeu').innerHTML = JEUX.map(j=>`<option value="${j.id}">${esc(j.name)}</option>`).join('');
+    const { codes } = await callFn('codes-list');
+    renderCodes(codes||[]);
+  }catch(e){ $('codes-list').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`; }
+}
+function renderCodes(codes){
+  if(!codes.length){ $('codes-list').innerHTML='<div class="state">Aucun code.</div>'; return; }
+  $('codes-list').innerHTML = `<table>
+    <thead><tr><th>Code</th><th>Jeu</th><th>Libelle</th><th>Max</th><th>Expire</th><th>Statut</th><th></th></tr></thead>
+    <tbody>${codes.map(c=>{
+      const actif=c.actif!==false;
+      const badge=actif?'<span class="pill ok">Actif</span>':'<span class="pill off">Inactif</span>';
+      const jeu=c.jeu?esc(c.jeu.name):'-';
+      const exp=c.expire_le?new Date(c.expire_le).toLocaleDateString('fr-FR'):'-';
+      return `<tr><td><strong style="font-family:var(--mono)">${esc(c.code)}</strong></td><td>${jeu}</td><td>${esc(c.label||'-')}</td><td>${c.max_joueurs||'-'}</td><td>${exp}</td><td>${badge}</td>`
+        + `<td style="text-align:right;white-space:nowrap">`
+        + `<button class="tog" onclick="toggleCode('${esc(c.code)}',${actif})">${actif?'Desactiver':'Activer'}</button> `
+        + `<button class="del" onclick="deleteCode('${esc(c.code)}')">Suppr</button></td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+async function creerCode(){
+  const m=$('code-msg'); m.className='msg';
+  const jeu_id=$('cd-jeu').value, code=$('cd-code').value, label=$('cd-label').value, max_joueurs=$('cd-max').value;
+  if(!jeu_id){ m.textContent='Choisis un jeu.'; m.className='msg err'; return; }
+  try{
+    const r=await callFn('code-create',{ method:'POST', body:{ jeu_id, code, label, max_joueurs } });
+    m.innerHTML=`Code cree : <strong style="font-family:var(--mono)">${esc(r.code)}</strong>`; m.className='msg ok';
+    $('cd-code').value=''; $('cd-label').value=''; $('cd-max').value='';
+    loadCodes();
+  }catch(e){ m.textContent='Erreur : '+e.message; m.className='msg err'; }
+}
+async function toggleCode(code, actif){
+  try{ await callFn('code-toggle',{ method:'POST', body:{ code, actif:!actif } }); loadCodes(); }
+  catch(e){ alert('Erreur : '+e.message); }
+}
+async function deleteCode(code){
+  if(!confirm('Supprimer le code '+code+' ?')) return;
+  try{ await callFn('code-toggle',{ method:'POST', body:{ code, supprimer:true } }); loadCodes(); }
+  catch(e){ alert('Erreur : '+e.message); }
 }
 
 // ════════ ÉDITEUR DE THÈME ════════
@@ -401,6 +465,14 @@ async function deleteTheme(){
   try{ await callFn('theme-delete',{ method:'POST', body:{ id } }); themeMsg('Theme supprime.','ok'); $('theme-edit').style.display='none'; await loadThemesLib(); }
   catch(e){ themeMsg('Erreur : '+e.message,'err'); }
 }
+async function dupliquer(id, nom){
+  const name = prompt('Nom du nouveau jeu :', nom + ' (copie)');
+  if(name===null) return;
+  try{
+    const r = await callFn('jeu-duplicate', { method:'POST', body:{ id, name } });
+    location.href = 'editeur.html?id='+r.uuid;
+  }catch(e){ alert('Duplication impossible : '+e.message); }
+}
 async function togglePublish(id, estPublie){
   const statut = estPublie ? 'brouillon' : 'publie';
   if(!confirm(estPublie ? 'Depublier ce jeu (il ne sera plus jouable) ?' : 'Publier ce jeu (il devient jouable) ?')) return;
@@ -420,6 +492,8 @@ async function renderJeux(){
           const tog = pub?'Depublier':'Publier';
           return `<tr><td><strong>${esc(j.name)}</strong></td><td><span class="pill">${esc(j.slug)}</span></td><td>${badge}</td>`
             + `<td style="text-align:right;white-space:nowrap">`
+            + `<a class="tog" style="text-decoration:none" href="index.html?previewId=${j.id}" target="_blank">Tester</a> `
+            + `<button class="tog" onclick="dupliquer('${j.id}','${esc(j.name)}')">Dupliquer</button> `
             + `<button class="tog" onclick="togglePublish('${j.id}',${pub})">${tog}</button> `
             + `<a class="tog" style="text-decoration:none" href="editeur.html?id=${j.id}">Editer</a></td></tr>`;
         }).join('')
