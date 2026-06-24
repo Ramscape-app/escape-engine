@@ -2005,9 +2005,6 @@ const bootLines = [
 ];
 
 function runBoot() {
-  if (STATE.started && STATE.solved.length > 0) {
-    showHub(); return;
-  }
   const log = document.getElementById('boot-log');
   let total = 0;
   bootLines.forEach((line) => {
