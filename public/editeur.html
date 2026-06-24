@@ -842,8 +842,11 @@ let THEME_LIB = [];    // bibliothèque de thèmes (rempli au build, ou via them
 // ════════════ CHARGEMENT ════════════
 async function loadThemes(){
   try{
-    const r = await fetch('./themes.json',{cache:'no-cache'});
-    if(r.ok){ const lib=await r.json(); if(Array.isArray(lib.themes)) THEME_LIB=lib.themes; }
+    const { data, error } = await sb.from('themes').select('id, name, colors, fonts, radius, glow').order('name');
+    if(!error && Array.isArray(data)){
+      // Adapte la forme Supabase à celle attendue par l'éditeur (id sert de clé)
+      THEME_LIB = data.map(t => ({ id: t.id, name: t.name, colors: t.colors || {}, fonts: t.fonts || {}, radius: t.radius, glow: t.glow }));
+    }
   }catch(e){}
 }
 function configFileFromURL(){
@@ -1069,7 +1072,7 @@ function tplThemeSelect(){
     THEME_LIB.map(t=>`<option value="${t.id}" ${t.id===cur?'selected':''}>${esc(t.name)}</option>`).join('');
   const t=THEME_LIB.find(x=>x.id===cur);
   const sw = t ? `<div class="theme-sw">${['bg','card','accent','text','hint'].map(k=>`<i style="background:${t.colors[k]}"></i>`).join('')}</div>` : '';
-  const note = THEME_LIB.length ? '' : '<div class="help">Aucun thème chargé (themes.json introuvable). Le jeu utilisera le thème par défaut.</div>';
+  const note = THEME_LIB.length ? '' : '<div class="help">Aucun thème disponible. Crée des thèmes dans Admin → Thèmes.</div>';
   return `<div class="field"><label>Thème appliqué à ce jeu</label>
     <select class="sel" onchange="onInput('theme',this.value,false); render();">${opts}</select>
     ${sw}
