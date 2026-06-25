@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -498,6 +498,13 @@ async function deleteTheme(){
   try{ await callFn('theme-delete',{ method:'POST', body:{ id } }); themeMsg('Theme supprime.','ok'); $('theme-edit').style.display='none'; await loadThemesLib(); }
   catch(e){ themeMsg('Erreur : '+e.message,'err'); }
 }
+async function resetJeu(id, nom){
+  if(!confirm(`Reinitialiser TOUS les joueurs du jeu "${nom}" ?\n\nLa progression, les tentatives et l'historique de tous les joueurs de ce jeu seront effaces. Les comptes sont conserves.`)) return;
+  try{
+    await callFn('reset-jeu', { method:'POST', body:{ jeu_id: id } });
+    alert(`Tous les joueurs de "${nom}" ont ete reinitialises.`);
+  }catch(e){ alert('Erreur : '+e.message); }
+}
 async function dupliquer(id, nom){
   const name = prompt('Nom du nouveau jeu :', nom + ' (copie)');
   if(name===null) return;
@@ -527,6 +534,7 @@ async function renderJeux(){
             + `<td style="text-align:right;white-space:nowrap">`
             + `<a class="tog" style="text-decoration:none" href="index.html?previewId=${j.id}" target="_blank">Tester</a> `
             + `<button class="tog" onclick="dupliquer('${j.id}','${esc(j.name)}')">Dupliquer</button> `
+            + `<button class="tog" onclick="resetJeu('${j.id}','${esc(j.name)}')">Reset joueurs</button> `
             + `<button class="tog" onclick="togglePublish('${j.id}',${pub})">${tog}</button> `
             + `<a class="tog" style="text-decoration:none" href="editeur.html?id=${j.id}">Editer</a></td></tr>`;
         }).join('')
@@ -644,6 +652,7 @@ function rowHtml(j){
     + `<td style="text-align:right;white-space:nowrap">`
     + `<button class="tog" onclick="basculer('${j.id}','${esc(j.pseudo)}',${inactif})">${toggleLabel}</button> `
     + `<button class="tog" onclick="resetMdp('${j.id}','${esc(j.pseudo)}')">Reset mdp</button> `
+    + `<button class="tog" onclick="resetJoueur('${j.id}','${esc(j.pseudo)}')">Reset progression</button> `
     + `<button class="del" onclick="supprimer('${j.id}','${esc(j.pseudo)}')">Supprimer</button></td></tr>`;
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -660,6 +669,15 @@ async function supprimer(id, pseudo){
   }
 }
 
+async function resetJoueur(id, pseudo){
+  if(!confirm(`Reinitialiser la progression de "${pseudo}" ?\n\nSa progression, ses tentatives et son historique seront effaces. Le compte est conserve (il pourra rejouer depuis le debut).`)) return;
+  const m=$('app-msg'); m.className='msg';
+  try{
+    await callFn('reset-joueur', { method:'POST', body:{ id } });
+    m.textContent = `Progression de "${pseudo}" reinitialisee.`; m.className='msg ok';
+    loadJoueurs();
+  }catch(e){ m.textContent = "Erreur : " + e.message; m.className='msg err'; }
+}
 async function basculer(id, pseudo, estInactif){
   const nouvelEtat = estInactif; // si inactif -> on (re)active (true); si actif -> on desactive (false)
   const actif = estInactif ? true : false;
