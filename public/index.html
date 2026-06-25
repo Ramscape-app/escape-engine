@@ -2922,7 +2922,7 @@ function renderGPS(container, idx) {
     const TARGET = e.gpsTarget;
     gpsMap = L.map('gps-map', {
       center: [TARGET.lat, TARGET.lng],
-      zoom: 15,
+      zoom: (e.gpsZoom != null ? e.gpsZoom : 15),
       zoomControl: false,
       attributionControl: false,
       dragging: false,
