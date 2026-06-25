@@ -1261,6 +1261,7 @@ function tplEnigma(e,i){
         ${inp('Rayon (m)','enigmas.'+i+'.gpsRadius',e.gpsRadius!=null?e.gpsRadius:'','','number')}
         ${inp('Mot secret révélé','enigmas.'+i+'.gpsSecret',e.gpsSecret||'')}
       </div>
+      ${inp('Zoom de la carte (1 = monde, 19 = rue)','enigmas.'+i+'.gpsZoom',e.gpsZoom!=null?e.gpsZoom:'','Vue de départ avant géolocalisation. Défaut : 15. Plus le nombre est grand, plus c\'est zoomé.','number')}
     </fieldset>`;
   }
   if(f==='nfc'){
