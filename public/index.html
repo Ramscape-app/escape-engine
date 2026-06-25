@@ -480,7 +480,7 @@ html, body {
   border-radius: 50%;
   overflow: hidden;
   border: 2px solid var(--accent-dim);
-  box-shadow: 0 0 30px rgba(0,240,255,.08), inset 0 0 40px rgba(0,0,0,.5);
+  box-shadow: 0 0 24px rgba(0,0,0,.25), inset 0 0 40px rgba(0,0,0,.45);
 }
 .gps-map-wrap .leaflet-container { background: var(--bg-deep) !important; }
 .gps-map-wrap .leaflet-control-attribution,
@@ -508,7 +508,7 @@ html, body {
 }
 .gps-map-overlay .ring-overlay {
   position: absolute; border-radius: 50%;
-  border: 1px solid var(--accent)12;
+  border: 1px solid var(--accent-dim); opacity: .5;
   top: 50%; left: 50%; transform: translate(-50%,-50%);
 }
 .gps-map-overlay .ring-overlay:nth-child(4) { width: 33%; height: 33%; }
@@ -568,7 +568,7 @@ html, body {
 .gps-distance-bar {
   height: 6px; background: var(--bg-card);
   border-radius: 3px; overflow: hidden;
-  border: 1px solid #222;
+  border: 1px solid var(--accent-dim);
 }
 .gps-distance-fill {
   height: 100%; width: 0%;
