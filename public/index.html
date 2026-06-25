@@ -244,7 +244,7 @@ html, body {
   letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px;
 }
 .enigma-title-text { font-size: .9rem; font-weight: 500; color: var(--text); }
-.enigma-card.locked .enigma-title-text { color: #444; }
+.enigma-card.locked .enigma-title-text { color: var(--text-dim); opacity:.6; }
 .enigma-card.locked .enigma-type { color: var(--border); }
 .enigma-arrow { font-size: 1rem; color: var(--text-dim); }
 .enigma-card.current .enigma-arrow { color: var(--accent); }
@@ -255,7 +255,7 @@ html, body {
 .enigma-header {
   padding: 16px 20px;
   display: flex; align-items: center; gap: 12px;
-  border-bottom: 1px solid #1a1a2a; flex-shrink: 0;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
 .back-btn {
   background: none; border: 1px solid var(--border);
@@ -327,7 +327,7 @@ html, body {
   transition: border-color .3s;
 }
 .answer-input:focus { border-color: var(--accent); }
-.answer-input::placeholder { color: #444; }
+.answer-input::placeholder { color: var(--text-dim); opacity:.6; }
 .submit-btn {
   background: var(--accent); border: none;
   color: var(--bg-deep); font-family: var(--font-display);
@@ -357,7 +357,7 @@ html, body {
 .keypad-display .digit { display: inline-block; width: 24px; text-align: center; }
 .keypad-display .digit.empty { border-bottom: 2px solid var(--border); margin: 0 4px; }
 .key-btn {
-  background: var(--bg-card); border: 1px solid #2a2a3a;
+  background: var(--bg-card); border: 1px solid var(--border);
   color: var(--text); font-family: var(--font-display);
   font-size: 1.3rem; font-weight: 700; padding: 16px;
   border-radius: 10px; cursor: pointer; transition: all .15s;
@@ -378,7 +378,7 @@ html, body {
   border-radius: 4px; cursor: grab; transition: transform .2s;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-display); font-size: 1.4rem;
-  font-weight: 700; color: var(--accent); border: 1px solid #2a2a3a;
+  font-weight: 700; color: var(--accent); border: 1px solid var(--border);
 }
 .puzzle-piece:active { transform: scale(.9); cursor: grabbing; }
 .puzzle-piece.empty { background: transparent; border: 1px dashed var(--border); cursor: default; }
@@ -781,7 +781,7 @@ html, body {
   font-size: 2.5rem; background: var(--bg-card);
   border-radius: 12px; width: 70px; height: 70px;
   display: flex; align-items: center; justify-content: center;
-  border: 1px solid #2a2a3a;
+  border: 1px solid var(--border);
 }
 .rebus-plus { font-family: var(--font-display); font-size: 1.2rem; color: var(--text-dim); }
 .rebus-equals { font-family: var(--font-display); font-size: 1.5rem; color: var(--accent); }
@@ -797,7 +797,7 @@ html, body {
 #bug-screen .bug-content { text-align: center; padding: 40px; }
 #bug-screen .bug-icon { font-size: 4rem; margin-bottom: 20px; animation: glitch 1s infinite; }
 #bug-screen .bug-text { font-family: var(--font-mono); font-size: .8rem; color: var(--warn); line-height: 2; }
-#bug-screen .bug-code { font-family: var(--font-mono); font-size: .6rem; color: #444; margin-top: 30px; line-height: 1.6; }
+#bug-screen .bug-code { font-family: var(--font-mono); font-size: .6rem; color: var(--text-dim); margin-top: 30px; line-height: 1.6; }
 
 /* ═══════════ VICTORY ═══════════ */
 #victory-screen {
@@ -872,7 +872,7 @@ html, body {
       ⚠ AVERTISSEMENT : Toute tentative de fermeture durant une épreuve entraînera la perte définitive de votre progression. L'agence décline toute responsabilité en cas de surchauffe neuronale.
     </div>
     <button class="btn-primary" id="pb-button" onclick="launchBoot()">J'AI COMPRIS — INITIALISER</button>
-    <div id="pb-footer" style="font-family:var(--font-mono);font-size:.45rem;color:#333;margin-top:14px;letter-spacing:2px;">CLASSIFICATION : NIVEAU OMEGA</div>
+    <div id="pb-footer" style="font-family:var(--font-mono);font-size:.45rem;color:var(--text-dim);opacity:.5;margin-top:14px;letter-spacing:2px;">CLASSIFICATION : NIVEAU OMEGA</div>
   </div>
 </div>
 
@@ -2061,7 +2061,7 @@ function applyIntro() {
   const cons = document.getElementById('pb-consignes');
   if (cons) {
     cons.innerHTML = (I.preboot.consignes || []).map(c => `
-      <div style="background:var(--bg-card);border:1px solid #222233;border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
         <span style="font-size:1.3rem;">${escHtml(c.icon)}</span>
         <div>
           <div style="font-family:var(--font-mono);font-size:.6rem;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">${escHtml(c.titre)}</div>
