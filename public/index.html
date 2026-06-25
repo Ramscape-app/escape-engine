@@ -148,7 +148,7 @@ html, body {
 #intro-screen {
   justify-content: center; align-items: center;
   padding: 40px 24px; text-align: center;
-  background: radial-gradient(ellipse at center, #111122 0%, var(--bg-deep) 70%);
+  background: radial-gradient(ellipse at center, var(--bg-card) 0%, var(--bg-deep) 70%);
 }
 #intro-screen .classified {
   font-family: var(--font-display);
@@ -801,7 +801,7 @@ html, body {
 
 /* ═══════════ VICTORY ═══════════ */
 #victory-screen {
-  background: radial-gradient(ellipse at center, #1a1a30 0%, var(--bg-deep) 70%);
+  background: radial-gradient(ellipse at center, var(--bg-card) 0%, var(--bg-deep) 70%);
   justify-content: center; align-items: center;
   padding: 40px 24px; text-align: center;
 }
@@ -1828,15 +1828,20 @@ function applyTheme(t) {
 // ═══════════════════════ STATE ═══════════════════════
 let STATE = loadState();
 
+// Clé de sauvegarde locale propre à CHAQUE jeu (évite qu'un jeu hérite de la progression d'un autre)
+function stateKey() {
+  const slug = gameSlugFromURL() || previewIdFromURL() || 'default';
+  return 'escape_state_' + slug;
+}
 function loadState() {
   try {
-    const s = localStorage.getItem('projet1986_state');
+    const s = localStorage.getItem(stateKey());
     if (s) return JSON.parse(s);
   } catch(e) {}
   return { currentEnigma: 0, solved: [], hintUsed: [], started: false };
 }
 function saveState() {
-  try { localStorage.setItem('projet1986_state', JSON.stringify(STATE)); } catch(e) {}
+  try { localStorage.setItem(stateKey(), JSON.stringify(STATE)); } catch(e) {}
   syncToSupabase();
 }
 // ── Progression Supabase (phase 3) ──
@@ -1859,8 +1864,13 @@ async function loadProgress() {
     STATE.solved = Array.isArray(data.resolues) ? data.resolues : [];
     STATE.hintUsed = Array.isArray(data.indices_utilises) ? data.indices_utilises : [];
     STATE.started = STATE.solved.length > 0 || STATE.currentEnigma > 0;
-    try { localStorage.setItem('projet1986_state', JSON.stringify(STATE)); } catch(e) {}
+  } else {
+    // Nouveau joueur pour ce jeu : on repart de zéro (ne pas hériter d'un autre jeu/joueur)
+    STATE = { currentEnigma: 0, solved: [], hintUsed: [], started: false };
   }
+  // Filet de sécurité : on ignore toute énigme résolue hors de la plage du jeu courant
+  STATE.solved = (STATE.solved || []).filter(i => i >= 0 && i < TOTAL);
+  try { localStorage.setItem(stateKey(), JSON.stringify(STATE)); } catch(e) {}
 }
 function logTentative(idx, reussie, reponse = null) {
   if (!SB || !JOUEUR_ID || !JEU_ID) return;
