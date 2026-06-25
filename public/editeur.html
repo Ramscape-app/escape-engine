@@ -1169,21 +1169,49 @@ function tplIntro(){
     ${inp('Libellé du bouton','intro.intro.button',it.button||'')}
   `;
 }
+function addAct(){
+  if(!CFG.acts) CFG.acts=[];
+  if(!CFG.actBoundaries) CFG.actBoundaries=[];
+  CFG.acts.push({name:'NOUVEL ACTE', subtitle:''});
+  recalcBoundaries();
+  markDirty(); render(); toast("Acte ajouté");
+}
+function removeAct(i){
+  if(!CFG.acts) return;
+  CFG.acts.splice(i,1);
+  recalcBoundaries();
+  markDirty(); render(); toast("Acte retiré");
+}
+function recalcBoundaries(){
+  const N=(CFG.acts||[]).length, total=(CFG.enigmas||[]).length;
+  if(N<=0){ CFG.actBoundaries=[]; return; }
+  const b=[0];
+  for(let i=1;i<N;i++) b.push(Math.round(total*i/N));
+  b.push(total);
+  CFG.actBoundaries=b;
+}
 function tplActs(){
-  const b=CFG.actBoundaries;
-  let h=`<div class="panel-head"><div><div class="eyebrow">Structure</div><h2>Actes</h2></div></div>
+  const b=CFG.actBoundaries||[];
+  let h=`<div class="panel-head"><div><div class="eyebrow">Structure</div><h2>Actes</h2></div>
+    <button class="btn primary sm" onclick="addAct()">+ Ajouter un acte</button></div>
    <div class="banner"><span>Le découpage repose sur l'ordre des énigmes. Chaque acte couvre une plage d'index.</span></div>`;
+  if(!CFG.acts || !CFG.acts.length){
+    h+=`<div class="empty">Aucun acte. <button class="btn primary sm" onclick="addAct()">+ Créer le premier acte</button>
+      <div class="help" style="margin-top:8px">Il faut au moins un acte pour que les énigmes s'affichent dans le jeu.</div></div>`;
+    return h;
+  }
   CFG.acts.forEach((a,i)=>{
     const start=b[i]!=null?b[i]:0, end=b[i+1]!=null?b[i+1]:CFG.enigmas.length;
     h+=`<div class="act-edit">
       <div class="ahd"><span class="n">ACTE ${String(i+1).padStart(2,'0')}</span>
-        <span class="rng">énigmes ${start+1} → ${end}</span></div>
+        <span class="rng">énigmes ${start+1} → ${end}</span>
+        <button class="btn ghost sm" style="margin-left:auto" onclick="removeAct(${i})">✕ Retirer</button></div>
       ${inp('Nom','acts.'+i+'.name',a.name||'')}
       ${inp('Sous-titre','acts.'+i+'.subtitle',a.subtitle||'')}
     </div>`;
   });
   h+=`<fieldset class="box"><legend>Bornes (avancé)</legend>
-    ${inp('Index de séparation des actes','actBoundaries',(b||[]).join(', '),'Liste d\'index croissants, du premier (0) au total. Ex : 0, 8, 16, 24, 32, 40.','bounds')}
+    ${inp('Index de séparation des actes','actBoundaries',(b||[]).join(', '),'Liste d\'index croissants, du premier (0) au total. Ex : 0, 5, 10.','bounds')}
    </fieldset>`;
   return h;
 }
