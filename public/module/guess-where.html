@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramscape — Localiser sur la carte</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:transparent;color:#eceef1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:340px;margin:0 auto;padding:8px;text-align:center}
+  .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;margin-bottom:8px}
+  #map{width:100%;height:300px;border:1px solid #565b63;border-radius:10px;background:#23262b}
+  .leaflet-container{background:#dfe3e8}
+  .row{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:8px}
+  .btn{background:#3a3e45;color:#eceef1;border:1px solid #565b63;border-radius:9px;padding:9px 16px;font-size:.82rem;cursor:pointer}
+  .btn:active{transform:scale(.95)}
+  .btn[disabled]{opacity:.4}
+  .status{font-size:.85rem;font-weight:700;margin-top:8px;min-height:22px}
+  .ok{color:#1f9d57}.ko{color:#c9525a}
+  .hint{font-size:.7rem;color:#8a909a;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title" id="title">Placez le repère sur le bon endroit</div>
+  <div id="map"></div>
+  <div class="row">
+    <button class="btn" id="validate" disabled>Valider ma réponse</button>
+    <button class="btn" id="reset">↺</button>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="hint" id="hint"></div>
+</div>
+
+<script>
+const P = new URLSearchParams(location.search);
+const TLAT = parseFloat(P.get('lat'));
+const TLNG = parseFloat(P.get('lng'));
+const TOL_KM = parseFloat(P.get('km')||'50');
+const REVEAL = P.get('reveal');
+const VALIDATE = P.get('validate') !== '0';   // valide le jeu par défaut (mettre validate=0 pour désactiver)
+const START_ZOOM = parseInt(P.get('zoom')||'2',10);
+const TITLE = P.get('title'); const HINT = P.get('hint');
+if (TITLE) document.getElementById('title').textContent = TITLE;
+if (HINT) document.getElementById('hint').textContent = HINT;
+
+const map = L.map('map', { worldCopyJump:true, attributionControl:false }).setView([20,0], START_ZOOM);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom:19, crossOrigin:true }).addTo(map);
+
+// Corrige l'affichage quand la carte est dans une iframe (recalcule sa taille)
+function fixSize(){ map.invalidateSize(); }
+setTimeout(fixSize, 100);
+setTimeout(fixSize, 400);
+setTimeout(fixSize, 1000);
+window.addEventListener('load', fixSize);
+window.addEventListener('resize', fixSize);
+
+let marker = null;
+function haversine(a,b,c,d){
+  const R=6371, toR=x=>x*Math.PI/180;
+  const dLat=toR(c-a), dLng=toR(d-b);
+  const s=Math.sin(dLat/2)**2 + Math.cos(toR(a))*Math.cos(toR(c))*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));
+}
+map.on('click', (e)=>{
+  const {lat,lng} = e.latlng;
+  if (marker) marker.setLatLng(e.latlng);
+  else marker = L.marker(e.latlng).addTo(map);
+  document.getElementById('validate').disabled = false;
+  document.getElementById('status').textContent = '';
+});
+document.getElementById('validate').onclick = ()=>{
+  if (!marker) return;
+  const st = document.getElementById('status');
+  if (isNaN(TLAT)||isNaN(TLNG)){ st.textContent='⚠ Cible non définie (?lat=&lng=)'; return; }
+  const p = marker.getLatLng();
+  const d = haversine(p.lat, p.lng, TLAT, TLNG);
+  if (d <= TOL_KM){
+    st.className='status ok';
+    st.textContent = REVEAL ? ('✓ Trouvé → '+REVEAL) : '✓ Bonne localisation !';
+    if (VALIDATE){ try{ window.parent.postMessage({type:'ramscape:solved', module:'guess-where'}, '*'); }catch(e){} }
+  } else {
+    st.className='status ko';
+    st.textContent = '✗ À ' + Math.round(d) + ' km de la cible';
+  }
+};
+document.getElementById('reset').onclick = ()=>{
+  if (marker){ map.removeLayer(marker); marker=null; }
+  document.getElementById('validate').disabled = true;
+  document.getElementById('status').textContent='';
+};
+</script>
+</body>
+</html>
