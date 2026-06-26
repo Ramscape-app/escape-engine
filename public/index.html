@@ -18,6 +18,8 @@
 /* Masque l'affichage tant que le thème du jeu n'est pas appliqué (évite le flash du thème par défaut) */
 body { opacity: 1; transition: opacity .25s ease; }
 body.theme-booting { opacity: 0; }
+/* Met en pause TOUTES les animations quand la page n'est pas visible (économie batterie/chauffe) */
+body.anim-paused *, body.anim-paused *::before, body.anim-paused *::after { animation-play-state: paused !important; }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -105,7 +107,7 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 .screen.active { opacity: 1; pointer-events: all; }
-.screen::after {
+.screen.active::after {
   content: '';
   position: fixed; top: 0; left: 0; right: 0;
   height: 4px;
@@ -3596,6 +3598,10 @@ function skipInstall() {
 
 // ═══════════════════════ INIT ═══════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
+  // Économie d'énergie : on coupe les animations quand l'onglet/écran n'est pas visible
+  document.addEventListener('visibilitychange', () => {
+    document.body.classList.toggle('anim-paused', document.hidden);
+  });
   // Filet de sécurité : on révèle l'affichage au bout de 3s quoi qu'il arrive
   const revealTimer = setTimeout(() => document.body.classList.remove('theme-booting'), 3000);
   if (!(await authGuard())) { document.body.classList.remove('theme-booting'); return; }
