@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramscape — Piano</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:transparent;color:#eceef1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:360px;margin:0 auto;padding:10px 6px;text-align:center}
+  .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;margin-bottom:12px}
+  .piano{position:relative;height:140px;margin:0 auto 14px;display:flex;justify-content:center;overflow:hidden}
+  .keys{position:relative;display:flex;gap:1px}
+  .white{width:22px;height:140px;background:linear-gradient(#f4f6f8,#dfe3e8);border:1px solid #9aa0a8;
+    border-radius:0 0 5px 5px;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;
+    padding-bottom:5px;font-size:.42rem;color:#6a7078;font-weight:600}
+  .white:active,.white.lit{background:linear-gradient(#9ad0c0,#6fb7a3);color:#0f1117}
+  .black{position:absolute;width:14px;height:88px;background:linear-gradient(#3a3e45,#1c1f25);
+    border:1px solid #0c0e12;border-radius:0 0 4px 4px;cursor:pointer;z-index:2;top:0}
+  .black:active,.black.lit{background:linear-gradient(#6fb7a3,#4d8f7e)}
+  .row{display:flex;gap:8px;justify-content:center;align-items:center;margin-top:6px}
+  .btn{background:#3a3e45;color:#eceef1;border:1px solid #565b63;border-radius:9px;
+    padding:9px 14px;font-size:.8rem;cursor:pointer}
+  .btn:active{transform:scale(.95)}
+  .seq{font-size:.72rem;color:#8a909a;min-height:20px;margin-top:10px;letter-spacing:1px;word-break:break-word}
+  .status{font-size:.85rem;font-weight:700;margin-top:8px;min-height:22px}
+  .ok{color:#22d27a}.ko{color:#e2787f}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title" id="title">Reproduisez la mélodie</div>
+  <div class="piano"><div class="keys" id="keys"></div></div>
+  <div class="row">
+    <button class="btn" id="listen">▶ Écouter</button>
+    <button class="btn" id="clear">↺ Effacer</button>
+  </div>
+  <div class="seq" id="seq"></div>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+const P = new URLSearchParams(location.search);
+// Notes possibles sur 2 octaves. Blanches: do re mi fa sol la si (octave 1) + do2..si2.
+// Noires (dièses): do# re# fa# sol# la# par octave. Codes acceptés dans sequence: do, do#, re, ... do2, do#2, ...
+const TARGET = (P.get('sequence')||P.get('seq')||'do,mi,sol,do2').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
+const REVEAL = P.get('reveal');
+const TITLE = P.get('title');
+if (TITLE) document.getElementById('title').textContent = TITLE;
+
+// fréquences de base (octave 4) puis ×2 pour l'octave supérieure
+const BASE = { 'do':261.63,'do#':277.18,'re':293.66,'re#':311.13,'mi':329.63,'fa':349.23,'fa#':369.99,
+  'sol':392.00,'sol#':415.30,'la':440.00,'la#':466.16,'si':493.88 };
+function freq(name){
+  let oct = 1;
+  let base = name;
+  if (name.endsWith('2')){ oct = 2; base = name.slice(0,-1); }
+  const f = BASE[base];
+  return f ? (oct===2 ? f*2 : f) : null;
+}
+
+// Construit 2 octaves : blanches + position des noires
+const WHITE = ['do','re','mi','fa','sol','la','si'];
+const BLACK_AFTER = { 'do':'do#','re':'re#','fa':'fa#','sol':'sol#','la':'la#' }; // pas de noire après mi et si
+let whiteKeys = [];  // noms blancs sur 2 octaves
+['','2'].forEach(suf=> WHITE.forEach(w=> whiteKeys.push(w+suf)) );
+
+let played = [];
+let ac = null;
+function audio(){ if(!ac) ac = new (window.AudioContext||window.webkitAudioContext)(); return ac; }
+function tone(f, t0, dur){
+  if(!f) return;
+  const a = audio();
+  const o=a.createOscillator(), g=a.createGain();
+  o.type='sine'; o.frequency.value=f; o.connect(g); g.connect(a.destination);
+  g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(0.3,t0+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur); o.start(t0); o.stop(t0+dur);
+}
+function lite(sel){ const k=document.querySelector(sel); if(k){k.classList.add('lit'); setTimeout(()=>k.classList.remove('lit'),200);} }
+
+function render(){
+  const el = document.getElementById('keys');
+  const WHITE_W = 23; // largeur blanche + gap
+  let html = '';
+  whiteKeys.forEach((name,i)=>{
+    html += `<div class="white" data-note="${name}" onclick="press('${name}')">${name}</div>`;
+  });
+  // noires positionnées par-dessus
+  whiteKeys.forEach((name,i)=>{
+    const base = name.replace('2','');
+    const suf = name.endsWith('2')?'2':'';
+    if (BLACK_AFTER[base]){
+      const bn = BLACK_AFTER[base]+suf;
+      const left = (i+1)*WHITE_W - 7 - 1; // centre la noire sur la jointure
+      html += `<div class="black" data-note="${bn}" style="left:${left}px" onclick="press('${bn}');event.stopPropagation()"></div>`;
+    }
+  });
+  el.innerHTML = html;
+}
+window.press = function(name){
+  const a = audio(); if(a.state==='suspended') a.resume();
+  tone(freq(name), a.currentTime, 0.5);
+  lite('[data-note="'+CSS.escape(name)+'"]');
+  played.push(name);
+  document.getElementById('seq').textContent = played.join(' · ');
+  check();
+};
+function check(){
+  const st=document.getElementById('status');
+  if (played.length < TARGET.length){ st.textContent=''; return; }
+  const ok = played.slice(-TARGET.length).join(',') === TARGET.join(',');
+  if (ok){ st.className='status ok'; st.textContent = REVEAL ? ('✓ Mélodie juste → '+REVEAL) : '✓ Mélodie juste !'; }
+  else { st.className='status ko'; st.textContent='✗ Pas encore...'; }
+}
+document.getElementById('listen').onclick = ()=>{
+  const a=audio(); if(a.state==='suspended') a.resume();
+  let t=a.currentTime+0.05;
+  TARGET.forEach(name=>{ tone(freq(name), t, 0.45); const d=(t-a.currentTime)*1000; setTimeout(()=>lite('[data-note="'+CSS.escape(name)+'"]'), d); t+=0.55; });
+};
+document.getElementById('clear').onclick = ()=>{ played=[]; document.getElementById('seq').textContent=''; document.getElementById('status').textContent=''; };
+render();
+</script>
+</body>
+</html>
