@@ -1031,7 +1031,8 @@ function renderSidebar(){
   const body=document.getElementById('sidebar-body');
   if(view==='enigmas'){
     let h=`<div class="list-head"><span class="lbl">${CFG.enigmas.length} énigmes</span>
-      <button class="btn primary sm" onclick="addEnigma()">+ Ajouter</button></div>
+      <button class="btn primary sm" onclick="addEnigma()">+ Ajouter</button>
+      <button class="btn sm" onclick="openBiblioPicker()">📚 Bibliothèque</button></div>
       <div class="enig-list">`;
     let curAct=-1;
     CFG.enigmas.forEach((e,i)=>{
@@ -1284,6 +1285,7 @@ function tplEnigma(e,i){
       <button class="btn sm" onclick="moveEnigma(${i},-1)" ${i===0?'disabled style=opacity:.4':''}>↑</button>
       <button class="btn sm" onclick="moveEnigma(${i},1)" ${i===CFG.enigmas.length-1?'disabled style=opacity:.4':''}>↓</button>
       <button class="btn sm" onclick="dupEnigma(${i})">⧉ Dupliquer</button>
+      <button class="btn sm" onclick="addToBiblio(${i})">📚 Sauver en biblio</button>
       <button class="btn ghost sm danger" onclick="delEnigma(${i})">Supprimer</button>
     </div>
   </div>
@@ -1376,6 +1378,74 @@ function dupEnigma(i){
   growBoundaries();
   sel=i+1; markDirty(); render(); toast("Énigme dupliquée");
 }
+
+// ════════ BIBLIOTHÈQUE ════════
+// Sauver une énigme du jeu vers la bibliothèque
+async function addToBiblio(i){
+  const e = clone(CFG.enigmas[i]);
+  delete e.id;
+  const titre = prompt("Titre dans la bibliothèque :", e.title||'Énigme');
+  if(titre===null) return;
+  const categorie = prompt("Catégorie (maths, rebus, culture, observation, langage, autre) :", "autre") || "autre";
+  try{
+    await callFn('biblio-save', { method:'POST', body:{ titre, categorie, tags:[], enigme:e } });
+    toast("Ajoutée à la bibliothèque");
+  }catch(err){ alert("Erreur : "+err.message); }
+}
+// Ouvre le sélecteur de bibliothèque
+async function openBiblioPicker(){
+  let modal = document.getElementById('biblio-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'biblio-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    modal.innerHTML = `<div style="background:var(--panel,#fff);color:inherit;max-width:640px;width:100%;max-height:80vh;overflow:auto;border-radius:14px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <h2 style="margin:0;font-size:1.1rem">Bibliothèque d'énigmes</h2>
+        <select id="bp-filtre" style="margin-left:auto"></select>
+        <button class="btn ghost sm" onclick="closeBiblioPicker()">✕ Fermer</button>
+      </div>
+      <div id="bp-list"><div class="help">Chargement...</div></div>
+    </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', ev=>{ if(ev.target===modal) closeBiblioPicker(); });
+  }
+  modal.style.display='flex';
+  try{
+    const { items } = await callFn('biblio-list');
+    window._BIBLIO = items||[];
+    const cats = ['', ...Array.from(new Set((items||[]).map(x=>x.categorie).filter(Boolean)))];
+    document.getElementById('bp-filtre').innerHTML = cats.map(c=>`<option value="${c}">${c||'Toutes catégories'}</option>`).join('');
+    document.getElementById('bp-filtre').onchange = renderBiblioPicker;
+    renderBiblioPicker();
+  }catch(e){ document.getElementById('bp-list').innerHTML = `<div class="help" style="color:#c00">${e.message}</div>`; }
+}
+function renderBiblioPicker(){
+  const f = document.getElementById('bp-filtre').value;
+  const list = (window._BIBLIO||[]).filter(it=>!f||it.categorie===f);
+  if(!list.length){ document.getElementById('bp-list').innerHTML='<div class="help">Bibliothèque vide pour ce filtre.</div>'; return; }
+  document.getElementById('bp-list').innerHTML = list.map(it=>{
+    const fmt = it.enigme&&it.enigme.format||'?';
+    const q = (it.enigme&&it.enigme.question||'').slice(0,70);
+    return `<div style="border:1px solid var(--border,#ddd);border-radius:10px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <strong>${esc(it.titre)}</strong>
+        <span class="help" style="margin-left:auto">${esc(it.categorie||'')} · ${esc(fmt)}</span>
+      </div>
+      <div class="help" style="margin:4px 0 8px">${esc(q)}</div>
+      <button class="btn primary sm" onclick="pickBiblio('${it.id}')">+ Insérer dans le jeu</button>
+    </div>`;
+  }).join('');
+}
+function pickBiblio(id){
+  const it = (window._BIBLIO||[]).find(x=>x.id===id); if(!it) return;
+  const e = clone(it.enigme||{});
+  e.id = Math.max(0,...CFG.enigmas.map(x=>x.id||0))+1;   // nouvel id, copie indépendante
+  CFG.enigmas.push(e);
+  growBoundaries();
+  sel = CFG.enigmas.length-1; markDirty(); closeBiblioPicker(); render(); toast("Énigme insérée depuis la bibliothèque");
+}
+function closeBiblioPicker(){ const m=document.getElementById('biblio-modal'); if(m) m.style.display='none'; }
 function delEnigma(i){
   if(!confirm("Supprimer « "+(CFG.enigmas[i].title||'')+" » ?")) return;
   CFG.enigmas.splice(i,1);
