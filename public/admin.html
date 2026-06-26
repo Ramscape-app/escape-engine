@@ -140,6 +140,7 @@
       <button id="nav-themes" class="navbtn" onclick="setTab('themes')">🎨 Thèmes</button>
       <button id="nav-joueurs" class="navbtn" onclick="setTab('joueurs')">👤 Joueurs</button>
       <button id="nav-codes" class="navbtn" onclick="setTab('codes')">🎟️ Codes</button>
+      <button id="nav-biblio" class="navbtn" onclick="setTab('biblio')">📚 Bibliothèque</button>
       <button id="nav-stats" class="navbtn" onclick="setTab('stats')">📊 Tableau de bord</button>
     </nav>
     <main class="main">
@@ -232,6 +233,43 @@
       <div id="codes-list"><div class="state">Chargement...</div></div>
     </div><!-- /view-codes -->
 
+    <div id="view-biblio" style="display:none">
+      <div class="createbox">
+        <h2 style="margin-bottom:14px">Nouvelle énigme de bibliothèque</h2>
+        <div class="msg" id="biblio-msg"></div>
+        <p class="help" style="margin-bottom:10px">Crée ici des énigmes generalistes (maths, rebus, logique...) reutilisables dans n'importe quel jeu. Colle un JSON d'enigme ou remplis les champs de base.</p>
+        <div class="formrow">
+          <div><label>Titre</label><input id="bx-titre" placeholder="Rebus - grace a lui elle devient belle"></div>
+          <div><label>Categorie</label><select id="bx-cat">
+            <option value="maths">Maths / logique</option>
+            <option value="rebus">Rebus</option>
+            <option value="culture">Culture generale</option>
+            <option value="observation">Observation</option>
+            <option value="langage">Langage / mots</option>
+            <option value="autre" selected>Autre</option>
+          </select></div>
+          <div><label>Tags (separes par virgule)</label><input id="bx-tags" placeholder="facile, enfant"></div>
+        </div>
+        <label>Enigme (JSON complet)</label>
+        <textarea id="bx-json" rows="6" style="width:100%;font-family:var(--mono);font-size:.8rem" placeholder='{"format":"text","title":"...","question":"...","answer":["..."],"hint":"..."}'></textarea>
+        <div style="margin-top:10px"><button class="btn" style="width:auto;padding:11px 18px" onclick="saveBiblio()">Ajouter a la bibliotheque</button>
+          <input type="hidden" id="bx-id"></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin:6px 0 12px;flex-wrap:wrap">
+        <h2 style="margin:0">Bibliotheque</h2>
+        <select id="bx-filtre" onchange="renderBiblio()" style="margin-left:auto">
+          <option value="">Toutes categories</option>
+          <option value="maths">Maths / logique</option>
+          <option value="rebus">Rebus</option>
+          <option value="culture">Culture generale</option>
+          <option value="observation">Observation</option>
+          <option value="langage">Langage / mots</option>
+          <option value="autre">Autre</option>
+        </select>
+      </div>
+      <div id="biblio-list"><div class="state">Chargement...</div></div>
+    </div><!-- /view-biblio -->
+
     <div id="view-themes" style="display:none">
       <h2>Themes</h2>
       <div class="sub">Bibliotheque d'identites visuelles. Lecture en direct ; l'enregistrement necessite le serveur en ligne.</div>
@@ -317,6 +355,8 @@ let statsLoaded = false;
 let jeuxLoaded = false;
 let themesLoaded = false;
 let codesLoaded = false;
+let biblioLoaded = false;
+let BIBLIO = [];
 function toggleSide(){
   document.getElementById('side').classList.toggle('open');
   document.getElementById('side-overlay').classList.toggle('show');
@@ -326,7 +366,7 @@ function closeSide(){
   document.getElementById('side-overlay').classList.remove('show');
 }
 function setTab(t){
-  const sections = ['accueil','jeux','themes','joueurs','codes','stats'];
+  const sections = ['accueil','jeux','themes','joueurs','codes','biblio','stats'];
   sections.forEach(v=>{
     const nav = document.getElementById('nav-'+v); if(nav) nav.classList.toggle('active', t===v);
     const view = $('view-'+v); if(view) view.style.display = (t===v)?'block':'none';
@@ -335,6 +375,7 @@ function setTab(t){
   if(t==='jeux' && !jeuxLoaded){ renderJeux(); jeuxLoaded = true; }
   if(t==='themes' && !themesLoaded){ loadThemesLib(); themesLoaded = true; }
   if(t==='codes' && !codesLoaded){ loadCodes(); codesLoaded = true; }
+  if(t==='biblio' && !biblioLoaded){ loadBiblio(); biblioLoaded = true; }
   closeSide();
 }
 async function loadRecap(){
@@ -367,6 +408,59 @@ async function creerJeu(){
   }catch(e){
     m.textContent = "Erreur : " + e.message; m.className='msg err';
   }
+}
+
+// ════════ BIBLIOTHÈQUE D'ÉNIGMES ════════
+async function loadBiblio(){
+  try{
+    const { items } = await callFn('biblio-list');
+    BIBLIO = items || [];
+    renderBiblio();
+  }catch(e){ $('biblio-list').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`; }
+}
+function renderBiblio(){
+  const f = $('bx-filtre') ? $('bx-filtre').value : '';
+  const list = BIBLIO.filter(it => !f || it.categorie===f);
+  if(!list.length){ $('biblio-list').innerHTML='<div class="state">Aucune énigme dans cette catégorie.</div>'; return; }
+  $('biblio-list').innerHTML = `<table>
+    <thead><tr><th>Titre</th><th>Catégorie</th><th>Format</th><th>Tags</th><th></th></tr></thead>
+    <tbody>${list.map(it=>{
+      const fmt = it.enigme && it.enigme.format || '-';
+      const tags = (it.tags||[]).join(', ');
+      return `<tr><td><strong>${esc(it.titre)}</strong></td><td>${esc(it.categorie||'-')}</td><td>${esc(fmt)}</td><td>${esc(tags)}</td>`
+        + `<td style="text-align:right;white-space:nowrap">`
+        + `<button class="tog" onclick="editBiblio('${it.id}')">Éditer</button> `
+        + `<button class="del" onclick="deleteBiblio('${it.id}','${esc(it.titre)}')">Suppr</button></td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+async function saveBiblio(){
+  const m=$('biblio-msg'); m.className='msg';
+  let enigme;
+  try{ enigme = JSON.parse($('bx-json').value); }
+  catch(e){ m.textContent='Le JSON de l\'énigme est invalide.'; m.className='msg err'; return; }
+  const tags = $('bx-tags').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const body = { id: $('bx-id').value||null, titre: $('bx-titre').value, categorie: $('bx-cat').value, tags, enigme };
+  try{
+    await callFn('biblio-save', { method:'POST', body });
+    m.textContent = 'Énigme enregistrée dans la bibliothèque.'; m.className='msg ok';
+    $('bx-id').value=''; $('bx-titre').value=''; $('bx-tags').value=''; $('bx-json').value='';
+    loadBiblio();
+  }catch(e){ m.textContent='Erreur : '+e.message; m.className='msg err'; }
+}
+function editBiblio(id){
+  const it = BIBLIO.find(x=>x.id===id); if(!it) return;
+  $('bx-id').value = it.id;
+  $('bx-titre').value = it.titre||'';
+  $('bx-cat').value = it.categorie||'autre';
+  $('bx-tags').value = (it.tags||[]).join(', ');
+  $('bx-json').value = JSON.stringify(it.enigme||{}, null, 2);
+  $('biblio-msg').textContent='Édition en cours — modifie puis « Ajouter ».'; $('biblio-msg').className='msg';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+async function deleteBiblio(id, titre){
+  if(!confirm(`Supprimer "${titre}" de la bibliothèque ?`)) return;
+  try{ await callFn('biblio-delete', { method:'POST', body:{ id } }); loadBiblio(); }
+  catch(e){ alert('Erreur : '+e.message); }
 }
 
 // ════════ CODES D'INVITATION ════════
