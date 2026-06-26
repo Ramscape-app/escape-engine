@@ -1957,6 +1957,14 @@ async function playerLogout() {
 // ═══════════════════════ AUDIO ═══════════════════════
 let audioCtx = null;
 let gpsWatchId = null;
+let CURRENT_OPEN_IDX = -1;
+// Écoute les modules Ramscape (iframe) qui signalent une réussite (validation auto)
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (d && d.type === 'ramscape:solved' && CURRENT_OPEN_IDX >= 0) {
+    solveEnigma(CURRENT_OPEN_IDX);
+  }
+});
 let cameraStream = null;
 let torchStream = null; // dedicated stream for torch enigma
 
@@ -2240,6 +2248,7 @@ function openEnigma(idx) {
 }
 
 function renderEnigmaScreen(idx) {
+  CURRENT_OPEN_IDX = idx;
   const e = ENIGMAS[idx];
   const isSolved = STATE.solved.includes(idx);
   showScreen('enigma-screen');
