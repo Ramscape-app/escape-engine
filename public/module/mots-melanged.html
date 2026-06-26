@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramscape — Mots mélangés</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:transparent;color:#eceef1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:330px;margin:0 auto;padding:10px;text-align:center}
+  .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;margin-bottom:12px}
+  .slots{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;min-height:48px}
+  .tile{width:42px;height:48px;display:flex;align-items:center;justify-content:center;
+    font-family:'Courier New',monospace;font-size:1.4rem;font-weight:700;
+    background:#3a3e45;border:1px solid #565b63;border-radius:8px;color:#eceef1;
+    cursor:pointer;user-select:none;transition:transform .12s,background .15s}
+  .tile:active{transform:scale(.9)}
+  .tile.empty{background:#23262b;border-style:dashed;cursor:default}
+  .bank{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:48px;
+    padding:10px;border:1px dashed #565b63;border-radius:10px;background:rgba(255,255,255,.02)}
+  .lbl{font-size:.68rem;color:#8a909a;margin:10px 0 4px}
+  .reset{margin-top:12px;background:#3a3e45;color:#eceef1;border:1px solid #565b63;
+    border-radius:9px;padding:8px 16px;font-size:.8rem;cursor:pointer}
+  .reset:active{transform:scale(.95)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title" id="title">Reconstituez le mot</div>
+  <div class="lbl">VOTRE RÉPONSE</div>
+  <div class="slots" id="slots"></div>
+  <div class="lbl">LETTRES DISPONIBLES</div>
+  <div class="bank" id="bank"></div>
+  <button class="reset" id="reset">↺ Recommencer</button>
+</div>
+
+<script>
+const P = new URLSearchParams(location.search);
+const WORD = (P.get('mot') || P.get('word') || 'EXEMPLE').toUpperCase();
+const TITLE = P.get('title');
+if (TITLE) document.getElementById('title').textContent = TITLE;
+
+const letters = WORD.split('');
+let bank = [];   // {ch, id}
+let slots = [];  // {ch, id} ou null
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  // éviter (rarement) que le mélange tombe déjà dans l'ordre
+  return a;
+}
+function init(){
+  let order;
+  do { order = shuffle(letters.map((ch,i)=>({ch,id:i}))); }
+  while (letters.length>1 && order.map(o=>o.ch).join('')===WORD);
+  bank = order;
+  slots = letters.map(()=>null);
+  render();
+}
+function render(){
+  const sEl = document.getElementById('slots');
+  const bEl = document.getElementById('bank');
+  sEl.innerHTML = slots.map((s,i)=>
+    s ? `<div class="tile" onclick="fromSlot(${i})">${s.ch}</div>`
+      : `<div class="tile empty"></div>`
+  ).join('');
+  bEl.innerHTML = bank.map((b,i)=>
+    `<div class="tile" onclick="toSlot(${i})">${b.ch}</div>`
+  ).join('');
+}
+window.toSlot = function(bankIdx){
+  const free = slots.findIndex(s=>s===null);
+  if (free<0) return;
+  slots[free] = bank[bankIdx];
+  bank.splice(bankIdx,1);
+  render();
+};
+window.fromSlot = function(slotIdx){
+  if (!slots[slotIdx]) return;
+  bank.push(slots[slotIdx]);
+  slots[slotIdx] = null;
+  render();
+};
+document.getElementById('reset').onclick = init;
+init();
+</script>
+</body>
+</html>
