@@ -15,6 +15,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+/* Masque l'affichage tant que le thème du jeu n'est pas appliqué (évite le flash du thème par défaut) */
+body { opacity: 1; transition: opacity .25s ease; }
+body.theme-booting { opacity: 0; }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --bg-deep: #0a0a0f;
@@ -284,6 +288,7 @@ html, body {
 
 .enigma-body {
   flex: 1; padding: 24px 20px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column; gap: 20px;
   overflow-y: auto;
 }
@@ -317,7 +322,7 @@ html, body {
 }
 
 /* Answer section */
-.answer-section { margin-top: auto; padding-top: 16px; flex-shrink: 0; }
+.answer-section { margin-top: auto; padding-top: 16px; padding-bottom: 8px; flex-shrink: 0; }
 .answer-input-wrap { display: flex; gap: 8px; }
 .answer-input {
   flex: 1; background: var(--bg-card);
@@ -859,7 +864,7 @@ html, body {
 }
 </style>
 </head>
-<body>
+<body class="theme-booting">
 
  <!-- PRE-BOOT SECURITY -->
 <div id="preboot-screen" class="screen active">
@@ -926,7 +931,7 @@ html, body {
 
 <!-- ACCUEIL JOUEUR -->
 <div id="player-home" class="screen">
-  <div style="max-width:440px;margin:0 auto;width:100%;">
+  <div style="max-width:440px;margin:0 auto;width:100%;padding:32px 20px calc(32px + env(safe-area-inset-bottom, 0px));box-sizing:border-box;">
     <img id="ph-image" alt="" style="display:none;width:96px;height:96px;object-fit:cover;border-radius:18px;border:1px solid var(--border);margin:0 auto 18px;">
     <div style="font-family:var(--font-mono);font-size:.6rem;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">Espace joueur</div>
     <div style="font-family:var(--font-display);font-size:1.5rem;margin:6px 0 2px;" id="ph-game">—</div>
@@ -3591,10 +3596,14 @@ function skipInstall() {
 
 // ═══════════════════════ INIT ═══════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
-  if (!(await authGuard())) return;     // verrou : stoppe si non autorisé
+  // Filet de sécurité : on révèle l'affichage au bout de 3s quoi qu'il arrive
+  const revealTimer = setTimeout(() => document.body.classList.remove('theme-booting'), 3000);
+  if (!(await authGuard())) { document.body.classList.remove('theme-booting'); return; }
   await loadConfig();
   await loadProgress();                 // récupère la progression sauvegardée en base
   applyIntro();                         // applique les textes/visuels d'intro personnalisés
+  clearTimeout(revealTimer);
+  document.body.classList.remove('theme-booting');  // thème appliqué : on révèle
   document.getElementById('total-display').textContent = TOTAL + ' épreuves';
   // Joueur authentifié : on laisse l'intro de présentation se dérouler (écran preboot par défaut),
   // puis startGame() débouchera sur l'accueil profil. Hors authentification : comportement d'origine.
