@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramscape — Lampe UV</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
+  html,body{background:transparent;color:#eceef1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:340px;margin:0 auto;padding:12px;text-align:center}
+  .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;margin-bottom:12px}
+  .scene{position:relative;width:100%;aspect-ratio:4/3;border-radius:12px;overflow:hidden;
+    background:#1a1d22;border:1px solid #3a3e45;touch-action:none;cursor:crosshair}
+  .scene img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.18}
+  /* Couche du message : invisible par défaut (révélée seulement sous le masque circulaire) */
+  .reveal-layer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    text-align:center;padding:18px;font-family:'Courier New',monospace;font-weight:700;
+    font-size:1.6rem;letter-spacing:2px;line-height:1.5;
+    color:#c7a8ff;text-shadow:0 0 10px rgba(160,110,255,.9);
+    background:radial-gradient(circle, rgba(120,70,220,.30) 0%, rgba(120,70,220,.10) 50%, transparent 72%);
+    -webkit-mask:radial-gradient(circle 85px at var(--mx,-999px) var(--my,-999px), #000 0%, #000 55%, transparent 75%);
+            mask:radial-gradient(circle 85px at var(--mx,-999px) var(--my,-999px), #000 0%, #000 55%, transparent 75%);
+    opacity:0;transition:opacity .08s}
+  .reveal-layer.active{opacity:1}
+  .hint{font-size:.68rem;color:#8a909a;margin-top:10px}
+</style></head><body>
+<div class="wrap">
+  <div class="title" id="title">Éclairez l'écran pour révéler le message</div>
+  <div class="scene" id="scene">
+    <img id="bg" alt="" style="display:none">
+    <div class="reveal-layer" id="layer"></div>
+  </div>
+  <div class="hint">Passez votre doigt sur la zone, comme une lampe UV.</div>
+</div>
+<script>
+const P=new URLSearchParams(location.search);
+const MSG=(P.get('message')||P.get('texte')||'INDICE CACHE');
+const IMG=P.get('image');
+const TITLE=P.get('title'); if(TITLE)document.getElementById('title').textContent=TITLE;
+document.getElementById('layer').textContent=MSG;
+if(IMG){ const b=document.getElementById('bg'); b.src=IMG; b.style.display='block'; }
+
+const scene=document.getElementById('scene'),layer=document.getElementById('layer');
+function moveLight(ev){
+  const r=scene.getBoundingClientRect();const t=ev.touches?ev.touches[0]:ev;
+  const x=t.clientX-r.left,y=t.clientY-r.top;
+  layer.style.setProperty('--mx',x+'px');
+  layer.style.setProperty('--my',y+'px');
+  layer.classList.add('active');
+  if(ev.cancelable) ev.preventDefault();
+}
+function off(){ layer.classList.remove('active'); layer.style.setProperty('--mx','-999px'); layer.style.setProperty('--my','-999px'); }
+scene.addEventListener('mousemove',moveLight);
+scene.addEventListener('mouseleave',off);
+scene.addEventListener('touchstart',moveLight,{passive:false});
+scene.addEventListener('touchmove',moveLight,{passive:false});
+scene.addEventListener('touchend',off);
+</script></body></html>
