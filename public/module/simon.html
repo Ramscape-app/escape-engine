@@ -1,56 +1,108 @@
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ramscape — Lampe UV</title>
+<title>Ramscape — Simon</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
   html,body{background:transparent;color:#eceef1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-  .wrap{max-width:340px;margin:0 auto;padding:12px;text-align:center}
-  .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;margin-bottom:12px}
-  .scene{position:relative;width:100%;aspect-ratio:4/3;border-radius:12px;overflow:hidden;
-    background:#1a1d22;border:1px solid #3a3e45;touch-action:none;cursor:crosshair}
-  .scene img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.18}
-  /* Couche du message : invisible par défaut (révélée seulement sous le masque circulaire) */
-  .reveal-layer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    text-align:center;padding:18px;font-family:'Courier New',monospace;font-weight:700;
-    font-size:1.6rem;letter-spacing:2px;line-height:1.5;
-    color:#c7a8ff;text-shadow:0 0 10px rgba(160,110,255,.9);
-    background:radial-gradient(circle, rgba(120,70,220,.30) 0%, rgba(120,70,220,.10) 50%, transparent 72%);
-    -webkit-mask:radial-gradient(circle 85px at var(--mx,-999px) var(--my,-999px), #000 0%, #000 55%, transparent 75%);
-            mask:radial-gradient(circle 85px at var(--mx,-999px) var(--my,-999px), #000 0%, #000 55%, transparent 75%);
-    opacity:0;transition:opacity .08s}
-  .reveal-layer.active{opacity:1}
-  .hint{font-size:.68rem;color:#8a909a;margin-top:10px}
+  .wrap{max-width:300px;margin:0 auto;padding:12px;text-align:center}
+  .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;margin-bottom:8px}
+  .level{font-size:.72rem;color:#9ad0c0;margin-bottom:12px;letter-spacing:1px}
+  .pad{display:grid;gap:10px;width:270px;margin:0 auto 14px}
+  .btnc{border-radius:14px;cursor:pointer;opacity:.55;transition:opacity .1s,transform .1s;border:2px solid rgba(255,255,255,.15)}
+  .btnc.lit{opacity:1;transform:scale(.97)}
+  .row{display:flex;gap:8px;justify-content:center}
+  .btn{background:#2f6f5e;color:#eceef1;border:1px solid #3c8b76;border-radius:9px;padding:9px 16px;font-size:.82rem;cursor:pointer}
+  .btn:active{transform:scale(.95)}
+  .status{font-size:.85rem;font-weight:700;margin-top:12px;min-height:24px}
+  .ok{color:#22d27a}.ko{color:#e2787f}
+  .reveal{font-size:1.4rem;font-weight:800;letter-spacing:2px;color:#9ad0c0;background:#23262b;
+    border:1px dashed #6fb7a3;border-radius:10px;padding:14px;margin-top:8px}
+  .reveal-img{max-width:100%;border-radius:10px;margin-top:8px}
 </style></head><body>
 <div class="wrap">
-  <div class="title" id="title">Éclairez l'écran pour révéler le message</div>
-  <div class="scene" id="scene">
-    <img id="bg" alt="" style="display:none">
-    <div class="reveal-layer" id="layer"></div>
-  </div>
-  <div class="hint">Passez votre doigt sur la zone, comme une lampe UV.</div>
+  <div class="title" id="title">Mémorisez et reproduisez la séquence</div>
+  <div class="level" id="level"></div>
+  <div class="pad" id="pad"></div>
+  <div class="row"><button class="btn" id="start">▶ Voir la séquence</button></div>
+  <div class="status" id="status"></div>
+  <div id="reveal-zone"></div>
 </div>
 <script>
 const P=new URLSearchParams(location.search);
-const MSG=(P.get('message')||P.get('texte')||'INDICE CACHE');
-const IMG=P.get('image');
-const TITLE=P.get('title'); if(TITLE)document.getElementById('title').textContent=TITLE;
-document.getElementById('layer').textContent=MSG;
-if(IMG){ const b=document.getElementById('bg'); b.src=IMG; b.style.display='block'; }
 
-const scene=document.getElementById('scene'),layer=document.getElementById('layer');
-function moveLight(ev){
-  const r=scene.getBoundingClientRect();const t=ev.touches?ev.touches[0]:ev;
-  const x=t.clientX-r.left,y=t.clientY-r.top;
-  layer.style.setProperty('--mx',x+'px');
-  layer.style.setProperty('--my',y+'px');
-  layer.classList.add('active');
-  if(ev.cancelable) ev.preventDefault();
+// Nombre de boutons : 4, 6 ou 8
+let NB = parseInt(P.get('boutons')||P.get('btns')||'4',10);
+if(![4,6,8].includes(NB)) NB=4;
+
+// Palette (8 couleurs distinctes) + fréquences (graves -> aigus)
+const COLORS=['#4caf6e','#d9534f','#e0b94d','#4d8fd9','#9b59b6','#e67e22','#1abc9c','#e84393'];
+const FREQS =[261.63,293.66,329.63,392.00,440.00,493.88,523.25,587.33];
+
+// Disposition de la grille selon le nombre
+const GRID={4:[2,2], 6:[2,3], 8:[2,4]}; // [colonnes, lignes]
+const [COLS,ROWS]=GRID[NB];
+
+// NIVEAUX : niveau1=, niveau2=, ... (couleurs 0..NB-1). Compat sequence= pour un seul niveau.
+let LEVELS=[];
+for(let i=1;i<=20;i++){
+  const v=P.get('niveau'+i)||P.get('level'+i);
+  if(v){ LEVELS.push(v.split(',').map(s=>parseInt(s,10)).filter(n=>n>=0&&n<NB)); }
 }
-function off(){ layer.classList.remove('active'); layer.style.setProperty('--mx','-999px'); layer.style.setProperty('--my','-999px'); }
-scene.addEventListener('mousemove',moveLight);
-scene.addEventListener('mouseleave',off);
-scene.addEventListener('touchstart',moveLight,{passive:false});
-scene.addEventListener('touchmove',moveLight,{passive:false});
-scene.addEventListener('touchend',off);
+if(!LEVELS.length){
+  const single=(P.get('sequence')||'0,2,1,3').split(',').map(s=>parseInt(s,10)).filter(n=>n>=0&&n<NB);
+  LEVELS=[single];
+}
+const REVEAL=P.get('reveal'),IMAGE=P.get('image'),VALIDATE=P.get('validate')==='1';
+const TITLE=P.get('title'); if(TITLE)document.getElementById('title').textContent=TITLE;
+
+let lvl=0, input=[], playing=false;
+function showLevel(){ document.getElementById('level').textContent='Niveau '+(lvl+1)+' / '+LEVELS.length; }
+
+// Construit le pad
+const pad=document.getElementById('pad');
+pad.style.gridTemplateColumns='repeat('+COLS+',1fr)';
+const cellH = NB===4?110 : (NB===6?86:74);
+let html='';
+for(let i=0;i<NB;i++){ html+=`<div class="btnc" data-i="${i}" style="background:${COLORS[i]};height:${cellH}px" onclick="tap(${i})"></div>`; }
+pad.innerHTML=html;
+
+let ac=null;function audio(){if(!ac)ac=new(window.AudioContext||window.webkitAudioContext)();return ac;}
+function tone(i,dur){const a=audio();const o=a.createOscillator(),g=a.createGain();o.frequency.value=FREQS[i];o.connect(g);g.connect(a.destination);
+  g.gain.setValueAtTime(0.0001,a.currentTime);g.gain.exponentialRampToValueAtTime(0.4,a.currentTime+0.02);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+dur);o.start();o.stop(a.currentTime+dur+0.02);}
+function lite(i){const e=document.querySelector('.btnc[data-i="'+i+'"]');if(e){e.classList.add('lit');setTimeout(()=>e.classList.remove('lit'),300);}}
+
+function playSeq(){
+  const a=audio(); if(a.state==='suspended')a.resume();
+  playing=true; input=[]; document.getElementById('status').textContent='Observez...';
+  const seq=LEVELS[lvl]; let t=0;
+  seq.forEach(c=>{ setTimeout(()=>{ lite(c); tone(c,0.35); }, t); t+=520; });
+  setTimeout(()=>{ playing=false; document.getElementById('status').textContent='À vous !'; }, t);
+}
+window.tap=function(i){
+  if(playing) return;
+  const a=audio(); if(a.state==='suspended')a.resume();
+  lite(i); tone(i,0.3); input.push(i);
+  const seq=LEVELS[lvl]; const k=input.length-1;
+  if(input[k]!==seq[k]){ fail(); return; }
+  if(input.length===seq.length){ levelDone(); }
+};
+function fail(){ const st=document.getElementById('status'); st.className='status ko'; st.textContent='✗ Erreur ! On reprend au niveau 1.'; lvl=0; input=[]; showLevel(); }
+function levelDone(){
+  input=[];
+  if(lvl<LEVELS.length-1){
+    lvl++; showLevel();
+    const st=document.getElementById('status'); st.className='status ok'; st.textContent='✓ Niveau réussi ! Suivant...';
+    setTimeout(playSeq,900);
+  } else { success(); }
+}
+function success(){
+  const st=document.getElementById('status'),zone=document.getElementById('reveal-zone');
+  st.className='status ok'; st.textContent='✓ Tous les niveaux réussis !';
+  if(IMAGE){const g=document.createElement('img');g.src=IMAGE;g.className='reveal-img';zone.appendChild(g);}
+  else if(REVEAL){const d=document.createElement('div');d.className='reveal';d.textContent=REVEAL;zone.appendChild(d);}
+  if(VALIDATE){try{window.parent.postMessage({type:'ramscape:solved',module:'simon'},'*');}catch(e){}}
+}
+document.getElementById('start').onclick=()=>{ if(!playing) playSeq(); };
+showLevel();
 </script></body></html>
