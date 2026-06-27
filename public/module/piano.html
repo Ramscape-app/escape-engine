@@ -47,7 +47,13 @@
 <script>
 const P = new URLSearchParams(location.search);
 // Séquence correcte (CACHÉE du joueur) : notes séparées par virgules. Ex: do,mi,sol,do2 / do#,la2
-const TARGET = (P.get('sequence')||P.get('seq')||'').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
+function normNote(n){
+  return String(n).toLowerCase().trim()
+    .replace(/\u00e9|\u00e8/g,'e')   // ré/rè -> re
+    .replace(/diese|sharp/g,'#')
+    .replace(/s(?=2?$)/,'#');          // 's' final (ou avant le 2) = dièse : res->re#, dos2->do#2
+}
+const TARGET = (P.get('sequence')||P.get('seq')||'').split(',').map(normNote).filter(Boolean);
 const REVEAL = P.get('reveal');                 // mot/code révélé si juste (optionnel)
 const VALIDATE = P.get('validate') === '1';     // valider le jeu automatiquement (optionnel)
 const TITLE = P.get('title');
