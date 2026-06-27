@@ -26,6 +26,9 @@
   .count{font-size:.72rem;color:#8a909a;min-height:18px;margin-top:10px;letter-spacing:1px}
   .status{font-size:.9rem;font-weight:700;margin-top:8px;min-height:24px}
   .ok{color:#22d27a}.ko{color:#e2787f}
+  .reveal{font-size:1.4rem;font-weight:800;letter-spacing:2px;color:#9ad0c0;
+    background:#23262b;border:1px dashed #6fb7a3;border-radius:10px;padding:14px}
+  .reveal-img{max-width:100%;border-radius:10px}
 </style>
 </head>
 <body>
@@ -42,6 +45,7 @@
   </div>
   <div class="count" id="count"></div>
   <div class="status" id="status"></div>
+  <div id="reveal-zone" style="margin-top:10px"></div>
 </div>
 
 <script>
@@ -55,6 +59,7 @@ function normNote(n){
 }
 const TARGET = (P.get('sequence')||P.get('seq')||'').split(',').map(normNote).filter(Boolean);
 const REVEAL = P.get('reveal');                 // mot/code révélé si juste (optionnel)
+const IMAGE  = P.get('image');                  // image/gif révélée si juste (optionnel)
 const VALIDATE = P.get('validate') === '1';     // valider le jeu automatiquement (optionnel)
 const TITLE = P.get('title');
 if (TITLE) document.getElementById('title').textContent = TITLE;
@@ -134,13 +139,23 @@ document.getElementById('submit').onclick = ()=>{
   if (!played.length){ st.className='status'; st.textContent='Jouez d\'abord quelques notes.'; return; }
   if (!TARGET.length){ st.className='status ko'; st.textContent='⚠ Aucune séquence définie (?sequence=)'; return; }
   const ok = played.join(',') === TARGET.join(',');
+  const zone = document.getElementById('reveal-zone');
   if (ok){
     st.className='status ok';
-    st.textContent = REVEAL ? ('✓ Juste → '+REVEAL) : '✓ Mélodie correcte !';
+    st.textContent = '✓ Mélodie correcte !';
+    zone.innerHTML = '';
+    if (IMAGE){
+      const img = document.createElement('img'); img.src = IMAGE; img.className = 'reveal-img'; img.alt = 'indice';
+      zone.appendChild(img);
+    } else if (REVEAL){
+      const d = document.createElement('div'); d.className = 'reveal'; d.textContent = REVEAL;
+      zone.appendChild(d);
+    }
     if (VALIDATE){ try{ window.parent.postMessage({type:'ramscape:solved', module:'piano'}, '*'); }catch(e){} }
   } else {
     st.className='status ko';
     st.textContent = '✗ Ce n\'est pas la bonne mélodie.';
+    zone.innerHTML = '';
   }
 };
 render();
