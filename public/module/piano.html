@@ -82,6 +82,9 @@ function tone(f, t0, dur){
 }
 function lite(sel){ const k=document.querySelector(sel); if(k){k.classList.add('lit'); setTimeout(()=>k.classList.remove('lit'),200);} }
 
+function refreshCount(){
+  document.getElementById('count').textContent = played.length ? played.join(' · ') : '';
+}
 function render(){
   const el=document.getElementById('keys');
   const WHITE_W=23;
@@ -102,7 +105,7 @@ window.press = function(name){
   tone(freq(name), a.currentTime, 0.5);
   lite('[data-note="'+CSS.escape(name)+'"]');
   played.push(name);
-  document.getElementById('count').textContent = played.length + ' note' + (played.length>1?'s':'') + ' saisie' + (played.length>1?'s':'');
+  refreshCount();
   document.getElementById('status').textContent='';
 };
 // Lire la saisie du joueur (rejoue ses propres notes)
@@ -113,11 +116,11 @@ document.getElementById('play').onclick = ()=>{
 };
 document.getElementById('back').onclick = ()=>{
   played.pop();
-  document.getElementById('count').textContent = played.length ? (played.length+' note'+(played.length>1?'s':'')+' saisie'+(played.length>1?'s':'')) : '';
+  refreshCount();
   document.getElementById('status').textContent='';
 };
 document.getElementById('clear').onclick = ()=>{
-  played=[]; document.getElementById('count').textContent=''; document.getElementById('status').textContent='';
+  played=[]; refreshCount(); document.getElementById('status').textContent='';
 };
 // Valider : compare la saisie à la séquence correcte
 document.getElementById('submit').onclick = ()=>{
