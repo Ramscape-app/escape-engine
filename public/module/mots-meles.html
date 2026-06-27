@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramscape — Mots mêlés</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
+  html,body{background:transparent;color:#eceef1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:340px;margin:0 auto;padding:10px;text-align:center}
+  .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;margin-bottom:10px}
+  .grid{display:grid;gap:2px;justify-content:center;margin:0 auto 12px;touch-action:none}
+  .cell{display:flex;align-items:center;justify-content:center;
+    background:#23262b;border:1px solid #3a3e45;border-radius:5px;
+    font-family:'Courier New',monospace;font-weight:700;color:#dfe3e8;cursor:pointer}
+  .cell.sel{background:#3c6f60;color:#fff}
+  .cell.found{background:#2f6f5e;color:#fff;border-color:#3c8b76}
+  .words{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px}
+  .chip{font-size:.72rem;padding:4px 10px;border:1px solid #565b63;border-radius:20px;color:#cfd3d9}
+  .chip.done{background:#2f6f5e;border-color:#3c8b76;color:#fff;text-decoration:line-through}
+  .status{font-size:.9rem;font-weight:700;margin-top:6px;min-height:24px}
+  .ok{color:#22d27a}
+  .reveal{font-size:1.4rem;font-weight:800;letter-spacing:2px;color:#9ad0c0;
+    background:#23262b;border:1px dashed #6fb7a3;border-radius:10px;padding:14px;margin-top:8px}
+  .reveal-img{max-width:100%;border-radius:10px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title" id="title">Trouvez les mots cachés</div>
+  <div class="grid" id="grid"></div>
+  <div class="progress" id="progress" style="font-size:.72rem;color:#8a909a;margin-bottom:8px"></div>
+  <div class="status" id="status"></div>
+  <div id="reveal-zone"></div>
+</div>
+
+<script>
+const P = new URLSearchParams(location.search);
+const RAW = (P.get('mots')||P.get('words')||'AMOUR,TOUJOURS').toUpperCase();
+const WORDS = RAW.split(',').map(w=>w.replace(/[^A-ZÀ-Ÿ]/g,'').trim()).filter(Boolean);
+const SIZE = Math.max(8, Math.min(14, parseInt(P.get('taille')||P.get('size')||'0',10) || (Math.max(...WORDS.map(w=>w.length))+3)));
+const REVEAL = P.get('reveal');
+const IMAGE  = P.get('image');
+const VALIDATE = P.get('validate') === '1';
+const TITLE = P.get('title');
+if (TITLE) document.getElementById('title').textContent = TITLE;
+
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const DIRS = [
+  [1,0],[0,1],[1,1],[1,-1],   // → ↓ ↘ ↗
+  [-1,0],[0,-1],[-1,-1],[-1,1] // ← ↑ ↖ ↙  (à l'envers)
+];
+
+let grid = [];      // grille de lettres
+let placements = {}; // mot -> liste de cellules {r,c}
+let found = {};      // mot -> bool
+
+function inBounds(r,c){ return r>=0 && r<SIZE && c>=0 && c<SIZE; }
+function tryPlace(word){
+  const tries = 200;
+  for (let t=0;t<tries;t++){
+    const dir = DIRS[Math.floor(Math.random()*DIRS.length)];
+    const r0 = Math.floor(Math.random()*SIZE);
+    const c0 = Math.floor(Math.random()*SIZE);
+    const cells = [];
+    let ok = true;
+    for (let i=0;i<word.length;i++){
+      const r = r0 + dir[0]*i, c = c0 + dir[1]*i;
+      if (!inBounds(r,c)){ ok=false; break; }
+      const cur = grid[r][c];
+      if (cur && cur !== word[i]){ ok=false; break; }
+      cells.push({r,c});
+    }
+    if (ok){
+      cells.forEach((cl,i)=>{ grid[cl.r][cl.c] = word[i]; });
+      placements[word] = cells;
+      return true;
+    }
+  }
+  return false;
+}
+function buildGrid(){
+  grid = Array.from({length:SIZE},()=>Array(SIZE).fill(''));
+  // placer les mots (du plus long au plus court pour faciliter)
+  const ordered = WORDS.slice().sort((a,b)=>b.length-a.length);
+  const placed = [];
+  ordered.forEach(w=>{ if(tryPlace(w)) placed.push(w); });
+  // remplir le vide avec des lettres aléatoires
+  for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++){
+    if (!grid[r][c]) grid[r][c] = ALPHABET[Math.floor(Math.random()*26)];
+  }
+  placed.forEach(w=> found[w]=false);
+  return placed;
+}
+
+let PLACED = buildGrid();
+
+function renderWords(){ /* mots cachés au joueur : on n'affiche pas la liste */ }
+function renderGrid(){
+  const g = document.getElementById('grid');
+  const cellSize = Math.floor(Math.min(34, 320/SIZE));
+  g.style.gridTemplateColumns = `repeat(${SIZE}, ${cellSize}px)`;
+  let html='';
+  for (let r=0;r<SIZE;r++) for (let c=0;c<SIZE;c++){
+    html += `<div class="cell" data-r="${r}" data-c="${c}" style="width:${cellSize}px;height:${cellSize}px;font-size:${Math.floor(cellSize*0.5)}px">${grid[r][c]}</div>`;
+  }
+  g.innerHTML = html;
+  markFound();
+}
+
+// ── Sélection par glissement (ligne droite uniquement) ──
+let selecting=false, startCell=null, selCells=[];
+function cellAt(ev){
+  const t = ev.touches ? ev.touches[0] : ev;
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  if (el && el.classList.contains('cell')) return {r:+el.dataset.r, c:+el.dataset.c};
+  return null;
+}
+function lineCells(a,b){
+  const dr = Math.sign(b.r-a.r), dc = Math.sign(b.c-a.c);
+  const len = Math.max(Math.abs(b.r-a.r), Math.abs(b.c-a.c));
+  // n'accepter que les lignes droites valides (horizontale, verticale, diagonale parfaite)
+  if (!( (b.r===a.r) || (b.c===a.c) || (Math.abs(b.r-a.r)===Math.abs(b.c-a.c)) )) return null;
+  const cells=[];
+  for (let i=0;i<=len;i++) cells.push({r:a.r+dr*i, c:a.c+dc*i});
+  return cells;
+}
+function clearSel(){ document.querySelectorAll('.cell.sel').forEach(e=>e.classList.remove('sel')); }
+function paintSel(cells){
+  clearSel();
+  cells.forEach(cl=>{
+    const e = document.querySelector(`.cell[data-r="${cl.r}"][data-c="${cl.c}"]`);
+    if (e && !e.classList.contains('found')) e.classList.add('sel');
+  });
+}
+function start(ev){ const c=cellAt(ev); if(!c)return; selecting=true; startCell=c; selCells=[c]; paintSel(selCells); ev.preventDefault(); }
+function move(ev){ if(!selecting)return; const c=cellAt(ev); if(!c)return; const line=lineCells(startCell,c); if(line){ selCells=line; paintSel(line);} ev.preventDefault(); }
+function end(ev){
+  if(!selecting) return; selecting=false;
+  checkSelection(); clearSel(); ev && ev.preventDefault && ev.preventDefault();
+}
+function sameSet(a,b){
+  if(a.length!==b.length) return false;
+  const key=cl=>cl.r+'_'+cl.c;
+  const sa=a.map(key).sort().join('|'), sb=b.map(key).sort().join('|');
+  return sa===sb;
+}
+function checkSelection(){
+  for (const w of PLACED){
+    if (found[w]) continue;
+    if (sameSet(selCells, placements[w])){
+      found[w]=true;
+      markFound(); updateProgress();
+      checkWin();
+      return;
+    }
+  }
+}
+function markFound(){
+  Object.keys(found).forEach(w=>{
+    if (found[w]) placements[w].forEach(cl=>{
+      const e=document.querySelector(`.cell[data-r="${cl.r}"][data-c="${cl.c}"]`);
+      if(e){ e.classList.add('found'); e.classList.remove('sel'); }
+    });
+  });
+}
+function updateProgress(){
+  const n = PLACED.filter(w=>found[w]).length;
+  const p = document.getElementById('progress');
+  if (p) p.textContent = n + ' / ' + PLACED.length + ' trouvé' + (n>1?'s':'');
+}
+function checkWin(){
+  const allFound = PLACED.length>0 && PLACED.every(w=>found[w]);
+  if (!allFound) return;
+  const st=document.getElementById('status'); const zone=document.getElementById('reveal-zone');
+  st.className='status ok'; st.textContent='✓ Tous les mots trouvés !';
+  if (IMAGE){ const img=document.createElement('img'); img.src=IMAGE; img.className='reveal-img'; img.alt='indice'; zone.appendChild(img); }
+  else if (REVEAL){ const d=document.createElement('div'); d.className='reveal'; d.textContent=REVEAL; zone.appendChild(d); }
+  if (VALIDATE){ try{ window.parent.postMessage({type:'ramscape:solved', module:'mots-meles'}, '*'); }catch(e){} }
+}
+
+const gridEl = document.getElementById('grid');
+gridEl.addEventListener('mousedown', start); window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+gridEl.addEventListener('touchstart', start, {passive:false}); gridEl.addEventListener('touchmove', move, {passive:false}); gridEl.addEventListener('touchend', end);
+
+renderGrid(); updateProgress();
+</script>
+</body>
+</html>
