@@ -7,31 +7,49 @@
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{background:transparent;color:#eceef1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-  .wrap{max-width:330px;margin:0 auto;padding:10px;text-align:center}
+  .wrap{max-width:340px;margin:0 auto;padding:10px;text-align:center}
   .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;margin-bottom:14px}
-  .dials{display:flex;gap:8px;justify-content:center}
-  .dial{width:54px;background:#23262b;border:1px solid #565b63;border-radius:10px;
+  .dials{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .dial{width:52px;background:#23262b;border:1px solid #565b63;border-radius:10px;
     display:flex;flex-direction:column;align-items:center;padding:6px 0;user-select:none}
   .arrow{width:30px;height:26px;display:flex;align-items:center;justify-content:center;
     color:#9aa0a8;font-size:1.1rem;cursor:pointer;border-radius:6px}
   .arrow:active{background:#3a3e45;transform:scale(.9)}
-  .val{font-family:'Courier New',monospace;font-size:1.8rem;font-weight:700;color:#eceef1;
-    height:46px;display:flex;align-items:center;justify-content:center;width:100%;
+  .val{font-family:'Courier New',monospace;font-size:1.7rem;font-weight:700;color:#eceef1;
+    height:44px;display:flex;align-items:center;justify-content:center;width:100%;
     border-top:1px solid #3a3e45;border-bottom:1px solid #3a3e45;overflow:hidden}
   .val span{display:block;animation:roll .18s ease}
   @keyframes roll{from{transform:translateY(-40%);opacity:.3}to{transform:translateY(0);opacity:1}}
+  .row{display:flex;gap:8px;justify-content:center;margin-top:14px}
+  .btn{background:#3a3e45;color:#eceef1;border:1px solid #565b63;border-radius:9px;padding:9px 16px;font-size:.82rem;cursor:pointer}
+  .btn.primary{background:#2f6f5e;border-color:#3c8b76}
+  .btn:active{transform:scale(.95)}
+  .status{font-size:.9rem;font-weight:700;margin-top:10px;min-height:24px}
+  .ok{color:#22d27a}.ko{color:#e2787f}
+  .reveal{font-size:1.4rem;font-weight:800;letter-spacing:2px;color:#9ad0c0;
+    background:#23262b;border:1px dashed #6fb7a3;border-radius:10px;padding:14px;margin-top:8px}
+  .reveal-img{max-width:100%;border-radius:10px;margin-top:8px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="title" id="title">Trouvez la combinaison</div>
   <div class="dials" id="dials"></div>
+  <div class="row" id="actionRow" style="display:none">
+    <button class="btn primary" id="submit">✓ Valider</button>
+  </div>
+  <div class="status" id="status"></div>
+  <div id="reveal-zone"></div>
 </div>
 
 <script>
 const P = new URLSearchParams(location.search);
 const N = Math.max(1, Math.min(8, parseInt(P.get('molettes')||P.get('n')||'4',10)));
-const MODE = (P.get('mode')||'chiffres').toLowerCase(); // 'chiffres' ou 'lettres'
+const MODE = (P.get('mode')||'chiffres').toLowerCase();
+const SOLUTION = (P.get('solution')||P.get('code')||'').toUpperCase().trim(); // combinaison correcte (cachée)
+const REVEAL = P.get('reveal');
+const IMAGE  = P.get('image');
+const VALIDATE = P.get('validate') === '1';
 const TITLE = P.get('title');
 if (TITLE) document.getElementById('title').textContent = TITLE;
 
@@ -39,19 +57,41 @@ const SET = MODE==='lettres' ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('') : '0123456
 let pos = new Array(N).fill(0);
 
 function render(){
-  const el = document.getElementById('dials');
-  el.innerHTML = pos.map((p,i)=>`
+  document.getElementById('dials').innerHTML = pos.map((p,i)=>`
     <div class="dial">
       <div class="arrow" onclick="bump(${i},1)">▲</div>
       <div class="val"><span id="v${i}">${SET[p]}</span></div>
       <div class="arrow" onclick="bump(${i},-1)">▼</div>
     </div>`).join('');
+  // bouton Valider seulement si une solution est définie
+  document.getElementById('actionRow').style.display = SOLUTION ? 'flex' : 'none';
 }
 window.bump = function(i, dir){
   pos[i] = (pos[i] + dir + SET.length) % SET.length;
   const v = document.getElementById('v'+i);
   v.textContent = SET[pos[i]];
   v.style.animation='none'; void v.offsetWidth; v.style.animation='roll .18s ease';
+  document.getElementById('status').textContent='';
+};
+function current(){ return pos.map(p=>SET[p]).join(''); }
+
+document.getElementById('submit').onclick = ()=>{
+  const st = document.getElementById('status');
+  const zone = document.getElementById('reveal-zone');
+  if (!SOLUTION){ return; }
+  if (current() === SOLUTION){
+    st.className='status ok'; st.textContent='✓ Combinaison correcte !';
+    zone.innerHTML='';
+    if (IMAGE){
+      const img=document.createElement('img'); img.src=IMAGE; img.className='reveal-img'; img.alt='indice'; zone.appendChild(img);
+    } else if (REVEAL){
+      const d=document.createElement('div'); d.className='reveal'; d.textContent=REVEAL; zone.appendChild(d);
+    }
+    if (VALIDATE){ try{ window.parent.postMessage({type:'ramscape:solved', module:'cadenas'}, '*'); }catch(e){} }
+  } else {
+    st.className='status ko'; st.textContent='✗ Mauvaise combinaison.';
+    zone.innerHTML='';
+  }
 };
 render();
 </script>
