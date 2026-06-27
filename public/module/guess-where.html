@@ -87,6 +87,19 @@ document.getElementById('validate').onclick = ()=>{
     st.className='status ok';
     st.textContent = '✓ Bonne localisation !';
     zone.innerHTML = '';
+    // Zone isochrone révélée uniquement à la réussite
+    if (!window._zoneShown){
+      window._zoneShown = true;
+      L.circle([TLAT, TLNG], {
+        radius: TOL_KM * 1000,           // mètres
+        color: '#1f9d57',                // bord vert foncé
+        weight: 2,
+        fillColor: '#5fd29a',            // vert clair
+        fillOpacity: 0.22                // transparent
+      }).addTo(map);
+      // recentre la vue sur la zone révélée
+      map.fitBounds(L.latLng(TLAT, TLNG).toBounds(TOL_KM * 2200), { padding:[20,20], maxZoom: 12 });
+    }
     if (IMAGE){
       const img = document.createElement('img'); img.src = IMAGE; img.className='reveal-img'; img.alt='indice';
       zone.appendChild(img);
