@@ -19,9 +19,15 @@
   .bank{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:48px;
     padding:10px;border:1px dashed #565b63;border-radius:10px;background:rgba(255,255,255,.02)}
   .lbl{font-size:.68rem;color:#8a909a;margin:10px 0 4px}
-  .reset{margin-top:12px;background:#3a3e45;color:#eceef1;border:1px solid #565b63;
-    border-radius:9px;padding:8px 16px;font-size:.8rem;cursor:pointer}
-  .reset:active{transform:scale(.95)}
+  .row{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  .btn{background:#3a3e45;color:#eceef1;border:1px solid #565b63;border-radius:9px;padding:9px 16px;font-size:.82rem;cursor:pointer}
+  .btn.primary{background:#2f6f5e;border-color:#3c8b76}
+  .btn:active{transform:scale(.95)}
+  .status{font-size:.9rem;font-weight:700;margin-top:10px;min-height:24px}
+  .ok{color:#22d27a}.ko{color:#e2787f}
+  .reveal{font-size:1.4rem;font-weight:800;letter-spacing:2px;color:#9ad0c0;
+    background:#23262b;border:1px dashed #6fb7a3;border-radius:10px;padding:14px;margin-top:8px}
+  .reveal-img{max-width:100%;border-radius:10px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -31,23 +37,30 @@
   <div class="slots" id="slots"></div>
   <div class="lbl">LETTRES DISPONIBLES</div>
   <div class="bank" id="bank"></div>
-  <button class="reset" id="reset">↺ Recommencer</button>
+  <div class="row">
+    <button class="btn primary" id="submit">✓ Valider</button>
+    <button class="btn" id="reset">↺ Recommencer</button>
+  </div>
+  <div class="status" id="status"></div>
+  <div id="reveal-zone"></div>
 </div>
 
 <script>
 const P = new URLSearchParams(location.search);
 const WORD = (P.get('mot') || P.get('word') || 'EXEMPLE').toUpperCase();
+const REVEAL = P.get('reveal');
+const IMAGE  = P.get('image');
+const VALIDATE = P.get('validate') === '1';
 const TITLE = P.get('title');
 if (TITLE) document.getElementById('title').textContent = TITLE;
 
 const letters = WORD.split('');
-let bank = [];   // {ch, id}
-let slots = [];  // {ch, id} ou null
+let bank = [];
+let slots = [];
 
 function shuffle(arr){
   const a = arr.slice();
   for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-  // éviter (rarement) que le mélange tombe déjà dans l'ordre
   return a;
 }
 function init(){
@@ -56,16 +69,16 @@ function init(){
   while (letters.length>1 && order.map(o=>o.ch).join('')===WORD);
   bank = order;
   slots = letters.map(()=>null);
+  document.getElementById('status').textContent='';
+  document.getElementById('reveal-zone').innerHTML='';
   render();
 }
 function render(){
-  const sEl = document.getElementById('slots');
-  const bEl = document.getElementById('bank');
-  sEl.innerHTML = slots.map((s,i)=>
+  document.getElementById('slots').innerHTML = slots.map((s,i)=>
     s ? `<div class="tile" onclick="fromSlot(${i})">${s.ch}</div>`
       : `<div class="tile empty"></div>`
   ).join('');
-  bEl.innerHTML = bank.map((b,i)=>
+  document.getElementById('bank').innerHTML = bank.map((b,i)=>
     `<div class="tile" onclick="toSlot(${i})">${b.ch}</div>`
   ).join('');
 }
@@ -74,13 +87,34 @@ window.toSlot = function(bankIdx){
   if (free<0) return;
   slots[free] = bank[bankIdx];
   bank.splice(bankIdx,1);
+  document.getElementById('status').textContent='';
   render();
 };
 window.fromSlot = function(slotIdx){
   if (!slots[slotIdx]) return;
   bank.push(slots[slotIdx]);
   slots[slotIdx] = null;
+  document.getElementById('status').textContent='';
   render();
+};
+document.getElementById('submit').onclick = ()=>{
+  const st = document.getElementById('status');
+  const zone = document.getElementById('reveal-zone');
+  const current = slots.map(s=>s?s.ch:'_').join('');
+  if (slots.some(s=>s===null)){ st.className='status'; st.textContent='Placez toutes les lettres.'; return; }
+  if (current === WORD){
+    st.className='status ok'; st.textContent='✓ Mot correct !';
+    zone.innerHTML='';
+    if (IMAGE){
+      const img=document.createElement('img'); img.src=IMAGE; img.className='reveal-img'; img.alt='indice'; zone.appendChild(img);
+    } else if (REVEAL){
+      const d=document.createElement('div'); d.className='reveal'; d.textContent=REVEAL; zone.appendChild(d);
+    }
+    if (VALIDATE){ try{ window.parent.postMessage({type:'ramscape:solved', module:'mots-melanges'}, '*'); }catch(e){} }
+  } else {
+    st.className='status ko'; st.textContent='✗ Ce n\'est pas le bon mot.';
+    zone.innerHTML='';
+  }
 };
 document.getElementById('reset').onclick = init;
 init();
