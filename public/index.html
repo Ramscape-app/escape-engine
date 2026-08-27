@@ -1022,17 +1022,6 @@ html, body {
   </div>
 </div>
 
-<!-- DEV BAR -->
-<!--
-  <div class="dev-bar" id="dev-bar">
-  <span>DEV</span>
-  <button onclick="devSkip()">SKIP ►</button>
-  <button onclick="devSolveAll()">ALL ✓</button>
-  <button onclick="resetGame()">RESET</button>
-  <button onclick="document.getElementById('dev-bar').style.display='none'">✕</button>
-</div>
--->
-
 <!-- AUDIO ELEMENTS (hidden) -->
 <audio id="intro-music" preload="auto" loop src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/intro3.m4a"></audio>
 <audio id="fouras-audio" preload="auto" src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/Fouras.m4a"></audio>
@@ -1689,9 +1678,9 @@ function applyConfig(cfg) {
 function applyBranding(b) {
   if (!b) return;
   if (b.docTitle) document.title = b.docTitle;
-  const set = (sel, val, html) => {
+  const set = (sel, val) => {
     if (val == null) return;
-    document.querySelectorAll(sel).forEach(el => { html ? el.innerHTML = val : el.textContent = val; });
+    document.querySelectorAll(sel).forEach(el => { el.textContent = val; });
   };
   set('#boot-screen .logo', b.logo);
   set('#boot-screen .subtitle', b.subtitle);
@@ -1755,7 +1744,7 @@ async function loadFromSupabase(slug) {  if (!SB) return false;
   try {
     const { data, error } = await SB
       .from('jeux')
-      .select('slug,name,client,note,version,branding,enigmas,acts,act_boundaries,theme:themes(id,name,colors,fonts,radius,glow)')
+      .select('slug,name,client,note,version,branding,enigmas,acts,act_boundaries,intro,theme:themes(id,name,colors,fonts,radius,glow)')
       .eq('slug', slug).eq('statut', 'publie').single();
     if (error || !data || !Array.isArray(data.enigmas) || !data.enigmas.length) {
       console.log('Supabase : jeu introuvable ou vide', error);
@@ -1768,6 +1757,7 @@ async function loadFromSupabase(slug) {  if (!SB) return false;
       acts: data.acts || [],
       actBoundaries: data.act_boundaries || [],
       enigmas: data.enigmas,
+      intro: data.intro || {},
     });
     if (data.theme) applyTheme(data.theme);
     GAME_NAME = data.name || '';
@@ -1799,11 +1789,17 @@ async function authGuard() {
   // Connecté : est-il rattaché à ce jeu ?
   const { data, error } = await SB
     .from('joueurs')
-    .select('jeu_id, pseudo, jeu:jeux(slug)')
+    .select('jeu_id, pseudo, actif, jeu:jeux(slug)')
     .eq('id', session.user.id)
     .maybeSingle();
   if (error || !data || !data.jeu || data.jeu.slug !== slug) {
     alert("Tu n'as pas accès à ce jeu.");
+    location.replace('rejoindre.html');
+    return false;
+  }
+  if (data.actif === false) {                 // compte désactivé par l'organisateur
+    alert("Ton accès à ce jeu a été désactivé par l'organisateur.");
+    await SB.auth.signOut();
     location.replace('rejoindre.html');
     return false;
   }
@@ -1960,6 +1956,10 @@ let gpsWatchId = null;
 let CURRENT_OPEN_IDX = -1;
 // Écoute les modules Ramscape (iframe) qui signalent une réussite (validation auto)
 window.addEventListener('message', (ev) => {
+  // Seuls les modules servis par ce site peuvent valider une énigme.
+  // Sans ce filtre, n'importe quelle iframe tierce (ou la page qui a ouvert
+  // le jeu) pouvait envoyer ce message et résoudre l'énigme en cours.
+  if (ev.origin !== location.origin) return;
   const d = ev.data;
   if (d && d.type === 'ramscape:solved' && CURRENT_OPEN_IDX >= 0) {
     solveEnigma(CURRENT_OPEN_IDX);
@@ -2289,25 +2289,21 @@ function renderEnigmaScreen(idx) {
     body.appendChild(img);
   }
 
-  if (e.iframe) {
+  // Les énigmes embarquent des modules tiers : on les cloisonne et on évite
+  // de leur transmettre l'URL du jeu (slug compris) via l'en-tête Referer.
+  const addIframe = (src, width) => {
     const iframe = document.createElement("iframe");
-    iframe.src = e.iframe;
-    iframe.width = "350px";
+    iframe.src = src;
+    iframe.width = width;
     iframe.height = "100%";
+    iframe.sandbox = "allow-scripts allow-same-origin allow-forms allow-popups";
+    iframe.referrerPolicy = "no-referrer";
     iframe.style.border = "none";
     iframe.style.margin = "0px 0";
     body.appendChild(iframe);
-  }
-
-   if (e.iframe2) {
-    const iframe = document.createElement("iframe");
-    iframe.src = e.iframe2;
-    iframe.width = "220px";
-    iframe.height = "100%";
-    iframe.style.border = "none";
-    iframe.style.margin = "0px 0";    
-    body.appendChild(iframe);
-  }
+  };
+  if (e.iframe)  addIframe(e.iframe,  "350px");
+  if (e.iframe2) addIframe(e.iframe2, "220px");
 
   if (isSolved) {
     const banner = document.createElement('div');
@@ -3513,17 +3509,7 @@ function showHint() {
   body.insertBefore(hint, body.children[1] || null);
 }
 
-// ═══════════════════════ DEV TOOLS ═══════════════════════
-function devSkip() {
-  const idx = STATE.currentEnigma;
-  if (idx < TOTAL) solveEnigma(idx);
-}
-function devSolveAll() {
-  for (let i = 0; i < TOTAL; i++) { if (!STATE.solved.includes(i)) STATE.solved.push(i); }
-  STATE.currentEnigma = TOTAL;
-  saveState();
-  showScreen('victory-screen');
-}
+// ═══════════════════════ REJOUER ═══════════════════════
 function resetGame() {
   STATE = { currentEnigma: 0, solved: [], hintUsed: [], started: false };
   saveState();

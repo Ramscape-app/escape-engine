@@ -573,11 +573,13 @@ function collectTheme(){
 }
 function updatePreview(){
   const t=collectTheme(), c=t.colors;
-  $('t-preview').innerHTML = `<div style="background:${c.bg};border:1px solid ${c.border};border-radius:${t.radius}px;padding:18px;font-family:${t.fonts.body}">
-    <div style="font-family:${t.fonts.display};color:${c.text};font-size:1.3rem;margin-bottom:8px">${esc(t.name||'Apercu')}</div>
-    <div style="background:${c.card};border:1px solid ${c.border};border-radius:${Math.max(0,t.radius-4)}px;padding:12px;margin-bottom:10px;color:${c.dim};font-size:.85rem">Carte d'exemple, texte attenue.</div>
-    <button style="background:${c.accent};color:${c.bg};border:none;border-radius:8px;padding:8px 14px;font-weight:700">Accent</button>
-    <span style="color:${c.ok};margin-left:12px">ok</span> <span style="color:${c.danger};margin-left:6px">erreur</span> <span style="color:${c.hint};margin-left:6px">indice</span>
+  const v = esc;                       // les couleurs et polices sont saisies librement
+  const r = parseInt(t.radius,10)||0;  // -> tout est echappe avant de partir dans un attribut
+  $('t-preview').innerHTML = `<div style="background:${v(c.bg)};border:1px solid ${v(c.border)};border-radius:${r}px;padding:18px;font-family:${v(t.fonts.body)}">
+    <div style="font-family:${v(t.fonts.display)};color:${v(c.text)};font-size:1.3rem;margin-bottom:8px">${esc(t.name||'Apercu')}</div>
+    <div style="background:${v(c.card)};border:1px solid ${v(c.border)};border-radius:${Math.max(0,r-4)}px;padding:12px;margin-bottom:10px;color:${v(c.dim)};font-size:.85rem">Carte d'exemple, texte attenue.</div>
+    <button style="background:${v(c.accent)};color:${v(c.bg)};border:none;border-radius:8px;padding:8px 14px;font-weight:700">Accent</button>
+    <span style="color:${v(c.ok)};margin-left:12px">ok</span> <span style="color:${v(c.danger)};margin-left:6px">erreur</span> <span style="color:${v(c.hint)};margin-left:6px">indice</span>
   </div>`;
 }
 async function saveTheme(){

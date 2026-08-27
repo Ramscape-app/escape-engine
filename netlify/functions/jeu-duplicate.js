@@ -25,6 +25,7 @@ export default async (req) => {
     version: src.version || 1, theme_id: src.theme_id,
     branding: src.branding || {}, enigmas: src.enigmas || [],
     acts: src.acts || [], act_boundaries: src.act_boundaries || [],
+    intro: src.intro || {},
     statut: 'brouillon',
   }).select('id').single();
   if (error) return json({ error: error.message }, 500);
