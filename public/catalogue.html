@@ -26,21 +26,19 @@ const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 (async ()=>{
   try{
     const { data, error } = await sb.from('jeux')
-      .select('slug, name, client, note, version, enigmas')
+      .select('slug, name, client, version')
       .eq('statut','publie').order('name');
     if (error) throw error;
     const jeux = data || [];
     document.getElementById('sub').textContent = `${jeux.length} jeu(x) disponible(s).`;
     if (!jeux.length){ document.getElementById('grid').innerHTML='<div class="state">Aucun jeu publié pour le moment.</div>'; return; }
     document.getElementById('grid').innerHTML = jeux.map(j=>{
-      const nb = Array.isArray(j.enigmas) ? j.enigmas.length : 0;
       const client = j.client ? esc(j.client) : 'sans client';
       const ver = j.version ? ('v'+esc(String(j.version))) : 'v1';
       return `<a class="card" href="rejoindre.html?slug=${encodeURIComponent(j.slug)}">
         <div class="v">${ver}</div>
         <h2>${esc(j.name)}</h2>
         <div class="client">${client}</div>
-        <div class="meta">${nb} énigme(s)</div>
         <div class="go">Rejoindre →</div>
       </a>`;
     }).join('');

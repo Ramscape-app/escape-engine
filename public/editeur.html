@@ -1415,10 +1415,10 @@ async function openBiblioPicker(){
     const { items } = await callFn('biblio-list');
     window._BIBLIO = items||[];
     const cats = ['', ...Array.from(new Set((items||[]).map(x=>x.categorie).filter(Boolean)))];
-    document.getElementById('bp-filtre').innerHTML = cats.map(c=>`<option value="${c}">${c||'Toutes catégories'}</option>`).join('');
+    document.getElementById('bp-filtre').innerHTML = cats.map(c=>`<option value="${esc(c)}">${esc(c||'Toutes catégories')}</option>`).join('');
     document.getElementById('bp-filtre').onchange = renderBiblioPicker;
     renderBiblioPicker();
-  }catch(e){ document.getElementById('bp-list').innerHTML = `<div class="help" style="color:#c00">${e.message}</div>`; }
+  }catch(e){ document.getElementById('bp-list').innerHTML = `<div class="help" style="color:#c00">${esc(e.message)}</div>`; }
 }
 function renderBiblioPicker(){
   const f = document.getElementById('bp-filtre').value;

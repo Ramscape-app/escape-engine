@@ -14,7 +14,7 @@ export default async (req) => {
   if (slug) {
     const { data } = await sb.from('jeux')
       .select('name, branding, theme:themes(colors)')
-      .eq('slug', slug).maybeSingle();
+      .eq('slug', slug).eq('statut', 'publie').maybeSingle();
     if (data) {
       name = data.name || name;
       const c = data.theme && data.theme.colors;

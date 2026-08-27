@@ -128,7 +128,7 @@ async function submit(){
       const uid = signUp.user && signUp.user.id;
       // 2) créer le profil joueur (pseudo + jeu + code)
       const { error: e2 } = await sb.from('joueurs').insert({
-        id: uid, pseudo, jeu_id: currentGame.id, code_utilise: currentGame.codeUsed || codeTyped || null
+        id: uid, pseudo, jeu_id: currentGame.id, code_utilise: codeTyped || null
       });
       if (e2) throw e2;
       goToGame();

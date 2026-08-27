@@ -4,6 +4,9 @@
   # Pas d'étape de build : ce sont des fichiers statiques prêts à servir.
   command = ""
 
-# (Plus tard) les fonctions serveur iront ici :
-# [functions]
-#   directory = "netlify/functions"
+# Fonctions serveur (accès admin, Supabase avec la clé de service).
+# Netlify détecterait ce répertoire par convention, mais on le déclare
+# pour que la configuration dise ce qui se passe réellement.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
