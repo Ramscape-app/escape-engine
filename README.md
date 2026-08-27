@@ -104,9 +104,14 @@ Toutes les fonctions d'administration passent par `requireAdmin`
 table `admins`. Toute nouvelle fonction doit faire de même dès sa première ligne. Les
 trois seules fonctions publiques sont `manifest`, `code-resolve` et `rejoindre`.
 
-⚠️ **`supabase/policies-s04.sql` doit avoir été exécuté.** Sans lui, le navigateur peut
-toujours lire la table `codes` et insérer directement dans `joueurs` — les fonctions
-ci-dessus sécurisent le parcours normal, pas le contournement.
+Le durcissement RLS correspondant a été appliqué : `codes` n'est plus lisible depuis
+le navigateur et l'insertion publique dans `joueurs` est retirée. Compte rendu et
+retour arrière dans [`supabase/policies-s04.sql`](supabase/policies-s04.sql).
+
+⚠️ Les policies de `parties`, `tentatives`, `evenements`, `jeux` et `themes` n'ont
+jamais été auditées, alors que le navigateur écrit directement dans les trois
+premières (constat S-02). Inventaire à faire :
+[`supabase/diagnostic-s02.sql`](supabase/diagnostic-s02.sql).
 
 L'audit complet du dépôt est dans [`AUDIT.md`](AUDIT.md), avec l'état de chaque constat
 et ce qui reste ouvert.

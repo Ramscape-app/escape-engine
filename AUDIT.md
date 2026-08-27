@@ -11,11 +11,11 @@ Front statique (Netlify) + 25 fonctions serveur + Supabase (auth, base, stockage
 Les 10 restants demandent soit un accès à la console Supabase, soit une décision de
 cadrage — ils sont détaillés plus bas et repris dans « Par où commencer ».
 
-> ⚠️ **S-04 n'est pas refermé tant que le SQL n'est pas exécuté.** Les fonctions
-> `rejoindre` et `code-resolve` sécurisent le parcours normal, mais l'ancien chemin
-> (lire `codes`, insérer dans `joueurs` avec la clé publique) reste ouvert à qui
-> appelle l'API directement. Voir [`supabase/policies-s04.sql`](supabase/policies-s04.sql) —
-> **déployer le code d'abord, exécuter le SQL ensuite.**
+> ✅ **S-04 est refermé et vérifié.** Code déployé (PR #1, `ce86b92`), policies
+> resserrées, RLS confirmée active sur `codes` et `joueurs`, et les trois parcours
+> joueur testés en production : connexion d'un compte existant, création d'un compte
+> neuf avec un code valide, accès au jeu. Compte rendu dans
+> [`supabase/policies-s04.sql`](supabase/policies-s04.sql).
 
 | Reste à faire | Pourquoi ce n'est pas fait ici |
 |---|---|
