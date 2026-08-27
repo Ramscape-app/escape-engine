@@ -7,9 +7,15 @@ Front statique (Netlify) + 25 fonctions serveur + Supabase (auth, base, stockage
 
 ## État de la remédiation
 
-**18 constats corrigés** dans cette branche (marqués ✅ ci-dessous), 1 partiellement (🔸).
-Les 10 restants demandent soit un accès à la console Supabase, soit une décision de
-cadrage — ils sont détaillés plus bas et repris dans « Par où commencer ».
+**18 constats corrigés** (marqués ✅ ci-dessous), 2 partiellement (🔸).
+
+> **Correction sur S-01.** Je l'avais marqué corrigé après avoir retiré `enigmas` de
+> la requête du catalogue. C'était incomplet : la page n'était que le symptôme visible.
+> La lecture venait de la policy `jeux publies lisibles par tous`, accordée au rôle
+> `public` (donc à `anon`) sur une table qui contient les réponses — n'importe qui
+> pouvait les extraire directement via l'API, sans compte ni code. Le correctif complet
+> est dans [`supabase/policies-s02-jeux.sql`](supabase/policies-s02-jeux.sql), à exécuter
+> après déploiement.
 
 > ✅ **S-04 est refermé et vérifié.** Code déployé (PR #1, `ce86b92`), policies
 > resserrées, RLS confirmée active sur `codes` et `joueurs`, et les trois parcours
@@ -19,7 +25,7 @@ cadrage — ils sont détaillés plus bas et repris dans « Par où commencer »
 
 | Reste à faire | Pourquoi ce n'est pas fait ici |
 |---|---|
-| S-02 · versionner le schéma et les policies RLS | Demande un export depuis la console Supabase. Le schéma **reconstitué depuis le code** est documenté dans le README ; `supabase/policies-s04.sql` ne couvre que `joueurs` et `codes`. |
+| S-02 · reste des policies | Les 9 tables ont été auditées. `parties`, `tentatives` et `evenements` sont correctement cadrées sur `auth.uid()`, la contrainte d'unicité de `parties` est en place, `themes` ne contient rien de sensible. `jeux` est traité par `policies-s02-jeux.sql`. Reste que `jeu_id` n'est contraint nulle part : un joueur peut rattacher sa ligne à un autre jeu — statistiques polluées, aucun accès gagné. |
 | F-06 · collisions de pseudos | **Changement cassant** : modifier la normalisation change l'adresse technique des comptes existants, qui ne pourraient plus se connecter. Demande une migration. |
 | R-01, R-02, M-03 · utilitaires serveur mutualisés | Refonte mécanique des 25 fonctions, sans moyen de la tester ici (ni base ni tests). À faire d'un bloc, en local. |
 | R-03 · agrégation des statistiques en SQL | Demande d'écrire une vue ou fonction Postgres côté Supabase. |
@@ -64,8 +70,8 @@ bloque pas.
 
 | # | Sév. | Constat | Emplacement |
 |---|------|---------|-------------|
-| ✅ S-01 | **Critique** | `catalogue.html` est public et sélectionne `enigmas` (réponses comprises) juste pour compter les énigmes. Aucun code d'invitation requis. | `public/catalogue.html:29` |
-| S-02 | Élevée | Schéma et policies RLS absents du dépôt, alors que le client écrit directement dans `joueurs`, `parties`, `tentatives`, `evenements`. Non relisible, non versionné, non restaurable. | aucun `.sql` |
+| 🔸 S-01 | **Critique** | `catalogue.html` est public et sélectionne `enigmas` (réponses comprises) juste pour compter les énigmes. Aucun code d'invitation requis. | `public/catalogue.html:29` |
+| 🔸 S-02 | Élevée | Schéma et policies RLS absents du dépôt, alors que le client écrit directement dans `joueurs`, `parties`, `tentatives`, `evenements`. Non relisible, non versionné, non restaurable. | aucun `.sql` |
 | ✅ S-03 | Élevée | Listener `message` sans contrôle de `ev.origin` : toute iframe tierce (`lockee.fr`, `scape.enepe.fr`, `ladigitale.dev`) peut valider l'énigme courante. | `public/index.html:1962` |
 | ✅ S-04 | Élevée | Le code d'invitation n'est vérifié que côté client ; l'insertion dans `joueurs` se fait depuis le navigateur avec un `jeu_id` arbitraire. La table `codes` est lisible par la clé anon (énumération). | `public/rejoindre.html:86-93, 126-133` |
 | ✅ S-05 | Moyenne | `ping.js` : endpoint non authentifié instanciant un client à clé de service ; renvoie le nombre de joueurs. | `netlify/functions/ping.js` |
