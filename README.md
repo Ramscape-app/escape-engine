@@ -78,12 +78,35 @@ reste utilisable : `index.html` retombe sur la configuration embarquée.
 Supprimer un compte auth supprime en cascade son profil, sa progression, ses
 tentatives et ses événements.
 
+## Inscription d'un joueur
+
+Le navigateur n'écrit rien dans la base et ne lit jamais la table `codes`. Le parcours
+passe par deux fonctions publiques, seules à connaître les codes :
+
+1. `code-resolve` — `POST { code }` → `{ name, slug }`, pour l'aperçu « Tu rejoins : X ».
+   Ne renvoie ni l'identifiant du jeu, ni le quota, ni la date d'expiration.
+2. `rejoindre` — `POST { code, pseudo, password }`. Vérifie le code, son activation,
+   son expiration, son quota et que le jeu est publié ; crée le compte et le profil.
+   Si le profil échoue, le compte est supprimé — pas de compte orphelin.
+
+Le navigateur enchaîne ensuite sur un `signInWithPassword()` normal. La connexion d'un
+joueur existant est inchangée.
+
+L'adresse technique d'un compte (`pseudo@slug.joueurs.local`) est produite par
+`emailJoueur()` dans `_auth.js` et par `synthEmail()` dans `rejoindre.html`. **Ces deux
+fonctions doivent rester identiques** : elles définissent l'identité des comptes
+existants, et les désynchroniser empêcherait les joueurs de se connecter.
+
 ## Sécurité
 
-Toutes les fonctions serveur passent par `requireAdmin` (`netlify/functions/_auth.js`),
-qui valide le jeton **puis** vérifie l'appartenance à la table `admins`. Toute nouvelle
-fonction doit faire de même dès sa première ligne.
+Toutes les fonctions d'administration passent par `requireAdmin`
+(`netlify/functions/_auth.js`), qui valide le jeton **puis** vérifie l'appartenance à la
+table `admins`. Toute nouvelle fonction doit faire de même dès sa première ligne. Les
+trois seules fonctions publiques sont `manifest`, `code-resolve` et `rejoindre`.
 
-L'audit complet du dépôt est dans [`AUDIT.md`](AUDIT.md). Les points encore ouverts y
-sont listés — le plus important étant que le code d'invitation n'est aujourd'hui
-vérifié que côté navigateur (S-04).
+⚠️ **`supabase/policies-s04.sql` doit avoir été exécuté.** Sans lui, le navigateur peut
+toujours lire la table `codes` et insérer directement dans `joueurs` — les fonctions
+ci-dessus sécurisent le parcours normal, pas le contournement.
+
+L'audit complet du dépôt est dans [`AUDIT.md`](AUDIT.md), avec l'état de chaque constat
+et ce qui reste ouvert.

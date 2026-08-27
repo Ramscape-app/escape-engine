@@ -71,10 +71,25 @@ let mode = 'signup';          // 'signup' | 'login'
 let currentGame = null;       // { id, slug, name }
 const $ = id => document.getElementById(id);
 
-// Fabrique l'email technique à partir du pseudo + slug du jeu (jamais montré au joueur)
+// Fabrique l'email technique à partir du pseudo + slug du jeu (jamais montré au joueur).
+// ⚠️ Miroir exact de emailJoueur() dans netlify/functions/_auth.js : les deux définissent
+// l'identité des comptes existants et doivent être modifiés ensemble, jamais séparément.
 function synthEmail(pseudo, slug){
   const clean = pseudo.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
   return `${clean}@${slug}.joueurs.local`;
+}
+
+// Appelle une fonction serveur publique et remonte son message d'erreur tel quel.
+async function callFn(name, body){
+  const res = await fetch(`/.netlify/functions/${name}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  let j = {};
+  try { j = await res.json(); } catch(e){}
+  if (!res.ok) throw new Error(j.error || 'Service indisponible, réessaie dans un instant.');
+  return j;
 }
 function showMsg(text, type){ const m=$('msg'); m.textContent=text; m.className='msg '+type; }
 function clearMsg(){ $('msg').className='msg'; }
@@ -84,23 +99,19 @@ async function resolveCode(code){
   if (!code) { needCode(); return; }
   $('game').textContent = 'Vérification du code…';
   $('game').className = 'game muted';
-  const { data, error } = await sb
-    .from('codes')
-    .select('code, jeu:jeux(id, slug, name)')
-    .eq('code', code.trim())
-    .eq('actif', true)
-    .maybeSingle();
-  if (error || !data || !data.jeu){
+  // Le serveur seul lit la table des codes : il ne renvoie que le nom et le slug.
+  try {
+    const j = await callFn('code-resolve', { code });
+    currentGame = { name: j.name, slug: j.slug };
+    $('code-field').style.display = 'none';
+    $('game').textContent = 'Tu rejoins : ' + currentGame.name;
+    $('game').className = 'game';
+  } catch (err) {
     currentGame = null;
-    $('game').textContent = 'Code invalide ou désactivé.';
+    $('game').textContent = err.message;
     $('game').className = 'game muted';
     needCode();
-    return;
   }
-  currentGame = data.jeu;
-  $('code-field').style.display = 'none';
-  $('game').textContent = 'Tu rejoins : ' + currentGame.name;
-  $('game').className = 'game';
 }
 function needCode(){ $('code-field').style.display = 'block'; }
 
@@ -122,15 +133,11 @@ async function submit(){
 
   try {
     if (mode === 'signup'){
-      // 1) créer le compte (auth)
-      const { data: signUp, error: e1 } = await sb.auth.signUp({ email, password });
-      if (e1) throw e1;
-      const uid = signUp.user && signUp.user.id;
-      // 2) créer le profil joueur (pseudo + jeu + code)
-      const { error: e2 } = await sb.from('joueurs').insert({
-        id: uid, pseudo, jeu_id: currentGame.id, code_utilise: codeTyped || null
-      });
-      if (e2) throw e2;
+      // Le serveur vérifie le code, le quota et l'expiration, puis crée compte et
+      // profil d'un seul tenant. Le navigateur n'écrit plus rien dans la base.
+      await callFn('rejoindre', { code: codeTyped, pseudo, password });
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       goToGame();
     } else {
       // connexion
@@ -172,7 +179,9 @@ function traduire(m){
   if (/already registered|already exists/i.test(m)) return "Ce pseudo est déjà pris sur ce jeu. Choisis-en un autre, ou connecte-toi.";
   if (/Invalid login credentials/i.test(m)) return "Pseudo ou mot de passe incorrect.";
   if (/at least 6/i.test(m)) return "Le mot de passe doit faire au moins 6 caractères.";
-  return "Une erreur est survenue : " + m;
+  // Les fonctions serveur renvoient déjà des messages destinés au joueur :
+  // les préfixer d'« Une erreur est survenue » ne ferait que les alourdir.
+  return m;
 }
 
 // ── Pré-remplir le jeu via ?slug= (affichage seulement, le code reste requis) ──

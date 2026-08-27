@@ -7,14 +7,19 @@ Front statique (Netlify) + 25 fonctions serveur + Supabase (auth, base, stockage
 
 ## État de la remédiation
 
-**15 constats corrigés** dans cette branche (marqués ✅ ci-dessous), 1 partiellement (🔸).
-Les 13 restants demandent soit un accès à la console Supabase, soit une décision de
+**18 constats corrigés** dans cette branche (marqués ✅ ci-dessous), 1 partiellement (🔸).
+Les 10 restants demandent soit un accès à la console Supabase, soit une décision de
 cadrage — ils sont détaillés plus bas et repris dans « Par où commencer ».
+
+> ⚠️ **S-04 n'est pas refermé tant que le SQL n'est pas exécuté.** Les fonctions
+> `rejoindre` et `code-resolve` sécurisent le parcours normal, mais l'ancien chemin
+> (lire `codes`, insérer dans `joueurs` avec la clé publique) reste ouvert à qui
+> appelle l'API directement. Voir [`supabase/policies-s04.sql`](supabase/policies-s04.sql) —
+> **déployer le code d'abord, exécuter le SQL ensuite.**
 
 | Reste à faire | Pourquoi ce n'est pas fait ici |
 |---|---|
-| S-02 · versionner le schéma et les policies RLS | Demande un export depuis la console Supabase. Le schéma **reconstitué depuis le code** est documenté dans le README, à vérifier puis remplacer par un export réel. |
-| S-04 · inscription par code côté serveur | Nouvelle fonction + resserrage des policies RLS sur `joueurs` et `codes`. Emporte aussi F-03 (quota, expiration) et F-05 (atomicité). |
+| S-02 · versionner le schéma et les policies RLS | Demande un export depuis la console Supabase. Le schéma **reconstitué depuis le code** est documenté dans le README ; `supabase/policies-s04.sql` ne couvre que `joueurs` et `codes`. |
 | F-06 · collisions de pseudos | **Changement cassant** : modifier la normalisation change l'adresse technique des comptes existants, qui ne pourraient plus se connecter. Demande une migration. |
 | R-01, R-02, M-03 · utilitaires serveur mutualisés | Refonte mécanique des 25 fonctions, sans moyen de la tester ici (ni base ni tests). À faire d'un bloc, en local. |
 | R-03 · agrégation des statistiques en SQL | Demande d'écrire une vue ou fonction Postgres côté Supabase. |
@@ -22,12 +27,21 @@ cadrage — ils sont détaillés plus bas et repris dans « Par où commencer »
 | M-01, M-02 · découpage des monolithes | Chantier de confort, à mener quand le reste est stable. |
 | M-05 · outillage | README et `.gitignore` ajoutés ; tests, linter et CI restent à mettre en place. |
 
-### Changement visible à valider
+### Changements visibles à valider
 
-Le catalogue public n'affiche plus « N énigme(s) » : c'était la seule raison pour
+**Le catalogue public n'affiche plus « N énigme(s) »** : c'était la seule raison pour
 laquelle il téléchargeait les réponses de tous les jeux (S-01). Pour le rétablir sans
 la fuite, ajouter une colonne `nb_enigmes` entretenue à l'enregistrement du jeu, ou une
 vue Postgres qui n'expose que le décompte.
+
+**On ne peut plus rejoindre un jeu non publié** (S-04). Le moteur ne sait de toute façon
+charger que les jeux publiés : un joueur inscrit sur un brouillon se retrouvait bloqué
+sans message. Il reçoit maintenant « Ce jeu n'est pas encore ouvert aux joueurs. »
+Penser à publier le jeu avant de distribuer les codes.
+
+**Les codes sont désormais insensibles à la casse.** `code-create` les stocke en
+majuscules, mais l'ancienne page les cherchait tels que tapés : un joueur saisissant
+son code en minuscules échouait sans comprendre.
 
 ## Synthèse
 
@@ -53,7 +67,7 @@ bloque pas.
 | ✅ S-01 | **Critique** | `catalogue.html` est public et sélectionne `enigmas` (réponses comprises) juste pour compter les énigmes. Aucun code d'invitation requis. | `public/catalogue.html:29` |
 | S-02 | Élevée | Schéma et policies RLS absents du dépôt, alors que le client écrit directement dans `joueurs`, `parties`, `tentatives`, `evenements`. Non relisible, non versionné, non restaurable. | aucun `.sql` |
 | ✅ S-03 | Élevée | Listener `message` sans contrôle de `ev.origin` : toute iframe tierce (`lockee.fr`, `scape.enepe.fr`, `ladigitale.dev`) peut valider l'énigme courante. | `public/index.html:1962` |
-| S-04 | Élevée | Le code d'invitation n'est vérifié que côté client ; l'insertion dans `joueurs` se fait depuis le navigateur avec un `jeu_id` arbitraire. La table `codes` est lisible par la clé anon (énumération). | `public/rejoindre.html:86-93, 126-133` |
+| ✅ S-04 | Élevée | Le code d'invitation n'est vérifié que côté client ; l'insertion dans `joueurs` se fait depuis le navigateur avec un `jeu_id` arbitraire. La table `codes` est lisible par la clé anon (énumération). | `public/rejoindre.html:86-93, 126-133` |
 | ✅ S-05 | Moyenne | `ping.js` : endpoint non authentifié instanciant un client à clé de service ; renvoie le nombre de joueurs. | `netlify/functions/ping.js` |
 | ✅ S-06 | Moyenne | `manifest.js` ne filtre pas `statut='publie'` → révèle le nom des jeux en brouillon. | `netlify/functions/manifest.js:14-16` |
 | ✅ S-07 | Faible | `asset-upload` : `slug` non normalisé dans le chemin de stockage (le nom de fichier l'est) ; pas de liste blanche MIME ni de taille max. | `netlify/functions/asset-upload.js:12-16` |
@@ -67,9 +81,9 @@ bloque pas.
 |---|------|---------|-------------|
 | ✅ F-01 | Élevée | **Les pages d'intro personnalisées ne s'affichent jamais en jeu réel** : `loadFromSupabase()` ne sélectionne pas la colonne `intro`, que le moteur lit pourtant. Correct en aperçu admin (`jeu-get` la renvoie), cassé pour les joueurs. | `index.html:1758, 1765-1771, 2055` |
 | ✅ F-02 | Élevée | **Désactiver un joueur ne le bloque pas** : `authGuard()` ne lit jamais `actif`. | `index.html:1781-1815, 1802` |
-| F-03 | Moyenne | `max_joueurs` et `expire_le` stockés et affichés, jamais appliqués. `expire_le` n'est même pas envoyé par le formulaire admin. | `admin.html:492-495`, `code-create.js:20-22` |
+| ✅ F-03 | Moyenne | `max_joueurs` et `expire_le` stockés et affichés, jamais appliqués. `expire_le` n'est même pas envoyé par le formulaire admin. | `admin.html:492-495`, `code-create.js:20-22` |
 | ✅ F-04 | Moyenne | La duplication d'un jeu perd son `intro`. | `netlify/functions/jeu-duplicate.js:24-30` |
-| F-05 | Moyenne | Inscription non transactionnelle : si l'insertion du profil échoue après `signUp`, le compte auth reste orphelin — le joueur ne peut plus ni s'inscrire ni jouer. | `rejoindre.html:124-134` |
+| ✅ F-05 | Moyenne | Inscription non transactionnelle : si l'insertion du profil échoue après `signUp`, le compte auth reste orphelin — le joueur ne peut plus ni s'inscrire ni jouer. | `rejoindre.html:124-134` |
 | F-06 | Faible | `synthEmail` supprime tout sauf `[a-z0-9]` : « Jean-Luc », « jean luc » et « JeanLuc » collisionnent. Pseudo sans alphanumérique → adresse invalide. | `rejoindre.html:75-78`, `joueur-create.js:14-15` |
 | ✅ F-07 | Faible | Le service worker ne met rien en cache ; son repli `caches.match()` résout toujours `undefined` et fait échouer la requête. | `public/sw.js` |
 | ✅ F-08 | Faible | Code mort : `currentGame.codeUsed` inexistant, paramètre `html` de `set()` jamais passé, 11 `console.log`. | `rejoindre.html:131`, `index.html:1692-1696` |
@@ -111,6 +125,6 @@ bloque pas.
 2. ~~**Filtrer l'origine dans le listener `message`**~~ ✅ — une condition. (S-03)
 3. ~~**Corriger les trois oublis de colonnes**~~ ✅ — `intro` au chargement et à la duplication, `actif` dans `authGuard`. (F-01, F-02, F-04)
 4. **Versionner le schéma et les policies RLS** — rien d'autre n'est vérifiable sans ça. (S-02)
-5. **Déplacer l'inscription par code dans une fonction serveur** — résout quatre constats : validation réelle, quota, expiration, atomicité. (S-04, F-03, F-05)
+5. ~~**Déplacer l'inscription par code dans une fonction serveur**~~ ✅ *(code fait ; SQL à exécuter)* — résout quatre constats : validation réelle, quota, expiration, atomicité. (S-04, F-03, F-05)
 6. **Mutualiser les utilitaires** — garde de méthode, lecture JSON protégée, helper de réponse, client Supabase partagé. (M-03, R-01, R-02)
 7. **Extraire la config « 1986 » et découper `index.html`** — quand le reste est stable. (M-01, M-02)
