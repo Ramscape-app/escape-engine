@@ -187,8 +187,9 @@ function traduire(m){
 // ── Pré-remplir le jeu via ?slug= (affichage seulement, le code reste requis) ──
 async function resolveSlug(slug){
   try{
-    const { data } = await sb.from('jeux').select('name').eq('slug', slug).eq('statut','publie').maybeSingle();
-    if (data){ $('title').textContent = 'Rejoindre : ' + data.name; $('game').textContent = "Entre ton code d'invitation pour ce jeu."; }
+    const res = await fetch('/.netlify/functions/jeux-publics?slug=' + encodeURIComponent(slug));
+    const j = await res.json();
+    if (res.ok && j.jeu){ $('title').textContent = 'Rejoindre : ' + j.jeu.name; $('game').textContent = "Entre ton code d'invitation pour ce jeu."; }
     else { $('game').textContent = "Entre ton code d'invitation."; }
   }catch(e){ $('game').textContent = "Entre ton code d'invitation."; }
   needCode();

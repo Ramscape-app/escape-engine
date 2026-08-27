@@ -14,7 +14,7 @@ pendant que l'organisateur suit la progression depuis une console d'administrati
 |------|----------|------|
 | `index.html` | Joueur | Le moteur : intro, hub, énigmes, écran de victoire. 1 jeu = 1 `?slug=`. |
 | `rejoindre.html` | Joueur | Inscription / connexion à partir d'un code d'invitation. |
-| `catalogue.html` | Public | Liste des jeux publiés. |
+| `catalogue.html` | Public | Liste des jeux publiés. Non référencé ailleurs — son avenir est en suspens. |
 | `admin.html` | Organisateur | Jeux, joueurs, codes, thèmes, bibliothèque d'énigmes, statistiques. |
 | `editeur.html` | Organisateur | Édition d'un jeu (`?id=<uuid>`), aperçu, export `config.json`. |
 | `module/*.html` | — | Mini-jeux embarqués en iframe (cadenas, piano, simon, mots mêlés…). |
@@ -97,6 +97,16 @@ L'adresse technique d'un compte (`pseudo@slug.joueurs.local`) est produite par
 fonctions doivent rester identiques** : elles définissent l'identité des comptes
 existants, et les désynchroniser empêcherait les joueurs de se connecter.
 
+## Lecture publique des jeux
+
+`jeux-publics` — `GET` pour la liste des jeux publiés, `GET ?slug=` pour un seul.
+Ne renvoie que `slug`, `name`, `client` et `version`.
+
+La table `jeux` porte la colonne `enigmas`, c'est-à-dire les énigmes **avec leurs
+réponses**. Une policy RLS ne sait pas filtrer par colonne : c'est pourquoi le catalogue
+et l'aperçu du nom de jeu passent par cette fonction plutôt que de lire la table
+directement. Ne jamais élargir `CHAMPS` sans se demander ce qui devient public.
+
 ## Sécurité
 
 Toutes les fonctions d'administration passent par `requireAdmin`
@@ -104,9 +114,17 @@ Toutes les fonctions d'administration passent par `requireAdmin`
 table `admins`. Toute nouvelle fonction doit faire de même dès sa première ligne. Les
 trois seules fonctions publiques sont `manifest`, `code-resolve` et `rejoindre`.
 
-⚠️ **`supabase/policies-s04.sql` doit avoir été exécuté.** Sans lui, le navigateur peut
-toujours lire la table `codes` et insérer directement dans `joueurs` — les fonctions
-ci-dessus sécurisent le parcours normal, pas le contournement.
+Le durcissement RLS correspondant a été appliqué : `codes` n'est plus lisible depuis
+le navigateur et l'insertion publique dans `joueurs` est retirée. Compte rendu et
+retour arrière dans [`supabase/policies-s04.sql`](supabase/policies-s04.sql).
+
+Les 9 tables ont depuis été auditées ([`supabase/diagnostic-s02.sql`](supabase/diagnostic-s02.sql)
+rejoue l'inventaire). `parties`, `tentatives` et `evenements` sont correctement cadrées
+sur `auth.uid()`.
+
+⚠️ **`supabase/policies-s02-jeux.sql` reste à exécuter.** La table `jeux` contient les
+énigmes avec leurs réponses et est encore lisible par les anonymes : le code est déployé,
+la policy pas encore remplacée.
 
 L'audit complet du dépôt est dans [`AUDIT.md`](AUDIT.md), avec l'état de chaque constat
 et ce qui reste ouvert.

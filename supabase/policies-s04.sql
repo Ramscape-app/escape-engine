@@ -1,89 +1,79 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 --  S-04 — Fermer l'inscription directe depuis le navigateur
---  À exécuter dans Supabase → SQL Editor, APRÈS avoir déployé le code.
+--  ✅ APPLIQUÉ ET VÉRIFIÉ le 27/08/2026. Ce fichier est le compte rendu de ce
+--     qui a été fait ; il n'y a rien à ré-exécuter.
 -- ═══════════════════════════════════════════════════════════════════════════
 --
---  Sans ce script, les fonctions serveur `rejoindre` et `code-resolve` existent
---  mais ne protègent rien : l'ancien chemin (lire `codes`, insérer dans `joueurs`
---  avec la clé publique) reste ouvert à qui appelle l'API directement.
+--  Le navigateur lisait la table `codes` avec la clé publique, puis créait
+--  lui-même compte et profil avec le jeu_id qu'il venait de lire. Le code
+--  d'invitation n'était donc jamais vérifié côté serveur.
 --
---  ⚠️ NE PAS exécuter d'un bloc. Lire l'étape 1, puis adapter les étapes 2 et 3
---     aux noms de policies réellement présents dans ton projet.
+--  Le code applicatif (fonctions `rejoindre` et `code-resolve`) sécurise le
+--  parcours normal ; ce sont ces policies qui ferment le contournement.
+
+
+-- ── Constaté avant intervention ────────────────────────────────────────────
 --
---  ⚠️ Ordre impératif : déployer le code d'abord. Une page rejoindre.html encore
---     en cache chez un visiteur utiliserait l'ancien chemin, qui échouerait dès
---     que ces policies sont appliquées.
+--  tablename | policyname              | cmd    | roles    | qual              | with_check
+--  ----------+-------------------------+--------+----------+-------------------+--------------------
+--  codes     | verifier un code actif  | SELECT | {public} | (actif = true)    |
+--  joueurs   | creer son profil        | INSERT | {public} |                   | (auth.uid() = id)
+--  joueurs   | lire son profil         | SELECT | {public} | (auth.uid() = id) |
+--
+--  `public` couvre `anon` et `authenticated` : n'importe qui pouvait donc lire
+--  la totalité des codes actifs. Et le contrôle de « creer son profil » ne
+--  portait que sur `id` — rien ne contraignait `jeu_id`, d'où le bypass.
 
 
--- ── ÉTAPE 1 · Inspection ───────────────────────────────────────────────────
--- Les noms de policies ne sont pas dans le dépôt (constat S-02). Il faut les
--- lire avant de toucher à quoi que ce soit. Note le résultat quelque part :
--- c'est aussi ta seule sauvegarde en cas de retour arrière.
+-- ── Exécuté ────────────────────────────────────────────────────────────────
 
-select tablename, policyname, cmd, roles, qual, with_check
-from pg_policies
-where schemaname = 'public' and tablename in ('joueurs', 'codes')
-order by tablename, cmd, policyname;
-
-
--- ── ÉTAPE 2 · `codes` : plus aucun accès depuis le navigateur ──────────────
--- La table était lisible par la clé publique : l'ensemble des codes
--- d'invitation était énumérable en une requête. Seules les fonctions serveur
--- (clé de service, qui contourne RLS) doivent y accéder désormais.
-
+-- codes : plus aucune lecture depuis le navigateur.
+-- RLS active sans aucune policy = tout est refusé aux clés publiques, ce qui
+-- est exactement l'effet recherché. Seules les fonctions serveur (clé de
+-- service, qui contourne RLS) y accèdent désormais.
 alter table public.codes enable row level security;
+drop policy "verifier un code actif" on public.codes;
 
--- Reprendre chaque policy listée à l'étape 1 pour `codes` dont `roles` contient
--- `anon` ou `authenticated`, et la supprimer :
--- drop policy "<nom relevé à l'étape 1>" on public.codes;
-
--- Aucune policy n'est recréée : RLS activée sans policy = tout est refusé aux
--- clés publiques, ce qui est exactement l'effet recherché.
-
-
--- ── ÉTAPE 3 · `joueurs` : plus d'insertion depuis le navigateur ────────────
--- Le profil est désormais créé uniquement par `rejoindre.js` et `joueur-create.js`.
-
+-- joueurs : plus d'insertion depuis le navigateur. Le profil est créé
+-- uniquement par rejoindre.js et joueur-create.js.
 alter table public.joueurs enable row level security;
+drop policy "creer son profil" on public.joueurs;
 
--- Supprimer UNIQUEMENT la ou les policies dont `cmd` vaut INSERT (ou ALL) et
--- dont `roles` contient `anon` ou `authenticated` :
--- drop policy "<nom relevé à l'étape 1>" on public.joueurs;
-
--- ⚠️⚠️ NE PAS SUPPRIMER la policy de LECTURE de sa propre ligne.
--- authGuard() (public/index.html) lit `joueurs` pour vérifier que le joueur a
--- accès au jeu : sans cette policy, PLUS PERSONNE ne peut jouer.
--- Si elle n'existe pas sous cette forme, la (re)créer :
-
--- create policy "joueur lit son propre profil"
---   on public.joueurs for select
---   to authenticated
---   using (id = auth.uid());
+-- ⚠️ « lire son profil » est CONSERVÉE. authGuard() (public/index.html) lit
+--    `joueurs` pour vérifier l'accès au jeu : sans elle, plus personne ne peut
+--    jouer. C'est le seul faux pas vraiment dangereux de cette intervention.
 
 
--- ── ÉTAPE 4 · Console Supabase (hors SQL) ──────────────────────────────────
--- Authentication → Sign In / Providers → Email :
---   décocher « Allow new users to sign up ».
--- Le navigateur n'appelle plus signUp() : seules les fonctions serveur créent
--- des comptes. Cela empêche la création de comptes sans code d'invitation.
-
-
--- ── ÉTAPE 5 · Vérification ─────────────────────────────────────────────────
--- Depuis la console du navigateur, sur le site déployé et connecté en joueur :
+-- ── État vérifié après intervention ────────────────────────────────────────
 --
---   await sb.from('joueurs').select('*')      -- doit renvoyer SA ligne, et elle seule
---   await sb.from('codes').select('*')        -- doit renvoyer 0 ligne ou une erreur
---   await sb.from('joueurs').insert({ pseudo: 'x' })   -- doit être rejeté
+--  pg_policies  → une seule ligne : joueurs / « lire son profil » / SELECT
+--  pg_class     → relrowsecurity = true sur `codes` ET sur `joueurs`
 --
--- Puis, dans cet ordre :
---   1. recharger une partie en cours  → doit fonctionner (sinon l'étape 3 a
---      supprimé la policy de lecture : la recréer immédiatement)
---   2. s'inscrire avec un code valide → doit fonctionner
---   3. se connecter avec un compte existant → doit fonctionner
+--  Les deux comptent : « zéro policy » ne ferme la table que si RLS est active.
+--
+--  Testé en production : connexion d'un compte existant, création d'un compte
+--  neuf avec un code valide, et accès au jeu. Les trois parcours passent.
+
+
+-- ── Retour arrière, si jamais ──────────────────────────────────────────────
+--
+-- create policy "verifier un code actif" on public.codes
+--   for select to public using (actif = true);
+--
+-- create policy "creer son profil" on public.joueurs
+--   for insert to public with check (auth.uid() = id);
+--
+-- Rétablir ces deux policies rouvre la faille : à ne faire que pour dépanner.
+
+
+-- ── Console Supabase (hors SQL) ────────────────────────────────────────────
+-- Authentication → Sign In / Providers → Email : « Allow new users to sign up »
+-- décoché. Le navigateur n'appelle plus signUp() ; seules les fonctions serveur
+-- créent des comptes.
 
 
 -- ── Reste ouvert ───────────────────────────────────────────────────────────
--- Ce fichier ne couvre que S-04. Les policies de `parties`, `tentatives`,
--- `evenements`, `jeux` et `themes` n'ont pas été revues (constat S-02) : le
--- navigateur y écrit toujours directement, et rien dans le dépôt ne permet de
--- vérifier ce qu'un joueur peut y faire.
+-- Ce fichier ne couvre que `joueurs` et `codes`. Les policies de `parties`,
+-- `tentatives`, `evenements`, `jeux` et `themes` n'ont pas été revues
+-- (constat S-02) : le navigateur y écrit toujours directement.
+-- Voir supabase/diagnostic-s02.sql pour l'inventaire à faire.
