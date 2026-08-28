@@ -122,9 +122,9 @@ Les 9 tables ont depuis été auditées ([`supabase/diagnostic-s02.sql`](supabas
 rejoue l'inventaire). `parties`, `tentatives` et `evenements` sont correctement cadrées
 sur `auth.uid()`.
 
-⚠️ **`supabase/policies-s02-jeux.sql` reste à exécuter.** La table `jeux` contient les
-énigmes avec leurs réponses et est encore lisible par les anonymes : le code est déployé,
-la policy pas encore remplacée.
+La table `jeux` porte les énigmes avec leurs réponses : sa lecture est restreinte au jeu
+auquel le joueur est inscrit ([`supabase/policies-s02-jeux.sql`](supabase/policies-s02-jeux.sql)).
+`anon` n'y a plus aucun accès.
 
 L'audit complet du dépôt est dans [`AUDIT.md`](AUDIT.md), avec l'état de chaque constat
 et ce qui reste ouvert.

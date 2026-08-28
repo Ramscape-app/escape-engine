@@ -7,15 +7,16 @@ Front statique (Netlify) + 25 fonctions serveur + Supabase (auth, base, stockage
 
 ## État de la remédiation
 
-**18 constats corrigés** (marqués ✅ ci-dessous), 2 partiellement (🔸).
+**18 constats corrigés et vérifiés en production** (marqués ✅ ci-dessous),
+2 partiellement (🔸), 9 restants — **aucun exploitable par un joueur**.
 
-> **Correction sur S-01.** Je l'avais marqué corrigé après avoir retiré `enigmas` de
-> la requête du catalogue. C'était incomplet : la page n'était que le symptôme visible.
-> La lecture venait de la policy `jeux publies lisibles par tous`, accordée au rôle
-> `public` (donc à `anon`) sur une table qui contient les réponses — n'importe qui
-> pouvait les extraire directement via l'API, sans compte ni code. Le correctif complet
-> est dans [`supabase/policies-s02-jeux.sql`](supabase/policies-s02-jeux.sql), à exécuter
-> après déploiement.
+> ✅ **S-01 est refermé et vérifié.** Il l'avait d'abord été à tort : retirer `enigmas`
+> de la requête du catalogue n'a traité que le symptôme visible. La lecture venait de la
+> policy `jeux publies lisibles par tous`, accordée au rôle `public` (donc à `anon`) sur
+> une table qui contient les réponses. Elle est désormais remplacée par une policy
+> réservée au jeu auquel le joueur est inscrit, et les lectures publiques passent par la
+> fonction `jeux-publics`. Compte rendu dans
+> [`supabase/policies-s02-jeux.sql`](supabase/policies-s02-jeux.sql).
 
 > ✅ **S-04 est refermé et vérifié.** Code déployé (PR #1, `ce86b92`), policies
 > resserrées, RLS confirmée active sur `codes` et `joueurs`, et les trois parcours
@@ -70,7 +71,7 @@ bloque pas.
 
 | # | Sév. | Constat | Emplacement |
 |---|------|---------|-------------|
-| 🔸 S-01 | **Critique** | `catalogue.html` est public et sélectionne `enigmas` (réponses comprises) juste pour compter les énigmes. Aucun code d'invitation requis. | `public/catalogue.html:29` |
+| ✅ S-01 | **Critique** | `catalogue.html` est public et sélectionne `enigmas` (réponses comprises) juste pour compter les énigmes. Aucun code d'invitation requis. | `public/catalogue.html:29` |
 | 🔸 S-02 | Élevée | Schéma et policies RLS absents du dépôt, alors que le client écrit directement dans `joueurs`, `parties`, `tentatives`, `evenements`. Non relisible, non versionné, non restaurable. | aucun `.sql` |
 | ✅ S-03 | Élevée | Listener `message` sans contrôle de `ev.origin` : toute iframe tierce (`lockee.fr`, `scape.enepe.fr`, `ladigitale.dev`) peut valider l'énigme courante. | `public/index.html:1962` |
 | ✅ S-04 | Élevée | Le code d'invitation n'est vérifié que côté client ; l'insertion dans `joueurs` se fait depuis le navigateur avec un `jeu_id` arbitraire. La table `codes` est lisible par la clé anon (énumération). | `public/rejoindre.html:86-93, 126-133` |
