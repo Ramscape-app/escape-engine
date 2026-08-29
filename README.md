@@ -15,7 +15,7 @@ pendant que l'organisateur suit la progression depuis une console d'administrati
 | `index.html` | Joueur | Le moteur : intro, hub, énigmes, écran de victoire. 1 jeu = 1 `?slug=`. |
 | `rejoindre.html` | Joueur | Inscription / connexion à partir d'un code d'invitation. |
 | `catalogue.html` | Public | Liste des jeux publiés. Non référencé ailleurs — son avenir est en suspens. |
-| `admin.html` | Organisateur | Jeux, joueurs, codes, thèmes, bibliothèque d'énigmes, statistiques. |
+| `admin.html` | Organisateur | Jeux, joueurs, codes, thèmes, bibliothèque, suivi en direct, statistiques, débrief. |
 | `editeur.html` | Organisateur | Édition d'un jeu (`?id=<uuid>`), aperçu, export `config.json`. |
 | `module/*.html` | — | Mini-jeux embarqués en iframe (cadenas, piano, simon, mots mêlés…). |
 
@@ -129,6 +129,42 @@ bandeau et un fil consultable depuis le hub.
 
 Ajouter une table au fil suppose de l'ajouter à la publication `supabase_realtime` —
 sans quoi l'abonnement ne reçoit rien (voir `supabase/migration-02-equipes.sql`).
+
+## Console de l'organisateur
+
+Onglet **En direct** : les équipes en cours, et surtout le **temps sans progrès** — c'est
+ce chiffre qui signale un blocage, pas le temps total. Il passe en rouge au-delà de dix
+minutes. Sélectionner une équipe affiche son fil complet, alimenté en Realtime.
+
+Deux gestes d'aide, tous deux côté serveur :
+
+- `equipe-message` écrit une entrée `type: 'organisateur'` dans `activite`. La policy des
+  joueurs leur interdit ce type : personne ne peut se faire passer pour l'organisateur.
+- `equipe-debloquer` écrit dans `parties_equipe`. La logique de fusion du moteur fait
+  avancer tous les téléphones de l'équipe, et le geste est tracé dans le fil pour que les
+  joueurs sachent qu'il vient de l'organisateur.
+
+⚠️ Un admin est dans `admins`, **pas dans `joueurs`** : les policies de la phase 2
+l'excluent, et Realtime applique RLS par abonné. Sans
+[`supabase/migration-03-console.sql`](supabase/migration-03-console.sql), la console ne
+reçoit rien en direct.
+
+## Statistiques et débrief
+
+`stats.js` agrège désormais `tentatives` et `evenements` **en SQL**
+([`supabase/migration-04-stats.sql`](supabase/migration-04-stats.sql)). Ces deux tables
+grossissent à chaque geste de jeu : les charger en entier finissait par tronquer les
+résultats sans le moindre signal. Les fonctions sont appelées avec la clé de service,
+donc sans `security definer` et sans exposition nouvelle.
+
+Le tableau de bord affiche les **mauvaises réponses les plus fréquentes**, collectées
+depuis toujours dans `tentatives.reponse` et jusqu'ici affichées nulle part. Le
+regroupement ignore casse et espaces. Une réponse qui revient signale rarement des
+joueurs distraits : le plus souvent, l'énoncé est ambigu.
+
+L'onglet **Débrief** reconstitue une partie — temps total, temps par acte, énigme la plus
+coriace, indices, déroulé — pour l'équipe comme pour un joueur solo. Une feuille de style
+d'impression ne laisse que le compte rendu sur le papier.
 
 ## Chrono
 

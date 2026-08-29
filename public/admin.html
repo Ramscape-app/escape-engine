@@ -100,6 +100,21 @@
   .scard .stat b{color:var(--text)}
   .bar{height:6px;background:var(--card2);border-radius:99px;overflow:hidden;margin-top:10px}
   .bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+  .dbgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+  .dbstat{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:15px}
+  .dbstat b{display:block;font-size:1.5rem;margin-bottom:2px}
+  .dbstat span{font-family:var(--mono);font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
+  .dbsec{margin-bottom:24px}
+  .dbsec h3{font-size:.95rem;margin-bottom:9px}
+  @media print{
+    body{background:#fff;color:#000}
+    #side, .topbar, .navbtn, .createbox, .msg, #side-overlay, .tog, .btn{display:none!important}
+    #app, main{margin:0!important;padding:0!important;max-width:none!important}
+    .dbstat,.filbox,.scard{border:1px solid #ccc;background:#fff;color:#000}
+    .dbstat span,.filrow .h{color:#555}
+    table{color:#000} th,td{border-color:#ccc}
+  }
+
   .livegrid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}
   @media(max-width:820px){ .livegrid{grid-template-columns:1fr} }
   .eqcard{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:13px 15px;margin-bottom:10px;cursor:pointer;transition:.15s}
@@ -164,6 +179,7 @@
       <button id="nav-codes" class="navbtn" onclick="setTab('codes')">🎟️ Codes</button>
       <button id="nav-biblio" class="navbtn" onclick="setTab('biblio')">📚 Bibliothèque</button>
       <button id="nav-stats" class="navbtn" onclick="setTab('stats')">📊 Tableau de bord</button>
+      <button id="nav-debrief" class="navbtn" onclick="setTab('debrief')">🏁 Debrief</button>
     </nav>
     <main class="main">
 
@@ -217,6 +233,11 @@
       <div class="sub">Enigmes les plus ratees, avec taux d'echec.</div>
       <div id="blocages"><div class="state">Chargement...</div></div>
 
+      <h2 style="margin-top:34px">Ce que les joueurs repondent</h2>
+      <div class="sub">Les mauvaises reponses les plus frequentes. Une reponse qui revient
+        souvent signale rarement des joueurs distraits : le plus souvent, l'enonce est ambigu.</div>
+      <div id="mauvaises"><div class="state">Chargement...</div></div>
+
       <h2 style="margin-top:34px">Themes</h2>
       <div class="sub">Utilisation des themes par les jeux.</div>
       <div id="themeusage"><div class="state">Chargement...</div></div>
@@ -254,6 +275,25 @@
         </div>
         <div id="live-detail"><div class="state">Choisis une equipe pour voir son fil.</div></div>
       </div>
+    </div>
+
+    <div id="view-debrief" style="display:none">
+      <div class="createbox" style="margin-bottom:20px">
+        <h2 style="margin-bottom:6px">Debrief de partie</h2>
+        <div class="hint" style="font-size:.8rem;color:var(--dim);margin-bottom:14px">
+          La soiree en chiffres, a montrer ou imprimer pour le client.
+          Impression via le navigateur : seul le compte rendu sort sur le papier.
+        </div>
+        <div class="formrow">
+          <div style="flex:1"><label>Partie</label><select id="db-choix"></select></div>
+          <div style="display:flex;align-items:flex-end;gap:8px">
+            <button class="btn" style="width:auto;padding:11px 18px" onclick="loadDebrief()">Afficher</button>
+            <button class="tog" onclick="window.print()">Imprimer</button>
+          </div>
+        </div>
+      </div>
+      <div class="msg" id="db-msg"></div>
+      <div id="db-contenu"><div class="state">Choisis une partie.</div></div>
     </div>
 
     <div id="view-codes" style="display:none">
@@ -405,13 +445,14 @@ function closeSide(){
   document.getElementById('side-overlay').classList.remove('show');
 }
 function setTab(t){
-  const sections = ['accueil','live','jeux','themes','joueurs','codes','biblio','stats'];
+  const sections = ['accueil','live','jeux','themes','joueurs','codes','biblio','stats','debrief'];
   sections.forEach(v=>{
     const nav = document.getElementById('nav-'+v); if(nav) nav.classList.toggle('active', t===v);
     const view = $('view-'+v); if(view) view.style.display = (t===v)?'block':'none';
   });
   if(t==='live'){ loadLive(); abonnerConsole(); }
   else { fermerCanalEquipe(); }
+  if(t==='debrief') loadDebriefListe();
   if(t==='stats' && !statsLoaded){ loadStats(); statsLoaded = true; }
   if(t==='jeux' && !jeuxLoaded){ renderJeux(); jeuxLoaded = true; }
   if(t==='themes' && !themesLoaded){ loadThemesLib(); themesLoaded = true; }
@@ -432,6 +473,92 @@ async function loadRecap(){
     $('recap').innerHTML = `<div class="state">Recap indisponible (necessite le serveur en ligne).</div>`;
   }
 }
+// ════════ DEBRIEF ════════
+function dureeLongue(ms){
+  if(!ms) return '-';
+  const s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60);
+  if(h) return h+'h'+String(m).padStart(2,'0');
+  return m ? m+' min' : s+'s';
+}
+
+async function loadDebriefListe(){
+  try{
+    const [{ equipes }, { joueurs }] = await Promise.all([
+      callFn('equipes-list'), callFn('joueurs-list')
+    ]);
+    // Les equipes d'abord : c'est ce qu'on debriefe le plus souvent.
+    const opts = [
+      ...(equipes||[]).filter(e=>e.commencee)
+        .map(e=>`<option value="e:${e.id}">Equipe — ${esc(e.nom)} (${esc(e.jeu)})</option>`),
+      ...(joueurs||[]).filter(j=>!j.equipe_id && j.partie)
+        .map(j=>`<option value="j:${j.id}">Solo — ${esc(j.pseudo)}</option>`),
+    ];
+    $('db-choix').innerHTML = opts.length ? opts.join('')
+      : '<option value="">Aucune partie commencee</option>';
+  }catch(e){
+    $('db-msg').textContent='Erreur : '+e.message; $('db-msg').className='msg err';
+  }
+}
+
+async function loadDebrief(){
+  const v = $('db-choix').value; if(!v) return;
+  const m=$('db-msg'); m.className='msg';
+  const [kind,id] = v.split(':');
+  $('db-contenu').innerHTML = '<div class="state">Chargement...</div>';
+  try{
+    const q = kind==='e' ? 'equipe_id='+encodeURIComponent(id) : 'joueur_id='+encodeURIComponent(id);
+    const d = await callFn('debrief?'+q);
+    renderDebrief(d);
+  }catch(e){
+    $('db-contenu').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`;
+  }
+}
+
+function renderDebrief(d){
+  const stat=(v,l)=>`<div class="dbstat"><b>${v}</b><span>${l}</span></div>`;
+  const actes = (d.actes||[]).length
+    ? `<table><thead><tr><th>Acte</th><th>Duree</th></tr></thead><tbody>`
+      + d.actes.map(a=>`<tr><td>${esc(a.acte)}</td><td>${dureeLongue(a.duree_ms)}</td></tr>`).join('')
+      + `</tbody></table>`
+    : `<div class="state" style="padding:18px">Pas assez de resolutions pour decouper les actes.</div>`;
+
+  const bloc = d.plus_bloquante
+    ? `<div class="scard"><strong>Enigme ${d.plus_bloquante.enigme+1}</strong>
+         ${d.plus_bloquante.titre?`<div style="font-size:.8rem;color:var(--dim);margin:4px 0">${esc(d.plus_bloquante.titre)}</div>`:''}
+         <div class="stat"><span>Temps passe dessus</span><b>${dureeLongue(d.plus_bloquante.duree_ms)}</b></div>
+       </div>`
+    : `<div class="state" style="padding:18px">Aucune.</div>`;
+
+  const indices = (d.indices||[]).length
+    ? `<ul style="margin:0;padding-left:18px;font-size:.85rem;line-height:1.7">`
+      + d.indices.map(i=>`<li>Enigme ${i.enigme+1}${i.titre?` — <span style="color:var(--dim)">${esc(i.titre)}</span>`:''}</li>`).join('')
+      + `</ul>`
+    : `<div style="color:var(--dim);font-size:.85rem">Aucun indice utilise. Beau parcours.</div>`;
+
+  const moments = (d.moments||[]).slice().reverse().slice(0,40).map(a=>{
+    const h=new Date(a.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const cls = a.type==='organisateur'?'orga':a.type==='resolue'?'ok':(a.type==='proposition'&&a.reussie===false)?'ko':'';
+    return `<div class="filrow ${cls}"><span class="h">${h}</span><span>${esc(phraseFil(a))}</span></div>`;
+  }).join('');
+
+  $('db-contenu').innerHTML = `
+    <h2 style="margin-bottom:4px">${esc(d.nom)}</h2>
+    <div class="sub">${esc(d.jeu)} — ${d.mode==='equipe'?`equipe de ${d.membres.length} : ${esc(d.membres.join(', '))}`:'partie solo'}</div>
+    <div class="dbgrid" style="margin-top:18px">
+      ${stat(dureeLongue(d.duree_ms),'Temps total')}
+      ${stat(`${d.resolues}/${d.total_enigmes}`,'Enigmes resolues')}
+      ${stat((d.indices||[]).length,'Indices utilises')}
+      ${stat(d.propositions_ratees||0,'Reponses ratees')}
+      ${stat(d.termine?'Oui':'Non','Termine')}
+    </div>
+    <div class="dbsec"><h3>Temps par acte</h3>${actes}</div>
+    <div class="dbsec"><h3>La plus coriace</h3>${bloc}</div>
+    <div class="dbsec"><h3>Indices</h3>${indices}</div>
+    <div class="dbsec"><h3>Deroule</h3>
+      <div class="filbox"><div class="fillist" style="max-height:none">${moments||'<div class="state" style="padding:18px">Rien a afficher.</div>'}</div></div>
+    </div>`;
+}
+
 // ════════ SUIVI EN DIRECT ════════
 let LIVE = [];            // equipes
 let EQ_SEL = null;        // equipe selectionnee
@@ -847,6 +974,7 @@ async function loadStats(){
     renderEngagement(r.engagement||{});
     renderOverview(r.overview||[]);
     renderBlocages(r.blocages||[]);
+    renderMauvaises(r.mauvaisesReponses||[]);
     renderThemeUsage(r.themeUsage||[]);
   } catch(e){
     $('kpis').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`;
@@ -885,7 +1013,18 @@ function renderBlocages(bl){
   if(!bl.length){ $('blocages').innerHTML='<div class="state">Pas encore de donnees de tentatives.</div>'; return; }
   $('blocages').innerHTML = `<table>
     <thead><tr><th>Jeu</th><th>Enigme</th><th>Echecs</th><th>Reussites</th><th>Taux d'echec</th></tr></thead>
-    <tbody>${bl.map(b=>`<tr><td>${esc(b.jeu)}</td><td>enigme ${b.enigme}</td><td style="color:var(--danger)"><strong>${b.echecs}</strong></td><td style="color:var(--ok)">${b.reussites}</td><td>${b.taux_echec}%</td></tr>`).join('')}</tbody></table>`;
+    <tbody>${bl.map(b=>`<tr><td>${esc(b.jeu)}</td>`
+      + `<td>enigme ${b.enigme+1}${b.titre?`<div style="font-size:.72rem;color:var(--dim)">${esc(b.titre)}</div>`:''}</td>`
+      + `<td style="color:var(--danger)"><strong>${b.echecs}</strong></td><td style="color:var(--ok)">${b.reussites}</td><td>${b.taux_echec}%</td></tr>`).join('')}</tbody></table>`;
+}
+function renderMauvaises(mr){
+  if(!mr.length){ $('mauvaises').innerHTML='<div class="state">Aucune mauvaise reponse recurrente pour l\'instant.</div>'; return; }
+  $('mauvaises').innerHTML = `<table>
+    <thead><tr><th>Jeu</th><th>Enigme</th><th>Reponse donnee</th><th>Fois</th></tr></thead>
+    <tbody>${mr.map(m=>`<tr><td>${esc(m.jeu)}</td>`
+      + `<td>enigme ${m.enigme+1}${m.titre?`<div style="font-size:.72rem;color:var(--dim)">${esc(m.titre)}</div>`:''}</td>`
+      + `<td><strong style="font-family:var(--mono)">${esc(m.reponse)}</strong></td>`
+      + `<td style="color:var(--danger)"><strong>${m.occurrences}</strong></td></tr>`).join('')}</tbody></table>`;
 }
 function renderThemeUsage(tu){
   if(!tu.length){ $('themeusage').innerHTML='<div class="state">Aucun theme.</div>'; return; }
