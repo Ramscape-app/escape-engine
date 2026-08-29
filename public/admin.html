@@ -100,6 +100,27 @@
   .scard .stat b{color:var(--text)}
   .bar{height:6px;background:var(--card2);border-radius:99px;overflow:hidden;margin-top:10px}
   .bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+  .livegrid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}
+  @media(max-width:820px){ .livegrid{grid-template-columns:1fr} }
+  .eqcard{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:13px 15px;margin-bottom:10px;cursor:pointer;transition:.15s}
+  .eqcard:hover{border-color:var(--accent)}
+  .eqcard.sel{border-color:var(--accent);background:var(--card2)}
+  .eqcard h3{font-size:.92rem;margin-bottom:3px}
+  .eqcard .meta{font-size:.72rem;color:var(--dim);display:flex;gap:10px;flex-wrap:wrap}
+  .eqcard .bloque{color:var(--danger);font-weight:600}
+  .eqbar{height:4px;background:var(--card2);border-radius:2px;margin-top:9px;overflow:hidden}
+  .eqbar i{display:block;height:100%;background:var(--accent)}
+  .filbox{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .filbox header{padding:13px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .fillist{max-height:46vh;overflow-y:auto}
+  .filrow{display:flex;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);font-size:.8rem}
+  .filrow:last-child{border-bottom:none}
+  .filrow .h{font-family:var(--mono);font-size:.66rem;color:var(--faint);flex:none}
+  .filrow.ok{color:var(--ok)} .filrow.ko{color:var(--dim)} .filrow.orga{color:var(--accent)}
+  .aidebox{padding:14px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:9px}
+  .aidebox .row{display:flex;gap:8px;flex-wrap:wrap}
+  .aidebox input,.aidebox select{flex:1;min-width:130px}
+
   .createbox{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:30px}
   .formrow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
   .formrow > div{flex:1;min-width:140px;margin:0}
@@ -138,6 +159,7 @@
       <button id="nav-accueil" class="navbtn active" onclick="setTab('accueil')">🏠 Accueil</button>
       <button id="nav-jeux" class="navbtn" onclick="setTab('jeux')">🎮 Jeux</button>
       <button id="nav-themes" class="navbtn" onclick="setTab('themes')">🎨 Thèmes</button>
+      <button id="nav-live" class="navbtn" onclick="setTab('live')">🔴 En direct</button>
       <button id="nav-joueurs" class="navbtn" onclick="setTab('joueurs')">👤 Joueurs</button>
       <button id="nav-codes" class="navbtn" onclick="setTab('codes')">🎟️ Codes</button>
       <button id="nav-biblio" class="navbtn" onclick="setTab('biblio')">📚 Bibliothèque</button>
@@ -216,6 +238,23 @@
       <div class="sub">Cliquer sur Editer pour modifier le contenu en ligne.</div>
       <div id="jeux-list"><div class="state">Chargement...</div></div>
     </div><!-- /view-jeux -->
+
+    <div id="view-live" style="display:none">
+      <div class="createbox" style="margin-bottom:20px">
+        <h2 style="margin-bottom:6px">Suivi en direct</h2>
+        <div class="hint" style="font-size:.8rem;color:var(--dim)">
+          Les equipes en cours, et depuis combien de temps chacune bute sur son enigme.
+          Tout arrive sans rechargement.
+        </div>
+      </div>
+      <div class="msg" id="live-msg"></div>
+      <div class="livegrid">
+        <div>
+          <div id="live-equipes"><div class="state">Chargement...</div></div>
+        </div>
+        <div id="live-detail"><div class="state">Choisis une equipe pour voir son fil.</div></div>
+      </div>
+    </div>
 
     <div id="view-codes" style="display:none">
       <div class="createbox">
@@ -366,11 +405,13 @@ function closeSide(){
   document.getElementById('side-overlay').classList.remove('show');
 }
 function setTab(t){
-  const sections = ['accueil','jeux','themes','joueurs','codes','biblio','stats'];
+  const sections = ['accueil','live','jeux','themes','joueurs','codes','biblio','stats'];
   sections.forEach(v=>{
     const nav = document.getElementById('nav-'+v); if(nav) nav.classList.toggle('active', t===v);
     const view = $('view-'+v); if(view) view.style.display = (t===v)?'block':'none';
   });
+  if(t==='live'){ loadLive(); abonnerConsole(); }
+  else { fermerCanalEquipe(); }
   if(t==='stats' && !statsLoaded){ loadStats(); statsLoaded = true; }
   if(t==='jeux' && !jeuxLoaded){ renderJeux(); jeuxLoaded = true; }
   if(t==='themes' && !themesLoaded){ loadThemesLib(); themesLoaded = true; }
@@ -391,6 +432,168 @@ async function loadRecap(){
     $('recap').innerHTML = `<div class="state">Recap indisponible (necessite le serveur en ligne).</div>`;
   }
 }
+// ════════ SUIVI EN DIRECT ════════
+let LIVE = [];            // equipes
+let EQ_SEL = null;        // equipe selectionnee
+let FIL_SEL = [];         // son fil
+let canalConsole = null;  // Realtime : toutes equipes
+let canalEquipe = null;   // Realtime : l'equipe ouverte
+let tickLive = null;      // rafraichit les durees affichees
+
+function dureeCourte(ms){
+  if(ms==null) return '-';
+  const s=Math.max(0,Math.floor(ms/1000));
+  if(s<60) return s+'s';
+  const m=Math.floor(s/60);
+  return m<60 ? m+' min' : Math.floor(m/60)+'h'+String(m%60).padStart(2,'0');
+}
+
+async function loadLive(){
+  const m=$('live-msg'); m.className='msg';
+  try{
+    const { equipes } = await callFn('equipes-list');
+    LIVE = equipes||[];
+    renderLive();
+    if(!tickLive) tickLive = setInterval(renderLive, 15000);  // les durees vieillissent
+  }catch(e){
+    $('live-equipes').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`;
+  }
+}
+
+function renderLive(){
+  const box=$('live-equipes'); if(!box) return;
+  const enCours = LIVE.filter(e=>e.commencee && !e.termine);
+  const autres  = LIVE.filter(e=>!e.commencee || e.termine);
+  if(!LIVE.length){ box.innerHTML=`<div class="state">Aucune equipe pour l'instant.<br>Une equipe se cree au premier joueur qui utilise un code.</div>`; return; }
+
+  const carte = (e)=>{
+    // Le chiffre qui compte : depuis quand l'equipe n'a pas progresse.
+    const bloque = e.derniere_maj ? (Date.now()-new Date(e.derniere_maj).getTime()) : null;
+    const alerte = bloque!=null && bloque > 10*60000 && !e.termine && e.commencee;
+    const pct = e.total_enigmes ? Math.round(100*e.resolues/e.total_enigmes) : 0;
+    const etat = e.termine ? '<span class="pill ok">Termine</span>'
+               : e.commencee ? `enigme ${e.enigme_courante+1}/${e.total_enigmes||'?'}`
+               : '<span class="pill">pas commence</span>';
+    return `<div class="eqcard ${EQ_SEL===e.id?'sel':''}" onclick="ouvrirEquipe('${e.id}')">
+      <h3>${esc(e.nom)}</h3>
+      <div class="meta">
+        <span>${esc(e.jeu)}</span><span>${etat}</span>
+        <span>${e.membres.length} joueur${e.membres.length>1?'s':''}</span>
+      </div>
+      ${e.commencee&&!e.termine ? `<div class="meta" style="margin-top:5px">
+        <span class="${alerte?'bloque':''}">sans progres depuis ${dureeCourte(bloque)}</span>
+      </div>`:''}
+      <div class="eqbar"><i style="width:${pct}%"></i></div>
+    </div>`;
+  };
+
+  box.innerHTML =
+    (enCours.length?`<div class="hint" style="font-size:.68rem;color:var(--faint);text-transform:uppercase;letter-spacing:1px;margin:0 0 8px">En cours</div>`+enCours.map(carte).join(''):'')
+    + (autres.length?`<div class="hint" style="font-size:.68rem;color:var(--faint);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">Autres</div>`+autres.map(carte).join(''):'');
+}
+
+async function ouvrirEquipe(id){
+  EQ_SEL = id;
+  renderLive();
+  try{
+    const { fil } = await callFn('equipe-fil?equipe_id='+encodeURIComponent(id));
+    FIL_SEL = fil||[];
+  }catch(e){ FIL_SEL=[]; }
+  renderDetail();
+  abonnerEquipeConsole(id);
+}
+
+function phraseFil(a){
+  const qui = a.type==='organisateur' ? "Organisateur" : (a.pseudo||'Un joueur');
+  const n = (a.enigme_index!=null) ? ` (enigme ${a.enigme_index+1})` : '';
+  switch(a.type){
+    case 'arrivee':      return `${qui} a rejoint l'equipe`;
+    case 'proposition':  return `${qui} a propose « ${a.contenu||'-'} » — ${a.reussie?'correct':'incorrect'}${n}`;
+    case 'resolue':      return `${qui} a resolu l'enigme${a.enigme_index!=null?' '+(a.enigme_index+1):''}`;
+    case 'indice':       return `${qui} a pris un indice${n}`;
+    case 'organisateur': return `${qui} : ${a.contenu||''}`;
+    default:             return `${qui}${n}`;
+  }
+}
+
+function renderDetail(){
+  const box=$('live-detail'); if(!box) return;
+  const e = LIVE.find(x=>x.id===EQ_SEL);
+  if(!e){ box.innerHTML=`<div class="state">Choisis une equipe pour voir son fil.</div>`; return; }
+
+  const lignes = FIL_SEL.length ? FIL_SEL.map(a=>{
+    const h=new Date(a.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const cls = a.type==='organisateur'?'orga':a.type==='resolue'?'ok':(a.type==='proposition'&&!a.reussie)?'ko':'';
+    return `<div class="filrow ${cls}"><span class="h">${h}</span><span>${esc(phraseFil(a))}</span></div>`;
+  }).join('') : `<div class="state" style="padding:24px">Rien pour l'instant.</div>`;
+
+  const opts = Array.from({length: e.total_enigmes||0}, (_,i)=>
+    `<option value="${i}">Enigme ${i+1}</option>`).join('');
+
+  box.innerHTML = `<div class="filbox">
+    <header>
+      <div><strong>${esc(e.nom)}</strong>
+        <span class="pill" style="margin-left:8px">${esc(e.membres.join(', ')||'aucun joueur')}</span></div>
+      <span class="pill">${e.resolues}/${e.total_enigmes||'?'} resolues</span>
+    </header>
+    <div class="fillist">${lignes}</div>
+    <div class="aidebox">
+      <div class="row">
+        <input id="aide-msg" placeholder="Un indice, un mot a l'equipe..." maxlength="500"
+               onkeydown="if(event.key==='Enter')envoyerMessage()">
+        <button class="tog" onclick="envoyerMessage()">Envoyer</button>
+      </div>
+      <div class="row">
+        <select id="aide-enig">${opts}</select>
+        <button class="tog" onclick="debloquer()">Debloquer cette enigme</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function envoyerMessage(){
+  const inp=$('aide-msg'); const contenu=(inp.value||'').trim();
+  const m=$('live-msg'); m.className='msg';
+  if(!contenu || !EQ_SEL) return;
+  try{
+    await callFn('equipe-message',{method:'POST',body:{equipe_id:EQ_SEL,contenu}});
+    inp.value='';
+    m.textContent='Message envoye a l\'equipe.'; m.className='msg ok';
+  }catch(e){ m.textContent='Erreur : '+e.message; m.className='msg err'; }
+}
+
+async function debloquer(){
+  const e = LIVE.find(x=>x.id===EQ_SEL); if(!e) return;
+  const idx = parseInt($('aide-enig').value,10);
+  // Ce geste fait avancer une partie en cours : on nomme ce qu'on valide.
+  if(!confirm(`Valider l'enigme ${idx+1} pour l'equipe « ${e.nom} » ?\n\nTous ses joueurs avanceront immediatement.`)) return;
+  const m=$('live-msg'); m.className='msg';
+  try{
+    await callFn('equipe-debloquer',{method:'POST',body:{equipe_id:EQ_SEL,enigme_index:idx}});
+    m.textContent=`Enigme ${idx+1} debloquee pour « ${e.nom} ».`; m.className='msg ok';
+    loadLive();
+  }catch(e2){ m.textContent='Erreur : '+e2.message; m.className='msg err'; }
+}
+
+// ── Realtime : la console voit ce que voient les joueurs, en direct.
+//    Necessite les policies de migration-03-console.sql : sans elles, un admin
+//    n'est pas dans `joueurs` et ne recoit donc rien.
+function abonnerConsole(){
+  if(!sb || canalConsole) return;
+  canalConsole = sb.channel('console-parties')
+    .on('postgres_changes',{event:'*',schema:'public',table:'parties_equipe'}, ()=>loadLive())
+    .subscribe();
+}
+function abonnerEquipeConsole(id){
+  fermerCanalEquipe();
+  canalEquipe = sb.channel('console-fil-'+id)
+    .on('postgres_changes',
+        {event:'INSERT',schema:'public',table:'activite',filter:'equipe_id=eq.'+id},
+        ({new:a})=>{ FIL_SEL=[a,...FIL_SEL].slice(0,100); renderDetail(); })
+    .subscribe();
+}
+function fermerCanalEquipe(){ if(canalEquipe){ sb.removeChannel(canalEquipe); canalEquipe=null; } }
+
 function slugify(s){return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
 let slugTouched=false;
 function autoSlug(){
