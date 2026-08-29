@@ -8,6 +8,31 @@ import { adminClient, json, normaliserCode, emailJoueur } from './_auth.js';
 // le client — c'est ce qui empêche de s'inscrire sur un jeu sans en avoir le code.
 const REFUS = "Code invalide, désactivé ou expiré.";
 
+// Un code d'invitation = une équipe. `equipes.code` est unique, donc la première
+// inscription crée l'équipe et les suivantes la retrouvent.
+// En cas d'échec on renvoie null plutôt que de refuser l'inscription : mieux vaut
+// un joueur en solo qu'un joueur qui ne peut pas entrer.
+async function trouverOuCreerEquipe(sb, c) {
+  try {
+    const { data: existante } = await sb.from('equipes')
+      .select('id').eq('code', c.code).maybeSingle();
+    if (existante) return existante.id;
+
+    const { data: creee, error } = await sb.from('equipes')
+      .insert({ code: c.code, jeu_id: c.jeu.id, nom: c.label || null })
+      .select('id').single();
+    if (!error && creee) return creee.id;
+
+    // Course entre deux inscriptions simultanées : l'unicité de `code` a joué,
+    // l'équipe existe donc désormais.
+    const { data: rattrapee } = await sb.from('equipes')
+      .select('id').eq('code', c.code).maybeSingle();
+    return rattrapee ? rattrapee.id : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 export default async (req) => {
   if (req.method !== 'POST') return json({ error: 'Méthode non autorisée' }, 405);
 
@@ -28,7 +53,7 @@ export default async (req) => {
 
   // 2) Le code, et le jeu qu'il ouvre
   const { data: c, error: eCode } = await sb.from('codes')
-    .select('code, actif, max_joueurs, expire_le, jeu:jeux(id, slug, name, statut)')
+    .select('code, actif, label, max_joueurs, expire_le, jeu:jeux(id, slug, name, statut)')
     .eq('code', code).maybeSingle();
   if (eCode) return json({ error: 'Inscription impossible pour le moment.' }, 500);
   if (!c || !c.jeu) return json({ error: REFUS }, 404);
@@ -68,16 +93,28 @@ export default async (req) => {
   });
   if (eUser) return json({ error: eUser.message }, 400);
 
-  // 8) Le profil. En cas d'échec on supprime le compte : sans ce retour arrière,
+  // 8) L'équipe : un code = une équipe. La première inscription la crée, les
+  //    suivantes la rejoignent. Réservé au serveur — le navigateur n'a aucune
+  //    policy d'insertion sur `equipes`.
+  const equipeId = await trouverOuCreerEquipe(sb, c);
+
+  // 9) Le profil. En cas d'échec on supprime le compte : sans ce retour arrière,
   //    le joueur se retrouvait avec un compte sans profil, incapable de se
   //    réinscrire (« pseudo déjà pris ») comme de jouer.
   const { error: eProfil } = await sb.from('joueurs').insert({
     id: created.user.id, pseudo, jeu_id: c.jeu.id,
-    code_utilise: c.code, actif: true,
+    code_utilise: c.code, actif: true, equipe_id: equipeId,
   });
   if (eProfil) {
     await sb.auth.admin.deleteUser(created.user.id).catch(() => {});
     return json({ error: eProfil.message }, 500);
+  }
+
+  // 10) Annoncer l'arrivée aux coéquipiers déjà connectés.
+  if (equipeId) {
+    await sb.from('activite').insert({
+      equipe_id: equipeId, joueur_id: created.user.id, pseudo, type: 'arrivee',
+    }).then(() => {}, () => {});   // le fil est un confort : son échec ne bloque rien
   }
 
   return json({ ok: true, slug: c.jeu.slug });

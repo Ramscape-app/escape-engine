@@ -732,19 +732,22 @@ function render(joueurs){
   $('count').textContent = `${joueurs.length} joueur(s) inscrit(s)`;
   if (!joueurs.length){ $('list').innerHTML = '<div class="state">Aucun joueur inscrit.</div>'; return; }
   $('list').innerHTML = `<table>
-    <thead><tr><th>Pseudo</th><th>Jeu</th><th>Progression</th><th>Inscrit le</th><th>Statut</th><th></th></tr></thead>
+    <thead><tr><th>Pseudo</th><th>Jeu</th><th>Equipe</th><th>Progression</th><th>Inscrit le</th><th>Statut</th><th></th></tr></thead>
     <tbody>${joueurs.map(rowHtml).join('')}</tbody></table>`;
 }
 function rowHtml(j){
   const p = Array.isArray(j.partie) ? j.partie[0] : j.partie;
   const prog = p ? (p.termine ? '<span class="pill ok">Termine</span>' : `enigme ${p.enigme_courante||0}`) : '<span class="pill">pas commence</span>';
   const jeu = j.jeu ? j.jeu.name : '-';
+  // Progression partagee : la ligne affichee vient de l'equipe quand il y en a une.
+  const eq = Array.isArray(j.equipe) ? j.equipe[0] : j.equipe;
+  const equipe = eq ? esc(eq.nom || eq.code) : '<span style="color:var(--dim)">solo</span>';
   const date = j.created_at ? new Date(j.created_at).toLocaleDateString('fr-FR') : '';
   const inactif = (j.actif === false);
   const statut = inactif ? '<span class="pill off">Desactive</span>' : '<span class="pill ok">Actif</span>';
   const toggleLabel = inactif ? 'Reactiver' : 'Desactiver';
   const rowStyle = inactif ? ' style="opacity:.5"' : '';
-  return `<tr${rowStyle}><td><strong>${esc(j.pseudo)}</strong></td><td>${esc(jeu)}</td><td>${prog}</td><td>${date}</td><td>${statut}</td>`
+  return `<tr${rowStyle}><td><strong>${esc(j.pseudo)}</strong></td><td>${esc(jeu)}</td><td>${equipe}</td><td>${prog}</td><td>${date}</td><td>${statut}</td>`
     + `<td style="text-align:right;white-space:nowrap">`
     + `<button class="tog" onclick="basculer('${j.id}','${esc(j.pseudo)}',${inactif})">${toggleLabel}</button> `
     + `<button class="tog" onclick="resetMdp('${j.id}','${esc(j.pseudo)}')">Reset mdp</button> `

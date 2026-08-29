@@ -204,6 +204,60 @@ html, body {
   display: flex; align-items: center; gap: 8px;
 }
 .act-title .act-line { flex: 1; height: 1px; background: linear-gradient(90deg, var(--text-dim), transparent); }
+/* ── Fil d'équipe ── */
+.fil-btn {
+  position: absolute; top: 0; right: 0;
+  background: none; border: 1px solid var(--border); color: var(--text-dim);
+  font-family: var(--font-mono); font-size: .6rem; letter-spacing: 1px;
+  padding: 5px 9px; border-radius: 6px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.fil-btn:hover { color: var(--text); border-color: var(--accent); }
+.fil-badge {
+  background: var(--accent); color: var(--bg-deep);
+  min-width: 16px; height: 16px; border-radius: 8px;
+  font-size: .58rem; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
+}
+.hub-header { position: relative; }
+
+.fil-panel {
+  position: fixed; inset: auto 0 0 0; z-index: 60;
+  max-height: 70vh; display: flex; flex-direction: column;
+  background: var(--bg-card); border-top: 1px solid var(--border);
+  transform: translateY(100%); transition: transform .25s ease;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.fil-panel.open { transform: translateY(0); }
+.fil-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: .62rem; letter-spacing: 1.5px; color: var(--text-dim);
+}
+.fil-head button { background: none; border: none; color: var(--text-dim); font-size: 1rem; cursor: pointer; padding: 4px 8px; }
+.fil-list { overflow-y: auto; padding: 6px 0 14px; }
+.fil-item {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 9px 16px; font-size: .82rem; color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.fil-item:last-child { border-bottom: none; }
+.fil-item.ok { color: var(--success); }
+.fil-item.ko { color: var(--text-dim); }
+.fil-h { font-family: var(--font-mono); font-size: .62rem; color: var(--text-dim); flex: none; }
+.fil-vide { padding: 26px 16px; text-align: center; color: var(--text-dim); font-size: .8rem; }
+
+/* Bandeau : l'information passe même quand le fil est fermé. */
+.fil-toast {
+  position: fixed; left: 50%; transform: translate(-50%, -20px); z-index: 70;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  max-width: min(92vw, 420px);
+  background: var(--bg-panel); border: 1px solid var(--accent); color: var(--text);
+  border-radius: 8px; padding: 9px 14px; font-size: .8rem;
+  opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+}
+.fil-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
 .vic-time {
   font-family: var(--font-mono); font-size: .8rem; letter-spacing: 1px;
   color: var(--text-dim); margin-top: 10px;
@@ -942,6 +996,7 @@ html, body {
 <div id="hub-screen" class="screen">
   <div class="hub-header">
     <button class="profile-btn" onclick="showPlayerHome()">↩ Profil</button>
+    <button class="fil-btn" id="fil-btn" onclick="ouvrirFil()" style="display:none">Équipe <span class="fil-badge" id="fil-badge" style="display:none">0</span></button>
     <div class="codename">/// PROJET 1986 ///</div>
     <div class="chrono" id="chrono" style="display:none"><span id="chrono-label">TEMPS</span> <span id="chrono-value">--:--</span></div>
     <div class="progress-label">PROGRESSION : <span id="progress-text">0/17</span></div>
@@ -1042,6 +1097,16 @@ html, body {
   <div style="margin-top:30px;">
     <button class="btn-primary" onclick="resetGame()">REJOUER</button>
   </div>
+</div>
+
+<!-- FIL D'ÉQUIPE -->
+<div class="fil-toast" id="fil-toast"></div>
+<div class="fil-panel" id="fil-panel">
+  <div class="fil-head">
+    <span>ACTIVITÉ DE L'ÉQUIPE</span>
+    <button onclick="fermerFil()" aria-label="Fermer">✕</button>
+  </div>
+  <div class="fil-list" id="fil-list"></div>
 </div>
 
 <!-- AUDIO ELEMENTS (hidden) -->
@@ -1733,6 +1798,7 @@ function assetUrl(p) {
   }
 })();
 let JOUEUR_ID = null, JEU_ID = null;   // remplis par le verrou (authGuard)
+let EQUIPE_ID = null;                  // null = ce joueur joue seul
 let PSEUDO = '', GAME_NAME = '';        // pour l'écran d'accueil joueur
 
 function gameSlugFromURL() {
@@ -1812,7 +1878,7 @@ async function authGuard() {
   // Connecté : est-il rattaché à ce jeu ?
   const { data, error } = await SB
     .from('joueurs')
-    .select('jeu_id, pseudo, actif, jeu:jeux(slug)')
+    .select('jeu_id, pseudo, actif, equipe_id, jeu:jeux(slug)')
     .eq('id', session.user.id)
     .maybeSingle();
   if (error || !data || !data.jeu || data.jeu.slug !== slug) {
@@ -1829,6 +1895,7 @@ async function authGuard() {
   JOUEUR_ID = session.user.id;          // pour la progression (phase 3)
   JEU_ID = data.jeu_id;
   PSEUDO = data.pseudo || '';
+  EQUIPE_ID = data.equipe_id || null;   // null = mode solo (comptes d'avant les équipes)
   return true;                          // connecté ET autorisé
 }
 
@@ -1937,21 +2004,32 @@ function saveState() {
   try { localStorage.setItem(stateKey(), JSON.stringify(STATE)); } catch(e) {}
   syncToSupabase();
 }
-// ── Progression Supabase (phase 3) ──
+// ── Progression Supabase ──
+// Deux modes : en équipe la progression vit dans `parties_equipe` et se partage,
+// sinon dans `parties` exactement comme avant. Les comptes créés avant les
+// équipes n'ont pas d'equipe_id et restent donc en solo, sans rien changer.
 function syncToSupabase() {
   if (!SB || !JOUEUR_ID || !JEU_ID) return;
-  SB.from('parties').upsert({
-    joueur_id: JOUEUR_ID, jeu_id: JEU_ID,
+  const commun = {
     enigme_courante: STATE.currentEnigma,
     resolues: STATE.solved, indices_utilises: STATE.hintUsed,
     termine: STATE.solved.length >= TOTAL, updated_at: new Date().toISOString()
-  }, { onConflict: 'joueur_id,jeu_id' }).then(({ error }) => { if (error) console.log('sync', error); });
+  };
+  const req = EQUIPE_ID
+    ? SB.from('parties_equipe').upsert({ equipe_id: EQUIPE_ID, jeu_id: JEU_ID, ...commun },
+        { onConflict: 'equipe_id,jeu_id' })
+    : SB.from('parties').upsert({ joueur_id: JOUEUR_ID, jeu_id: JEU_ID, ...commun },
+        { onConflict: 'joueur_id,jeu_id' });
+  req.then(({ error }) => { if (error) console.log('sync', error); });
 }
 async function loadProgress() {
   if (!SB || !JOUEUR_ID || !JEU_ID) return;
-  const { data } = await SB.from('parties')
-    .select('enigme_courante, resolues, indices_utilises')
-    .eq('joueur_id', JOUEUR_ID).eq('jeu_id', JEU_ID).maybeSingle();
+  const q = EQUIPE_ID
+    ? SB.from('parties_equipe').select('enigme_courante, resolues, indices_utilises')
+        .eq('equipe_id', EQUIPE_ID).eq('jeu_id', JEU_ID)
+    : SB.from('parties').select('enigme_courante, resolues, indices_utilises')
+        .eq('joueur_id', JOUEUR_ID).eq('jeu_id', JEU_ID);
+  const { data } = await q.maybeSingle();
   if (data) {
     STATE.currentEnigma = data.enigme_courante || 0;
     STATE.solved = Array.isArray(data.resolues) ? data.resolues : [];
@@ -1968,7 +2046,18 @@ async function loadProgress() {
 function logTentative(idx, reussie, reponse = null) {
   if (!SB || !JOUEUR_ID || !JEU_ID) return;
   SB.from('tentatives').insert({ joueur_id: JOUEUR_ID, jeu_id: JEU_ID, enigme_index: idx, reussie: !!reussie, reponse }).then(()=>{});
+  logActivite('proposition', { enigme_index: idx, contenu: reponse, reussie: !!reussie });
 }
+// Fil d'équipe : chaque geste y laisse une trace attribuée, pour que la partie
+// n'avance jamais sans que les coéquipiers sachent ce qui s'est passé.
+// Sans équipe, ces appels ne font rien.
+function logActivite(type, champs = {}) {
+  if (!SB || !EQUIPE_ID || !JOUEUR_ID) return;
+  SB.from('activite').insert({
+    equipe_id: EQUIPE_ID, joueur_id: JOUEUR_ID, pseudo: PSEUDO, type, ...champs
+  }).then(() => {}, () => {});   // confort : un échec ici ne doit pas gêner le jeu
+}
+
 function logEvent(type, enigmeIndex = null) {
   if (!SB || !JOUEUR_ID || !JEU_ID) return;
   SB.from('evenements').insert({ joueur_id: JOUEUR_ID, jeu_id: JEU_ID, type, enigme_index: enigmeIndex }).then(()=>{});
@@ -2038,6 +2127,107 @@ function enterGame() {
 async function playerLogout() {
   if (SB) { try { await SB.auth.signOut(); } catch(e){} }
   location.href = 'rejoindre.html';
+}
+
+// ═══════════════════════ ÉQUIPE (temps réel) ═══════════════════════
+// Deux abonnements : le fil d'activité pour savoir QUI a fait QUOI, et la
+// progression partagée pour que l'avancée d'un coéquipier se répercute ici.
+let FIL = [];                 // dernières entrées du fil, plus récentes en tête
+let canalEquipe = null;
+
+function nomAuteur(a) {
+  if (a.type === 'organisateur') return "L'organisateur";
+  if (a.joueur_id === JOUEUR_ID) return 'Tu';
+  return a.pseudo || 'Un coéquipier';
+}
+const aOuAs = (qui) => (qui === 'Tu' ? 'as' : 'a');
+
+// Une ligne de fil en français, à la personne qui l'a produite.
+function phraseActivite(a) {
+  const qui = nomAuteur(a);
+  const n = (a.enigme_index != null) ? ` (énigme ${a.enigme_index + 1})` : '';
+  switch (a.type) {
+    case 'arrivee':     return `${qui} ${aOuAs(qui)} rejoint l'équipe`;
+    case 'proposition': return `${qui} ${aOuAs(qui)} proposé « ${a.contenu || '—'} » — ${a.reussie ? 'correct' : 'incorrect'}${n}`;
+    case 'resolue':     return `${qui} ${aOuAs(qui)} résolu l'énigme${a.enigme_index != null ? ' ' + (a.enigme_index + 1) : ''}`;
+    case 'indice':      return `${qui} ${aOuAs(qui)} pris un indice${n}`;
+    case 'organisateur':return `${qui} : ${a.contenu || ''}`;
+    default:            return `${qui}${n}`;
+  }
+}
+
+async function chargerFil() {
+  if (!SB || !EQUIPE_ID) return;
+  const { data } = await SB.from('activite')
+    .select('id, joueur_id, pseudo, type, enigme_index, contenu, reussie, created_at')
+    .eq('equipe_id', EQUIPE_ID)
+    .order('created_at', { ascending: false }).limit(40);
+  FIL = data || [];
+  renderFil();
+}
+
+function renderFil() {
+  const box = document.getElementById('fil-list');
+  if (!box) return;
+  if (!FIL.length) { box.innerHTML = `<div class="fil-vide">Rien pour l'instant. Les actions de l'équipe s'afficheront ici.</div>`; return; }
+  box.innerHTML = FIL.map(a => {
+    const h = new Date(a.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const cls = a.type === 'resolue' ? 'ok' : (a.type === 'proposition' && !a.reussie) ? 'ko' : '';
+    return `<div class="fil-item ${cls}"><span class="fil-h">${h}</span><span>${escHtml(phraseActivite(a))}</span></div>`;
+  }).join('');
+}
+
+function ouvrirFil()  { const p = document.getElementById('fil-panel'); if (p) { p.classList.add('open'); marquerFilLu(); } }
+function fermerFil()  { const p = document.getElementById('fil-panel'); if (p) p.classList.remove('open'); }
+let filNonLus = 0;
+function marquerFilLu() { filNonLus = 0; majPastilleFil(); }
+function majPastilleFil() {
+  const b = document.getElementById('fil-badge');
+  if (!b) return;
+  b.textContent = filNonLus > 9 ? '9+' : String(filNonLus);
+  b.style.display = filNonLus ? 'inline-flex' : 'none';
+}
+
+// Bandeau discret quand un coéquipier agit, pour ne pas manquer l'information
+// même sans ouvrir le fil.
+function annoncerActivite(a) {
+  if (a.joueur_id === JOUEUR_ID) return;      // pas d'écho de ses propres gestes
+  const el = document.getElementById('fil-toast');
+  if (!el) return;
+  el.textContent = phraseActivite(a);
+  el.classList.add('show');
+  clearTimeout(annoncerActivite._t);
+  annoncerActivite._t = setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+function abonnerEquipe() {
+  if (!SB || !EQUIPE_ID || canalEquipe) return;
+  canalEquipe = SB.channel('equipe:' + EQUIPE_ID)
+    .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'activite', filter: 'equipe_id=eq.' + EQUIPE_ID },
+        ({ new: a }) => {
+          FIL = [a, ...FIL].slice(0, 40);
+          renderFil();
+          if (a.joueur_id !== JOUEUR_ID) { filNonLus++; majPastilleFil(); }
+          annoncerActivite(a);
+        })
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'parties_equipe', filter: 'equipe_id=eq.' + EQUIPE_ID },
+        ({ new: p }) => {
+          if (!p || p.jeu_id !== JEU_ID) return;
+          // Un coéquipier a fait avancer la partie : on se recale sans écraser
+          // ce qu'on a résolu de son côté au même instant.
+          const distant = Array.isArray(p.resolues) ? p.resolues : [];
+          const fusion = Array.from(new Set([...STATE.solved, ...distant])).filter(i => i >= 0 && i < TOTAL);
+          const avance = fusion.length !== STATE.solved.length || (p.enigme_courante || 0) > STATE.currentEnigma;
+          if (!avance) return;
+          STATE.solved = fusion;
+          STATE.currentEnigma = Math.max(STATE.currentEnigma, p.enigme_courante || 0);
+          STATE.hintUsed = Array.isArray(p.indices_utilises) ? p.indices_utilises : STATE.hintUsed;
+          try { localStorage.setItem(stateKey(), JSON.stringify(STATE)); } catch(e) {}
+          if (document.getElementById('hub-screen').classList.contains('active')) renderHub();
+        })
+    .subscribe();
 }
 
 // ═══════════════════════ AUDIO ═══════════════════════
@@ -3505,8 +3695,8 @@ function renderKeypad(container, idx) {
   function pressKey(d) { if(entered.length>=4)return; entered+=d; playKeyBeep(entered[entered.length-1]===code[entered.length-1]); updateDisplay(); }
   function submitCode() {
     const feedback=document.getElementById('feedback');
-    if (entered===code) { feedback.className='feedback-msg success'; feedback.textContent='✓ CODE ACCEPTÉ'; playSuccess(); setTimeout(()=>solveEnigma(idx),1000); }
-    else { feedback.className='feedback-msg error'; feedback.textContent='✗ CODE INCORRECT'; playError(); entered=''; updateDisplay(); setTimeout(()=>{feedback.className='feedback-msg';},2000); }
+    if (entered===code) { logTentative(idx, true, entered); feedback.className='feedback-msg success'; feedback.textContent='✓ CODE ACCEPTÉ'; playSuccess(); setTimeout(()=>solveEnigma(idx),1000); }
+    else { logTentative(idx, false, entered); feedback.className='feedback-msg error'; feedback.textContent='✗ CODE INCORRECT'; playError(); entered=''; updateDisplay(); setTimeout(()=>{feedback.className='feedback-msg';},2000); }
   }
 }
 
@@ -3567,6 +3757,7 @@ function solveEnigma(idx) {
     STATE.currentEnigma = Math.max(STATE.currentEnigma, idx + 1);
     saveState();
     logEvent('resolue', idx);
+    logActivite('resolue', { enigme_index: idx });
   }
   stopCurrentAudio();
   stopTorch();
@@ -3609,7 +3800,10 @@ function afficherTempsFinal() {
 // ═══════════════════════ HINT ═══════════════════════
 function showHint() {
   const idx = window._currentIdx;
-  if (!STATE.hintUsed.includes(idx)) { STATE.hintUsed.push(idx); saveState(); logEvent('indice', idx); }
+  if (!STATE.hintUsed.includes(idx)) {
+    STATE.hintUsed.push(idx); saveState(); logEvent('indice', idx);
+    logActivite('indice', { enigme_index: idx });
+  }
   document.getElementById('hint-btn').style.display = 'none';
   const body = document.getElementById('enigma-body');
   const hint = document.createElement('div');
@@ -3627,6 +3821,8 @@ function resetGame() {
   saveState();
   location.reload();
 }
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fermerFil(); });
 
 // ═══════════════════════ PWA INSTALL ═══════════════════════
 let deferredPrompt = null;
@@ -3715,6 +3911,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
   await loadProgress();                 // récupère la progression sauvegardée en base
   await loadGameStart();                // origine du chrono (événement 'debut' en base)
+  if (EQUIPE_ID) {                      // mode équipe : fil partagé et temps réel
+    document.getElementById('fil-btn').style.display = 'inline-flex';
+    await chargerFil();
+    abonnerEquipe();
+  }
   applyIntro();                         // applique les textes/visuels d'intro personnalisés
   clearTimeout(revealTimer);
   document.body.classList.remove('theme-booting');  // thème appliqué : on révèle

@@ -63,7 +63,10 @@ reste utilisable : `index.html` retombe sur la configuration embarquée.
 | Table | Colonnes utilisées par le code |
 |-------|-------------------------------|
 | `jeux` | `id`, `slug`, `name`, `client`, `note`, `version`, `theme_id`, `branding`, `enigmas`, `acts`, `act_boundaries`, `intro`, `reglages`, `statut`, `updated_at` |
-| `joueurs` | `id` (= uid auth), `pseudo`, `jeu_id`, `actif`, `code_utilise`, `created_at` |
+| `joueurs` | `id` (= uid auth), `pseudo`, `jeu_id`, `actif`, `code_utilise`, `equipe_id`, `created_at` |
+| `equipes` | `id`, `code` (unique → `codes.code`), `jeu_id`, `nom`, `created_at` |
+| `parties_equipe` | La progression partagée, même forme que `parties` mais portée par l'équipe — unicité sur (`equipe_id`, `jeu_id`) |
+| `activite` | Le fil : `equipe_id`, `joueur_id`, `pseudo`, `type`, `enigme_index`, `contenu`, `reussie`, `created_at` |
 | `parties` | `joueur_id`, `jeu_id`, `enigme_courante`, `resolues`, `indices_utilises`, `termine`, `updated_at` — unicité sur (`joueur_id`, `jeu_id`) |
 | `tentatives` | `joueur_id`, `jeu_id`, `enigme_index`, `reussie`, `reponse` |
 | `evenements` | `joueur_id`, `jeu_id`, `type`, `enigme_index`, `created_at` |
@@ -106,6 +109,26 @@ La table `jeux` porte la colonne `enigmas`, c'est-à-dire les énigmes **avec le
 réponses**. Une policy RLS ne sait pas filtrer par colonne : c'est pourquoi le catalogue
 et l'aperçu du nom de jeu passent par cette fonction plutôt que de lire la table
 directement. Ne jamais élargir `CHAMPS` sans se demander ce qui devient public.
+
+## Jeu en équipe
+
+**Un code d'invitation = une équipe.** `codes.label` la nomme, `codes.max_joueurs` la
+plafonne ; le joueur n'a rien de plus à saisir. `rejoindre.js` crée l'équipe à la
+première inscription et y rattache les suivantes — le navigateur n'a aucune policy
+d'insertion sur `equipes`.
+
+`joueurs.equipe_id` à `NULL` signifie **mode solo** : la progression reste dans
+`parties`, exactement comme avant. C'est le cas de tous les comptes créés avant les
+équipes, et c'est ce qui tourne sur `main`. `parties` n'a pas été modifiée.
+
+En équipe, la progression vit dans `parties_equipe` et chaque geste laisse une trace
+attribuée dans `activite` : qui a proposé quoi, ce que ça valait, qui a résolu, qui a
+pris un indice. Le moteur s'abonne aux deux tables en Realtime (`abonnerEquipe()`), si
+bien qu'une résolution se répercute chez les coéquipiers sans rechargement, avec un
+bandeau et un fil consultable depuis le hub.
+
+Ajouter une table au fil suppose de l'ajouter à la publication `supabase_realtime` —
+sans quoi l'abonnement ne reçoit rien (voir `supabase/migration-02-equipes.sql`).
 
 ## Chrono
 
