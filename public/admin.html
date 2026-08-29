@@ -483,16 +483,10 @@ function dureeLongue(ms){
 
 async function loadDebriefListe(){
   try{
-    const [{ equipes }, { joueurs }] = await Promise.all([
-      callFn('equipes-list'), callFn('joueurs-list')
-    ]);
-    // Les equipes d'abord : c'est ce qu'on debriefe le plus souvent.
-    const opts = [
-      ...(equipes||[]).filter(e=>e.commencee)
-        .map(e=>`<option value="e:${e.id}">Equipe — ${esc(e.nom)} (${esc(e.jeu)})</option>`),
-      ...(joueurs||[]).filter(j=>!j.equipe_id && j.partie)
-        .map(j=>`<option value="j:${j.id}">Solo — ${esc(j.pseudo)}</option>`),
-    ];
+    const { participants } = await callFn('suivi-list');
+    const opts = (participants||[]).filter(p=>p.commencee).map(p=>
+      `<option value="${p.type==='equipe'?'e':'j'}:${p.id}">`
+      + `${p.type==='equipe'?'Equipe':'Solo'} — ${esc(p.nom)} (${esc(p.jeu)})</option>`);
     $('db-choix').innerHTML = opts.length ? opts.join('')
       : '<option value="">Aucune partie commencee</option>';
   }catch(e){
@@ -560,8 +554,8 @@ function renderDebrief(d){
 }
 
 // ════════ SUIVI EN DIRECT ════════
-let LIVE = [];            // equipes
-let EQ_SEL = null;        // equipe selectionnee
+let LIVE = [];            // equipes ET joueurs solo
+let SEL = null;           // { type:'equipe'|'solo', id } selectionne
 let FIL_SEL = [];         // son fil
 let canalConsole = null;  // Realtime : toutes equipes
 let canalEquipe = null;   // Realtime : l'equipe ouverte
@@ -578,8 +572,8 @@ function dureeCourte(ms){
 async function loadLive(){
   const m=$('live-msg'); m.className='msg';
   try{
-    const { equipes } = await callFn('equipes-list');
-    LIVE = equipes||[];
+    const { participants } = await callFn('suivi-list');
+    LIVE = participants||[];
     renderLive();
     if(!tickLive) tickLive = setInterval(renderLive, 15000);  // les durees vieillissent
   }catch(e){
@@ -587,11 +581,16 @@ async function loadLive(){
   }
 }
 
+// Un solo et une equipe se pilotent pareil : seul le parametre change.
+function paramCible(p){ return (p.type==='equipe'?'equipe_id=':'joueur_id=')+encodeURIComponent(p.id); }
+function corpsCible(p){ return p.type==='equipe' ? {equipe_id:p.id} : {joueur_id:p.id}; }
+function estSel(p){ return SEL && SEL.type===p.type && SEL.id===p.id; }
+
 function renderLive(){
   const box=$('live-equipes'); if(!box) return;
   const enCours = LIVE.filter(e=>e.commencee && !e.termine);
   const autres  = LIVE.filter(e=>!e.commencee || e.termine);
-  if(!LIVE.length){ box.innerHTML=`<div class="state">Aucune equipe pour l'instant.<br>Une equipe se cree au premier joueur qui utilise un code.</div>`; return; }
+  if(!LIVE.length){ box.innerHTML=`<div class="state">Personne pour l'instant.<br>Equipes et joueurs seuls apparaitront ici des leur inscription.</div>`; return; }
 
   const carte = (e)=>{
     // Le chiffre qui compte : depuis quand l'equipe n'a pas progresse.
@@ -601,11 +600,11 @@ function renderLive(){
     const etat = e.termine ? '<span class="pill ok">Termine</span>'
                : e.commencee ? `enigme ${e.enigme_courante+1}/${e.total_enigmes||'?'}`
                : '<span class="pill">pas commence</span>';
-    return `<div class="eqcard ${EQ_SEL===e.id?'sel':''}" onclick="ouvrirEquipe('${e.id}')">
-      <h3>${esc(e.nom)}</h3>
+    return `<div class="eqcard ${estSel(e)?'sel':''}" onclick="ouvrirCible('${e.type}','${e.id}')">
+      <h3>${esc(e.nom)} ${e.type==='solo'?'<span class="pill">solo</span>':''}</h3>
       <div class="meta">
         <span>${esc(e.jeu)}</span><span>${etat}</span>
-        <span>${e.membres.length} joueur${e.membres.length>1?'s':''}</span>
+        ${e.type==='equipe'?`<span>${e.membres.length} joueur${e.membres.length>1?'s':''}</span>`:''}
       </div>
       ${e.commencee&&!e.termine ? `<div class="meta" style="margin-top:5px">
         <span class="${alerte?'bloque':''}">sans progres depuis ${dureeCourte(bloque)}</span>
@@ -619,15 +618,16 @@ function renderLive(){
     + (autres.length?`<div class="hint" style="font-size:.68rem;color:var(--faint);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">Autres</div>`+autres.map(carte).join(''):'');
 }
 
-async function ouvrirEquipe(id){
-  EQ_SEL = id;
+async function ouvrirCible(type,id){
+  SEL = { type, id };
   renderLive();
+  const p = LIVE.find(x=>x.type===type && x.id===id);
   try{
-    const { fil } = await callFn('equipe-fil?equipe_id='+encodeURIComponent(id));
+    const { fil } = await callFn('suivi-fil?'+paramCible(p));
     FIL_SEL = fil||[];
   }catch(e){ FIL_SEL=[]; }
   renderDetail();
-  abonnerEquipeConsole(id);
+  abonnerCibleConsole(p);
 }
 
 function phraseFil(a){
@@ -645,8 +645,8 @@ function phraseFil(a){
 
 function renderDetail(){
   const box=$('live-detail'); if(!box) return;
-  const e = LIVE.find(x=>x.id===EQ_SEL);
-  if(!e){ box.innerHTML=`<div class="state">Choisis une equipe pour voir son fil.</div>`; return; }
+  const e = SEL && LIVE.find(x=>x.type===SEL.type && x.id===SEL.id);
+  if(!e){ box.innerHTML=`<div class="state">Choisis une equipe ou un joueur pour voir son fil.</div>`; return; }
 
   const lignes = FIL_SEL.length ? FIL_SEL.map(a=>{
     const h=new Date(a.created_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
@@ -660,13 +660,13 @@ function renderDetail(){
   box.innerHTML = `<div class="filbox">
     <header>
       <div><strong>${esc(e.nom)}</strong>
-        <span class="pill" style="margin-left:8px">${esc(e.membres.join(', ')||'aucun joueur')}</span></div>
+        <span class="pill" style="margin-left:8px">${e.type==='solo'?'joue seul':esc(e.membres.join(', ')||'aucun joueur')}</span></div>
       <span class="pill">${e.resolues}/${e.total_enigmes||'?'} resolues</span>
     </header>
     <div class="fillist">${lignes}</div>
     <div class="aidebox">
       <div class="row">
-        <input id="aide-msg" placeholder="Un indice, un mot a l'equipe..." maxlength="500"
+        <input id="aide-msg" placeholder="${e.type==='solo'?'Un indice, un mot au joueur...':'Un indice, un mot a l\'equipe...'}" maxlength="500"
                onkeydown="if(event.key==='Enter')envoyerMessage()">
         <button class="tog" onclick="envoyerMessage()">Envoyer</button>
       </div>
@@ -681,25 +681,28 @@ function renderDetail(){
 async function envoyerMessage(){
   const inp=$('aide-msg'); const contenu=(inp.value||'').trim();
   const m=$('live-msg'); m.className='msg';
-  if(!contenu || !EQ_SEL) return;
+  const e = SEL && LIVE.find(x=>x.type===SEL.type && x.id===SEL.id);
+  if(!contenu || !e) return;
   try{
-    await callFn('equipe-message',{method:'POST',body:{equipe_id:EQ_SEL,contenu}});
+    await callFn('aide-message',{method:'POST',body:{...corpsCible(e),contenu}});
     inp.value='';
-    m.textContent='Message envoye a l\'equipe.'; m.className='msg ok';
-  }catch(e){ m.textContent='Erreur : '+e.message; m.className='msg err'; }
+    m.textContent=`Message envoye a « ${e.nom} ».`; m.className='msg ok';
+  }catch(err){ m.textContent='Erreur : '+err.message; m.className='msg err'; }
 }
 
 async function debloquer(){
-  const e = LIVE.find(x=>x.id===EQ_SEL); if(!e) return;
+  const e = SEL && LIVE.find(x=>x.type===SEL.type && x.id===SEL.id); if(!e) return;
   const idx = parseInt($('aide-enig').value,10);
   // Ce geste fait avancer une partie en cours : on nomme ce qu'on valide.
-  if(!confirm(`Valider l'enigme ${idx+1} pour l'equipe « ${e.nom} » ?\n\nTous ses joueurs avanceront immediatement.`)) return;
+  const qui = e.type==='solo' ? `le joueur « ${e.nom} »` : `l'equipe « ${e.nom} »`;
+  const suite = e.type==='solo' ? 'Il avancera immediatement.' : 'Tous ses joueurs avanceront immediatement.';
+  if(!confirm(`Valider l'enigme ${idx+1} pour ${qui} ?\n\n${suite}`)) return;
   const m=$('live-msg'); m.className='msg';
   try{
-    await callFn('equipe-debloquer',{method:'POST',body:{equipe_id:EQ_SEL,enigme_index:idx}});
+    await callFn('aide-debloquer',{method:'POST',body:{...corpsCible(e),enigme_index:idx}});
     m.textContent=`Enigme ${idx+1} debloquee pour « ${e.nom} ».`; m.className='msg ok';
     loadLive();
-  }catch(e2){ m.textContent='Erreur : '+e2.message; m.className='msg err'; }
+  }catch(err){ m.textContent='Erreur : '+err.message; m.className='msg err'; }
 }
 
 // ── Realtime : la console voit ce que voient les joueurs, en direct.
@@ -707,15 +710,19 @@ async function debloquer(){
 //    n'est pas dans `joueurs` et ne recoit donc rien.
 function abonnerConsole(){
   if(!sb || canalConsole) return;
+  // Les deux tables de progression : sans `parties`, une partie solo resterait figee.
   canalConsole = sb.channel('console-parties')
     .on('postgres_changes',{event:'*',schema:'public',table:'parties_equipe'}, ()=>loadLive())
+    .on('postgres_changes',{event:'*',schema:'public',table:'parties'}, ()=>loadLive())
     .subscribe();
 }
-function abonnerEquipeConsole(id){
+function abonnerCibleConsole(p){
   fermerCanalEquipe();
-  canalEquipe = sb.channel('console-fil-'+id)
+  if(!p) return;
+  const filtre = p.type==='equipe' ? 'equipe_id=eq.'+p.id : 'joueur_cible=eq.'+p.id;
+  canalEquipe = sb.channel('console-fil-'+p.id)
     .on('postgres_changes',
-        {event:'INSERT',schema:'public',table:'activite',filter:'equipe_id=eq.'+id},
+        {event:'INSERT',schema:'public',table:'activite',filter:filtre},
         ({new:a})=>{ FIL_SEL=[a,...FIL_SEL].slice(0,100); renderDetail(); })
     .subscribe();
 }

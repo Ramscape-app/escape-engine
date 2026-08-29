@@ -2052,9 +2052,13 @@ function logTentative(idx, reussie, reponse = null) {
 // n'avance jamais sans que les coéquipiers sachent ce qui s'est passé.
 // Sans équipe, ces appels ne font rien.
 function logActivite(type, champs = {}) {
-  if (!SB || !EQUIPE_ID || !JOUEUR_ID) return;
+  if (!SB || !JOUEUR_ID) return;
+  // Une entrée vise une équipe OU un joueur, jamais les deux : c'est ce que la
+  // contrainte `activite_cible` impose côté base.
+  const cible = EQUIPE_ID ? { equipe_id: EQUIPE_ID, joueur_cible: null }
+                          : { equipe_id: null, joueur_cible: JOUEUR_ID };
   SB.from('activite').insert({
-    equipe_id: EQUIPE_ID, joueur_id: JOUEUR_ID, pseudo: PSEUDO, type, ...champs
+    ...cible, joueur_id: JOUEUR_ID, pseudo: PSEUDO, type, ...champs
   }).then(() => {}, () => {});   // confort : un échec ici ne doit pas gêner le jeu
 }
 
@@ -2157,11 +2161,11 @@ function phraseActivite(a) {
 }
 
 async function chargerFil() {
-  if (!SB || !EQUIPE_ID) return;
-  const { data } = await SB.from('activite')
+  if (!SB || !JOUEUR_ID) return;
+  const q = SB.from('activite')
     .select('id, joueur_id, pseudo, type, enigme_index, contenu, reussie, created_at')
-    .eq('equipe_id', EQUIPE_ID)
     .order('created_at', { ascending: false }).limit(40);
+  const { data } = await (EQUIPE_ID ? q.eq('equipe_id', EQUIPE_ID) : q.eq('joueur_cible', JOUEUR_ID));
   FIL = data || [];
   renderFil();
 }
@@ -2191,7 +2195,9 @@ function majPastilleFil() {
 // Bandeau discret quand un coéquipier agit, pour ne pas manquer l'information
 // même sans ouvrir le fil.
 function annoncerActivite(a) {
-  if (a.joueur_id === JOUEUR_ID) return;      // pas d'écho de ses propres gestes
+  // Les gestes de l'organisateur s'annoncent toujours : ils n'ont pas d'auteur
+  // joueur, et c'est justement ce qu'il ne faut pas manquer.
+  if (a.type !== 'organisateur' && a.joueur_id === JOUEUR_ID) return;
   const el = document.getElementById('fil-toast');
   if (!el) return;
   el.textContent = phraseActivite(a);
@@ -2200,11 +2206,19 @@ function annoncerActivite(a) {
   annoncerActivite._t = setTimeout(() => el.classList.remove('show'), 4000);
 }
 
+// Un joueur seul s'abonne exactement comme une équipe : à son fil et à sa
+// progression. C'est ce qui lui permet de recevoir un indice ou un déblocage de
+// l'organisateur sans recharger la page.
 function abonnerEquipe() {
-  if (!SB || !EQUIPE_ID || canalEquipe) return;
-  canalEquipe = SB.channel('equipe:' + EQUIPE_ID)
+  if (!SB || !JOUEUR_ID || canalEquipe) return;
+  const enEquipe = !!EQUIPE_ID;
+  const filtreFil     = enEquipe ? 'equipe_id=eq.' + EQUIPE_ID : 'joueur_cible=eq.' + JOUEUR_ID;
+  const tableProgres  = enEquipe ? 'parties_equipe' : 'parties';
+  const filtreProgres = enEquipe ? 'equipe_id=eq.' + EQUIPE_ID : 'joueur_id=eq.' + JOUEUR_ID;
+
+  canalEquipe = SB.channel('suivi:' + (EQUIPE_ID || JOUEUR_ID))
     .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'activite', filter: 'equipe_id=eq.' + EQUIPE_ID },
+        { event: 'INSERT', schema: 'public', table: 'activite', filter: filtreFil },
         ({ new: a }) => {
           FIL = [a, ...FIL].slice(0, 40);
           renderFil();
@@ -2212,7 +2226,7 @@ function abonnerEquipe() {
           annoncerActivite(a);
         })
     .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'parties_equipe', filter: 'equipe_id=eq.' + EQUIPE_ID },
+        { event: '*', schema: 'public', table: tableProgres, filter: filtreProgres },
         ({ new: p }) => {
           if (!p || p.jeu_id !== JEU_ID) return;
           // Un coéquipier a fait avancer la partie : on se recale sans écraser
@@ -3911,8 +3925,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
   await loadProgress();                 // récupère la progression sauvegardée en base
   await loadGameStart();                // origine du chrono (événement 'debut' en base)
-  if (EQUIPE_ID) {                      // mode équipe : fil partagé et temps réel
-    document.getElementById('fil-btn').style.display = 'inline-flex';
+  if (SB && JOUEUR_ID) {                // équipe comme solo : fil et temps réel
+    const btn = document.getElementById('fil-btn');
+    btn.firstChild.textContent = EQUIPE_ID ? 'Équipe ' : 'Suivi ';
+    btn.style.display = 'inline-flex';
     await chargerFil();
     abonnerEquipe();
   }

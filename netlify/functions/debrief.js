@@ -133,16 +133,22 @@ async function debriefSolo(sb, joueurId) {
     .select('id, pseudo, jeu_id').eq('id', joueurId).maybeSingle();
   if (!j) return { error: 'Joueur introuvable', status: 404 };
 
-  const [jeu, evR, partR, tentR] = await Promise.all([
+  const [jeu, evR, partR, tentR, filR] = await Promise.all([
     chargerJeu(sb, j.jeu_id),
     sb.from('evenements').select('type, enigme_index, created_at')
       .eq('joueur_id', joueurId).eq('jeu_id', j.jeu_id).order('created_at', { ascending: true }),
     sb.from('parties').select('termine').eq('joueur_id', joueurId).eq('jeu_id', j.jeu_id).maybeSingle(),
     sb.from('tentatives').select('reussie').eq('joueur_id', joueurId).eq('jeu_id', j.jeu_id),
+    sb.from('activite').select('joueur_id, pseudo, type, enigme_index, contenu, reussie, created_at')
+      .eq('joueur_cible', joueurId).order('created_at', { ascending: true }),
   ]);
   if (!jeu) return { error: 'Jeu introuvable', status: 404 };
 
   const ev = evR.data || [];
+  // Le fil est plus riche que les événements (réponses tentées, messages de
+  // l'organisateur), mais il n'existe que depuis l'aide au joueur seul : les
+  // parties antérieures retombent sur `evenements`.
+  const fil = filR.data || [];
   const resolutions = ev.filter(e => e.type === 'resolue' && e.enigme_index != null);
   const indices = ev.filter(e => e.type === 'indice');
   const debut = ev.length ? new Date(ev[0].created_at).getTime() : null;
@@ -155,7 +161,7 @@ async function debriefSolo(sb, joueurId) {
     nom: j.pseudo,
     membres: [j.pseudo],
     ...synthese(jeu, debut, derniere, resolutions, indices, !!(partR.data && partR.data.termine)),
-    moments: ev.map(e => ({ ...e, pseudo: j.pseudo })).slice(-120),
+    moments: (fil.length ? fil : ev.map(e => ({ ...e, pseudo: j.pseudo }))).slice(-120),
     propositions_ratees: (tentR.data || []).filter(t => !t.reussie).length,
   };
 }

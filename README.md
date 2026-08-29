@@ -66,7 +66,7 @@ reste utilisable : `index.html` retombe sur la configuration embarquée.
 | `joueurs` | `id` (= uid auth), `pseudo`, `jeu_id`, `actif`, `code_utilise`, `equipe_id`, `created_at` |
 | `equipes` | `id`, `code` (unique → `codes.code`), `jeu_id`, `nom`, `created_at` |
 | `parties_equipe` | La progression partagée, même forme que `parties` mais portée par l'équipe — unicité sur (`equipe_id`, `jeu_id`) |
-| `activite` | Le fil : `equipe_id`, `joueur_id`, `pseudo`, `type`, `enigme_index`, `contenu`, `reussie`, `created_at` |
+| `activite` | Le fil : `equipe_id` **ou** `joueur_cible` (contrainte `activite_cible`), `joueur_id`, `pseudo`, `type`, `enigme_index`, `contenu`, `reussie`, `created_at` |
 | `parties` | `joueur_id`, `jeu_id`, `enigme_courante`, `resolues`, `indices_utilises`, `termine`, `updated_at` — unicité sur (`joueur_id`, `jeu_id`) |
 | `tentatives` | `joueur_id`, `jeu_id`, `enigme_index`, `reussie`, `reponse` |
 | `evenements` | `joueur_id`, `jeu_id`, `type`, `enigme_index`, `created_at` |
@@ -136,13 +136,24 @@ Onglet **En direct** : les équipes en cours, et surtout le **temps sans progrè
 ce chiffre qui signale un blocage, pas le temps total. Il passe en rouge au-delà de dix
 minutes. Sélectionner une équipe affiche son fil complet, alimenté en Realtime.
 
+**Équipes et joueurs seuls figurent dans la même liste** et se pilotent pareil : seule
+change la table qui porte la progression. `_suivi.js` résout la cible une fois
+(`{ equipe_id }` → `parties_equipe`, `{ joueur_id }` → `parties`) pour que les fonctions
+d'aide n'aient pas à dupliquer le branchement. Un joueur rattaché à une équipe est
+toujours aidé **via son équipe**, sinon ses coéquipiers ne verraient rien passer.
+
 Deux gestes d'aide, tous deux côté serveur :
 
-- `equipe-message` écrit une entrée `type: 'organisateur'` dans `activite`. La policy des
+- `aide-message` écrit une entrée `type: 'organisateur'` dans `activite`. La policy des
   joueurs leur interdit ce type : personne ne peut se faire passer pour l'organisateur.
-- `equipe-debloquer` écrit dans `parties_equipe`. La logique de fusion du moteur fait
-  avancer tous les téléphones de l'équipe, et le geste est tracé dans le fil pour que les
+- `aide-debloquer` écrit dans la table de progression. La logique de fusion du moteur
+  fait avancer les téléphones concernés, et le geste est tracé dans le fil pour que les
   joueurs sachent qu'il vient de l'organisateur.
+
+Côté joueur, `abonnerEquipe()` s'abonne au fil et à la progression **dans les deux
+modes** : un joueur seul reçoit donc indices et déblocages sans recharger. Cela suppose
+que `parties` soit dans la publication Realtime, ce que fait
+[`supabase/migration-05-aide-solo.sql`](supabase/migration-05-aide-solo.sql).
 
 ⚠️ Un admin est dans `admins`, **pas dans `joueurs`** : les policies de la phase 2
 l'excluent, et Realtime applique RLS par abonné. Sans
