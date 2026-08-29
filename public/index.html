@@ -1866,7 +1866,8 @@ async function loadPreview(id) {
     applyConfig(j.config);
     GAME_NAME = (j.config.meta && j.config.meta.name) || '';
     if (j.config.theme) {
-      const { data: th } = await SB.from('themes').select('id,name,colors,fonts,radius,glow,ambiance,titres').eq('id', j.config.theme).maybeSingle();
+      const { data: th, error: eTh } = await SB.from('themes').select('*').eq('id', j.config.theme).maybeSingle();
+      if (eTh) console.warn('Theme non charge :', eTh.message);   // sinon l'echec etait muet
       if (th) applyTheme(th);
     }
     return true;
@@ -1877,10 +1878,14 @@ async function loadFromSupabase(slug) {  if (!SB) return false;
   try {
     const { data, error } = await SB
       .from('jeux')
-      .select('slug,name,client,note,version,branding,enigmas,acts,act_boundaries,intro,reglages,theme:themes(id,name,colors,fonts,radius,glow,ambiance,titres)')
+      .select('slug,name,client,note,version,branding,enigmas,acts,act_boundaries,intro,reglages,theme:themes(*)')
       .eq('slug', slug).eq('statut', 'publie').single();
     if (error || !data || !Array.isArray(data.enigmas) || !data.enigmas.length) {
-      console.log('Supabase : jeu introuvable ou vide', error);
+      // Distinguer « jeu absent » d'une vraie erreur : le repli silencieux sur la
+      // configuration embarquee donnait l'impression que le theme avait saute,
+      // alors que c'est toute la requete qui echouait.
+      if (error) console.error('Supabase : chargement du jeu impossible —', error.message);
+      else console.log('Supabase : jeu introuvable ou vide (slug ' + slug + ')');
       return false;
     }
     // Reconstruit l'objet config attendu par le moteur (act_boundaries → actBoundaries)
