@@ -230,6 +230,72 @@
   .formrow > div{flex:1;min-width:140px;margin:0}
   .formrow input,.formrow select{margin:0}
 
+  /* ── Points de depart ── */
+  .presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s2);
+    margin-bottom:var(--s4)}
+  .preset{display:flex;flex-direction:column;gap:3px;text-align:left;cursor:pointer;
+    background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);
+    padding:var(--s3);color:var(--text);font-family:inherit;transition:var(--ease)}
+  .preset:hover{border-color:var(--border-hi);background:var(--surface-hi)}
+  .preset b{font-size:var(--t-sm);font-weight:600}
+  .preset .d{font-size:var(--t-micro);color:var(--dim)}
+  .preset .swatches{display:flex;gap:3px;margin-bottom:var(--s1)}
+  .preset .swatches i{width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.14)}
+
+  /* ── Lisibilite ── */
+  .ctrbox{margin-top:var(--s3);border:1px solid var(--border);border-radius:var(--r);
+    background:var(--surface-2);overflow:hidden}
+  .ctrhead{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);
+    padding:var(--s2) var(--s3);border-bottom:1px solid var(--border);
+    font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--faint)}
+  .ctr{display:flex;align-items:center;gap:var(--s3);padding:6px var(--s3);font-size:var(--t-xs)}
+  .ctr .p{width:26px;height:22px;border-radius:var(--r-sm);display:grid;place-items:center;
+    font-size:11px;flex:none;border:1px solid var(--border)}
+  .ctr .lb{flex:1;color:var(--dim)}
+  .ctr b{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .ctr .vd{width:16ch;text-align:right;color:var(--faint)}
+  .ctr.ok b{color:var(--ok)} .ctr.ko b,.ctr.ko .vd{color:var(--danger)}
+
+  /* ── Apercu du theme ──
+     Rend les vrais ecrans du jeu, avec les memes derivations que applyTheme()
+     cote moteur : un apercu qui ne correspond pas au resultat ne sert a rien. */
+  .tpv{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--s3)}
+  .tpv-screen{position:relative;overflow:hidden;border:1px solid var(--pv-bd);
+    border-radius:var(--pv-r);background:var(--pv-bg);min-height:210px;
+    font-family:var(--pv-body)}
+  .tpv-amb{position:absolute;inset:0;opacity:var(--pv-amb);pointer-events:none;
+    background:
+      radial-gradient(120% 70% at 50% -10%, var(--pv-ac), transparent 62%),
+      radial-gradient(90% 55% at 92% 105%, var(--pv-a2), transparent 66%);
+    mix-blend-mode:screen}
+  .tpv-in{position:relative;padding:var(--s4);display:flex;flex-direction:column;gap:var(--s2)}
+  .tpv-eyebrow{font-family:var(--pv-mono);font-size:9px;color:var(--pv-dim);letter-spacing:1.5px}
+  .tpv-logo{font-family:var(--pv-disp);font-size:1.25rem;color:var(--pv-ac);
+    text-shadow:0 0 14px var(--pv-glow);line-height:1.1}
+  .tpv-bar{height:4px;background:var(--pv-card);border-radius:99px;overflow:hidden}
+  .tpv-bar i{display:block;height:100%;background:var(--pv-ac);box-shadow:0 0 8px var(--pv-glow)}
+  .tpv-acte{font-family:var(--pv-disp);font-size:.66rem;color:var(--pv-dim);margin-top:var(--s1)}
+  .tpv-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .tpv-card{background:var(--pv-card);border:1px solid var(--pv-bd);border-radius:calc(var(--pv-r) * .75);
+    padding:8px 6px;text-align:center;color:var(--pv-dim)}
+  .tpv-card b{display:block;font-family:var(--pv-mono);font-size:.85rem;color:var(--pv-tx)}
+  .tpv-card span{font-size:8px;letter-spacing:.5px}
+  .tpv-card.done{border-color:var(--pv-ok)} .tpv-card.done b{color:var(--pv-ok)}
+  .tpv-card.now{border-color:var(--pv-ac);box-shadow:0 0 0 1px var(--pv-ac),0 0 14px var(--pv-glow)}
+  .tpv-card.now b{color:var(--pv-ac)}
+  .tpv-narr{font-family:var(--pv-mono);font-size:9px;color:var(--pv-ac);opacity:.85}
+  .tpv-q{font-family:var(--pv-disp);font-size:.95rem;color:var(--pv-tx);line-height:1.3}
+  .tpv-hint{font-size:.68rem;color:var(--pv-hint);border-left:2px solid var(--pv-hint);
+    padding-left:8px;line-height:1.4}
+  .tpv-input{display:flex;align-items:center;gap:6px;margin-top:auto}
+  .tpv-input span{flex:1;background:var(--pv-card);border:1px solid var(--pv-bd);
+    border-radius:calc(var(--pv-r) * .6);padding:7px 9px;font-size:.68rem;color:var(--pv-dim)}
+  .tpv-input b{background:var(--pv-ac);color:var(--pv-bg);border-radius:calc(var(--pv-r) * .6);
+    padding:7px 11px;font-size:.6rem;letter-spacing:1px}
+  .tpv-fb{display:flex;gap:10px;font-size:.62rem;font-family:var(--pv-mono)}
+  .tpv-fb .ok{color:var(--pv-ok)} .tpv-fb .ko{color:var(--pv-ko)}
+
   /* ── Themes ── */
   .themewrap{display:flex;gap:var(--s5);align-items:flex-start}
   .themelist{width:230px;flex-shrink:0}
@@ -562,22 +628,53 @@
             <div><label>Identifiant (slug)</label><input id="t-id" placeholder="cyber"></div>
             <div><label>Nom</label><input id="t-name" placeholder="Cyber"></div>
           </div>
-          <label style="margin-top:14px">Couleurs</label>
+          <div class="section-head" style="margin-top:var(--s5)">
+            <h3>Point de depart</h3>
+            <div class="sub">Une base aboutie, a affiner ensuite.</div>
+          </div>
+          <div class="presets" id="t-presets"></div>
+
+          <label style="margin-top:var(--s5)">Couleurs</label>
           <div class="colorgrid" id="t-colors"></div>
+          <div id="t-contraste"></div>
           <div class="formrow" style="margin-top:14px">
             <div><label>Police titres</label><select id="t-font-display"></select></div>
             <div><label>Police texte</label><select id="t-font-body"></select></div>
             <div><label>Police mono</label><select id="t-font-mono"></select></div>
           </div>
-          <div class="formrow" style="margin-top:14px;align-items:flex-end">
-            <div><label>Arrondi (px)</label><input id="t-radius" type="number" min="0" max="40" value="12"></div>
-            <div style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="t-glow" style="width:auto;margin:0"><label style="margin:0">Halo (glow)</label></div>
+          <div class="formrow" style="margin-top:var(--s3);align-items:flex-end">
+            <div><label>Arrondi (px)</label><input id="t-radius" type="number" min="0" max="28" value="12" oninput="updatePreview()"></div>
+            <div><label>Profondeur du fond</label><select id="t-ambiance" onchange="updatePreview()">
+              <option value="aucune">Aplat uni</option>
+              <option value="discrete" selected>Discrete</option>
+              <option value="marquee">Marquee</option>
+            </select></div>
+            <div style="display:flex;align-items:center;gap:8px;padding-bottom:10px">
+              <input type="checkbox" id="t-glow" style="width:auto;margin:0" onchange="updatePreview()">
+              <label style="margin:0">Halo (glow)</label></div>
+          </div>
+
+          <label style="margin-top:var(--s4)">Caractere des titres</label>
+          <div class="formrow">
+            <div><label>Graisse</label><select id="t-titre-poids" onchange="updatePreview()">
+              <option value="400">Normale</option><option value="600">Semi-grasse</option>
+              <option value="700" selected>Grasse</option><option value="900">Tres grasse</option>
+            </select></div>
+            <div><label>Casse</label><select id="t-titre-casse" onchange="updatePreview()">
+              <option value="none" selected>Telle quelle</option>
+              <option value="uppercase">MAJUSCULES</option>
+            </select></div>
+            <div><label>Interlettrage (px)</label>
+              <input id="t-titre-espace" type="number" min="-1" max="8" step="1" value="2" oninput="updatePreview()"></div>
           </div>
           <div style="display:flex;gap:10px;margin-top:18px">
             <button class="btn inline" onclick="saveTheme()">Enregistrer</button>
             <button class="tog" onclick="deleteTheme()">Supprimer</button>
           </div>
-          <label style="margin-top:20px">Apercu</label>
+          <div class="section-head" style="margin-top:var(--s5)">
+            <h3>Apercu</h3>
+            <div class="sub">Les vrais ecrans du jeu, pas une vignette.</div>
+          </div>
           <div id="t-preview"></div>
         </div>
       </div>
@@ -1057,7 +1154,51 @@ const FONT_OPTS = [
   ['Systeme', "system-ui, sans-serif"],
   ['Mono systeme', "ui-monospace, Menlo, Consolas, monospace"],
 ];
-const COLOR_KEYS = [['bg','Fond'],['card','Carte'],['border','Bordure'],['text','Texte'],['dim','Attenue'],['accent','Accent'],['hint','Indice'],['ok','Succes'],['danger','Erreur']];
+const COLOR_KEYS = [['bg','Fond'],['card','Carte'],['border','Bordure'],['text','Texte'],
+  ['dim','Attenue'],['accent','Accent'],['accent2','Accent 2'],['hint','Indice'],
+  ['ok','Succes'],['danger','Erreur']];
+
+// Quatre points de depart. Chaque nouveau theme partait des couleurs de « 1986 » :
+// on obtenait des variantes de la meme chose, jamais un univers different.
+const PRESETS = [
+  { id:'neon', nom:'Neon', desc:'Cyber, contraste eleve',
+    colors:{bg:'#08080f',card:'#151527',border:'#2a2a44',text:'#e6ecff',dim:'#7c85a8',
+      accent:'#00f0ff',accent2:'#b14bff',hint:'#ffd700',ok:'#00ff88',danger:'#ff3366'},
+    fonts:{display:"'Orbitron', sans-serif",body:"'Rajdhani', sans-serif",mono:"'Share Tech Mono', monospace"},
+    radius:10, glow:true, ambiance:'marquee', titres:{poids:900,casse:'uppercase',interlettrage:3} },
+  { id:'mineral', nom:'Mineral', desc:'Sobre, pierre et ardoise',
+    colors:{bg:'#12141a',card:'#1c1f27',border:'#2e323d',text:'#e8eaef',dim:'#8b9099',
+      accent:'#6ba8d6',accent2:'#4f7a9e',hint:'#d9a441',ok:'#5fb98a',danger:'#d4636f'},
+    fonts:{display:"'Inter', sans-serif",body:"'Inter', sans-serif",mono:"'Space Mono', monospace"},
+    radius:8, glow:false, ambiance:'discrete', titres:{poids:600,casse:'none',interlettrage:0} },
+  { id:'papier', nom:'Papier', desc:'Clair, enquete et archives',
+    colors:{bg:'#efe9dd',card:'#f8f4ec',border:'#d6cdbb',text:'#231f1a',dim:'#6f6558',
+      accent:'#8a5a2b',accent2:'#b8874a',hint:'#a5761f',ok:'#4a7c52',danger:'#a83a3a'},
+    fonts:{display:"'Playfair Display', serif",body:"'Inter', sans-serif",mono:"'Space Mono', monospace"},
+    radius:4, glow:false, ambiance:'aucune', titres:{poids:700,casse:'none',interlettrage:0} },
+  { id:'chaleureux', nom:'Chaleureux', desc:'Fete, ambre et velours',
+    colors:{bg:'#1a1016',card:'#26161f',border:'#3d2430',text:'#f6e9e4',dim:'#a98a92',
+      accent:'#ff9c5b',accent2:'#e0457b',hint:'#ffd48a',ok:'#6fcf97',danger:'#ff5c78'},
+    fonts:{display:"'Bebas Neue', sans-serif",body:"'Poppins', sans-serif",mono:"'Space Mono', monospace"},
+    radius:16, glow:true, ambiance:'discrete', titres:{poids:400,casse:'uppercase',interlettrage:2} },
+];
+
+// ── Contraste (WCAG 2.1) ──
+// Rien n'empechait de choisir un texte gris sur un fond gris : le jeu devenait
+// illisible sans que rien ne le signale.
+function luminance(hex){
+  const h=String(hex||'').replace('#','');
+  if(h.length!==6) return 0;
+  const v=[0,2,4].map(i=>{
+    const c=parseInt(h.slice(i,i+2),16)/255;
+    return c<=.03928 ? c/12.92 : Math.pow((c+.055)/1.055,2.4);
+  });
+  return .2126*v[0]+.7152*v[1]+.0722*v[2];
+}
+function ratio(a,b){
+  const x=luminance(a), y=luminance(b);
+  return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);
+}
 let THEMES_LIB = [];
 function themeMsg(t,c){ const m=$('theme-msg'); m.textContent=t; m.className='msg '+(c||''); }
 async function loadThemesLib(){
@@ -1088,36 +1229,133 @@ function buildFontSelects(fonts){
     sel.onchange=updatePreview;
   });
 }
+// Un seul chemin pour remplir le formulaire : edition, creation et preset.
+function remplirTheme(t){
+  buildColorInputs(t.colors||{}); buildFontSelects(t.fonts||{});
+  $('t-radius').value = (t.radius!=null ? t.radius : 12);
+  $('t-glow').checked = !!t.glow;
+  $('t-ambiance').value = t.ambiance || 'discrete';
+  const ti = t.titres || {};
+  $('t-titre-poids').value = String(ti.poids || 700);
+  $('t-titre-casse').value = ti.casse || 'none';
+  $('t-titre-espace').value = (ti.interlettrage != null ? ti.interlettrage : 2);
+  $('theme-edit').style.display='block';
+  renderPresets(); updatePreview();
+}
 function editTheme(id){
   const t=THEMES_LIB.find(x=>x.id===id); if(!t) return;
   $('t-id').value=t.id; $('t-id').disabled=true; $('t-name').value=t.name||'';
-  buildColorInputs(t.colors||{}); buildFontSelects(t.fonts||{});
-  $('t-radius').value=(t.radius!=null?t.radius:12); $('t-glow').checked=!!t.glow;
-  $('theme-edit').style.display='block'; updatePreview();
+  remplirTheme(t);
+}
+// Applique un point de depart sans ecraser l'identifiant deja saisi.
+function appliquerPreset(id){
+  const p=PRESETS.find(x=>x.id===id); if(!p) return;
+  if(!$('t-name').value.trim()) $('t-name').value = p.nom;
+  remplirTheme(p);
+}
+function renderPresets(){
+  const box=$('t-presets'); if(!box) return;
+  box.innerHTML = PRESETS.map(p=>`
+    <button class="preset" onclick="appliquerPreset('${p.id}')" type="button">
+      <span class="swatches">${['bg','card','accent','accent2','hint'].map(k=>
+        `<i style="background:${esc(p.colors[k])}"></i>`).join('')}</span>
+      <b>${esc(p.nom)}</b><span class="d">${esc(p.desc)}</span>
+    </button>`).join('');
 }
 function newTheme(){
   $('t-id').value=''; $('t-id').disabled=false; $('t-name').value='';
-  buildColorInputs({bg:'#0a0a0f',card:'#1a1a28',border:'#2a2a3a',text:'#e0e8f0',dim:'#667788',accent:'#00f0ff',hint:'#ffd700',ok:'#00ff88',danger:'#ff3366'});
-  buildFontSelects({}); $('t-radius').value=12; $('t-glow').checked=false;
-  $('theme-edit').style.display='block'; updatePreview();
+  remplirTheme(PRESETS[0]);   // un theme abouti des le depart, a affiner ensuite
 }
 function collectTheme(){
   const colors={}; COLOR_KEYS.forEach(([k])=>{ const el=$('tx-'+k); if(el) colors[k]=el.value; });
   return { id:slugify($('t-id').value), name:$('t-name').value.trim(), colors,
     fonts:{ display:$('t-font-display').value, body:$('t-font-body').value, mono:$('t-font-mono').value },
-    radius:parseInt($('t-radius').value)||12, glow:$('t-glow').checked };
+    radius:parseInt($('t-radius').value)||12, glow:$('t-glow').checked,
+    ambiance:$('t-ambiance').value,
+    titres:{ poids:parseInt($('t-titre-poids').value)||700,
+             casse:$('t-titre-casse').value,
+             interlettrage:parseInt($('t-titre-espace').value)||0 } };
 }
 function updatePreview(){
   const t=collectTheme(), c=t.colors;
-  const v = esc;                       // les couleurs et polices sont saisies librement
-  const r = parseInt(t.radius,10)||0;  // -> tout est echappe avant de partir dans un attribut
-  $('t-preview').innerHTML = `<div style="background:${v(c.bg)};border:1px solid ${v(c.border)};border-radius:${r}px;padding:18px;font-family:${v(t.fonts.body)}">
-    <div style="font-family:${v(t.fonts.display)};color:${v(c.text)};font-size:1.3rem;margin-bottom:8px">${esc(t.name||'Apercu')}</div>
-    <div style="background:${v(c.card)};border:1px solid ${v(c.border)};border-radius:${Math.max(0,r-4)}px;padding:12px;margin-bottom:10px;color:${v(c.dim)};font-size:.85rem">Carte d'exemple, texte attenue.</div>
-    <button style="background:${v(c.accent)};color:${v(c.bg)};border:none;border-radius:8px;padding:8px 14px;font-weight:700">Accent</button>
-    <span style="color:${v(c.ok)};margin-left:12px">ok</span> <span style="color:${v(c.danger)};margin-left:6px">erreur</span> <span style="color:${v(c.hint)};margin-left:6px">indice</span>
+  renderContraste(c);
+  const v = esc;
+  const r = Math.max(0, Math.min(28, parseInt(t.radius,10)||0));
+  const amb = {aucune:0, discrete:.5, marquee:1}[t.ambiance] ?? .5;
+  const ti = t.titres;
+  const a2 = c.accent2 || c.accent;
+  // Le meme calcul que applyTheme() cote moteur : sans ca l'apercu montrerait
+  // autre chose que le jeu.
+  const alpha = (hex,suf)=> /^#[0-9a-fA-F]{6}$/.test(hex) ? hex+suf : hex;
+  const titre = `font-weight:${ti.poids};text-transform:${v(ti.casse)};letter-spacing:${ti.interlettrage}px`;
+
+  // Apercu fidele : le hub, une carte d'enigme, le champ de reponse et la
+  // transition d'acte. L'ancien ne montrait qu'une vignette et un bouton — on
+  // reglait un theme sur 5 % de ce qu'il touche.
+  $('t-preview').innerHTML = `
+  <div class="tpv" style="--pv-bg:${v(c.bg)};--pv-card:${v(c.card)};--pv-bd:${v(c.border)};
+      --pv-tx:${v(c.text)};--pv-dim:${v(c.dim)};--pv-ac:${v(c.accent)};--pv-a2:${v(a2)};
+      --pv-hint:${v(c.hint)};--pv-ok:${v(c.ok)};--pv-ko:${v(c.danger)};
+      --pv-r:${r}px;--pv-amb:${amb};--pv-body:${v(t.fonts.body)};--pv-disp:${v(t.fonts.display)};
+      --pv-mono:${v(t.fonts.mono)};--pv-glow:${t.glow?alpha(c.accent,'88'):'transparent'}">
+
+    <div class="tpv-screen">
+      <div class="tpv-amb"></div>
+      <div class="tpv-in">
+        <div class="tpv-eyebrow">/// ${v((t.name||'apercu').toUpperCase())} ///</div>
+        <div class="tpv-logo" style="${titre}">${v(t.name||'Apercu')}</div>
+        <div class="tpv-bar"><i style="width:62%"></i></div>
+        <div class="tpv-acte" style="${titre}">Acte II — Calibration</div>
+        <div class="tpv-cards">
+          <div class="tpv-card done"><b>01</b><span>Resolue</span></div>
+          <div class="tpv-card now"><b>02</b><span>En cours</span></div>
+          <div class="tpv-card"><b>03</b><span>Verrouillee</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tpv-screen">
+      <div class="tpv-amb"></div>
+      <div class="tpv-in">
+        <div class="tpv-narr">SCAN BIOMETRIQUE &gt; Verification &gt;</div>
+        <div class="tpv-q" style="${titre}">Quelle est la reponse ?</div>
+        <div class="tpv-hint">Indice : regardez sous la table.</div>
+        <div class="tpv-input"><span>Votre reponse...</span><b>VALIDER</b></div>
+        <div class="tpv-fb"><span class="ok">Acces autorise</span><span class="ko">Reponse incorrecte</span></div>
+      </div>
+    </div>
   </div>`;
 }
+
+// Contraste : on signale les paires illisibles plutot que de laisser decouvrir
+// le probleme en pleine soiree. Seuils WCAG 2.1 (4.5:1 texte courant, 3:1 gros).
+function renderContraste(c){
+  const box=$('t-contraste'); if(!box) return;
+  const paires = [
+    ['Texte sur fond', c.text, c.bg, 4.5],
+    ['Texte sur carte', c.text, c.card, 4.5],
+    ['Attenue sur fond', c.dim, c.bg, 4.5],
+    ['Accent sur fond', c.accent, c.bg, 3],
+    ['Erreur sur fond', c.danger, c.bg, 3],
+  ];
+  const lignes = paires.map(([lib,f,b,seuil])=>{
+    const r = ratio(f,b);
+    const ok = r >= seuil;
+    return `<div class="ctr ${ok?'ok':'ko'}">
+      <span class="p" style="background:${esc(b)};color:${esc(f)}">Aa</span>
+      <span class="lb">${lib}</span>
+      <b>${r.toFixed(1)}:1</b>
+      <span class="vd">${ok?'lisible':'sous le seuil de '+seuil+':1'}</span>
+    </div>`;
+  });
+  const nb = paires.filter(([,f,b,se])=>ratio(f,b) < se).length;
+  box.innerHTML = `<div class="ctrbox">
+    <div class="ctrhead">Lisibilite
+      ${nb ? `<span class="pill off">${nb} a corriger</span>` : `<span class="pill ok">tout passe</span>`}</div>
+    ${lignes.join('')}
+  </div>`;
+}
+
 async function saveTheme(){
   const t=collectTheme();
   if(!t.id||!t.name){ themeMsg('Donne un identifiant et un nom.','err'); return; }

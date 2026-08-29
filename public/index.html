@@ -16,6 +16,26 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* Masque l'affichage tant que le thème du jeu n'est pas appliqué (évite le flash du thème par défaut) */
+/* Profondeur du fond. Une lueur radiale teintee par l'accent derriere le
+   contenu, plus une vignette qui referme les bords : c'est ce qui separe un
+   univers travaille d'un aplat uni. `--ambiance` en dose l'intensite (0 = rien),
+   et pointer-events:none garantit que la couche n'intercepte aucun geste. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: var(--ambiance);
+  background:
+    radial-gradient(120% 70% at 50% -10%, var(--accent-dim), transparent 62%),
+    radial-gradient(90% 55% at 92% 105%, var(--accent-2-dim), transparent 66%);
+}
+/* Vignette : referme les bords sans assombrir le centre. */
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: calc(var(--ambiance) * .85);
+  background: radial-gradient(115% 85% at 50% 45%, transparent 52%, rgba(0,0,0,.42));
+}
+/* Le contenu passe au-dessus des deux couches. */
+.screen { z-index: 1; }
+
 body { opacity: 1; transition: opacity .25s ease; }
 body.theme-booting { opacity: 0; }
 /* Met en pause TOUTES les animations quand la page n'est pas visible (économie batterie/chauffe) */
@@ -37,9 +57,34 @@ body.anim-paused *, body.anim-paused *::before, body.anim-paused *::after { anim
   --text: #e0e8f0;
   --text-dim: #667788;
   --border: #2a2a3a;
+  /* Échelle de rayons. --radius est pilote par le theme (applyTheme) ; les
+     autres en derivent, pour qu'un theme anguleux le soit partout a la fois.
+     Avant, les 61 border-radius du moteur etaient en dur sur 8 valeurs et le
+     curseur « Rayon » de l'editeur ne servait a rien. */
+  --radius: 12px;
+  --accent-2: #00f0ff;
+  --accent-2-dim: #00f0ff33;
+  --ambiance: .5;                 /* 0 = aplat uni, 1 = profondeur marquee */
+  --titre-poids: 700;
+  --titre-casse: none;
+  --titre-interlettrage: 2px;
+  --r-xs: calc(var(--radius) * .25);
+  --r-sm: calc(var(--radius) * .5);
+  --r-md: calc(var(--radius) * .75);
+  --r-lg: var(--radius);
+  --r-xl: calc(var(--radius) * 1.4);
+  --r-pill: 99px;
   --font-mono: 'Share Tech Mono', monospace;
   --font-display: 'Orbitron', sans-serif;
   --font-body: 'Rajdhani', sans-serif;
+}
+
+/* Le caractere des titres suit le theme : deux themes peuvent partager une
+   police et rester tres differents par le poids, la casse et l'interlettrage. */
+.logo, .act-title, .vic-title, .enigma-title, .hub-header .codename {
+  font-weight: var(--titre-poids);
+  text-transform: var(--titre-casse);
+  letter-spacing: var(--titre-interlettrage);
 }
 html, body {
   height: 100%; width: 100%;
@@ -172,7 +217,7 @@ html, body {
 
 /* ═══════════ HUB SCREEN ═══════════ */
 #hub-screen { background: var(--bg-deep); }
-.profile-btn{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:6px 12px;font-size:.72rem;cursor:pointer;margin-bottom:14px;font-family:var(--font-mono)}
+.profile-btn{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius: var(--r-sm);padding:6px 12px;font-size:.72rem;cursor:pointer;margin-bottom:14px;font-family:var(--font-mono)}
 .profile-btn:hover{border-color:var(--accent);color:var(--accent)}
 .hub-header { padding: 20px 20px 0; text-align: center; }
 .hub-header .codename {
@@ -186,13 +231,13 @@ html, body {
 }
 .progress-bar-wrap {
   margin: 8px 20px 0; height: 3px;
-  background: var(--bg-card); border-radius: 2px; overflow: hidden;
+  background: var(--bg-card); border-radius:  var(--r-xs); overflow: hidden;
 }
 .progress-bar-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--success));
   transition: width .8s cubic-bezier(.4,0,.2,1);
-  border-radius: 2px; box-shadow: 0 0 10px var(--accent-glow);
+  border-radius:  var(--r-xs); box-shadow: 0 0 10px var(--accent-glow);
 }
 .acts-container { padding: 20px; flex: 1; }
 .act-group { margin-bottom: 24px; }
@@ -209,13 +254,13 @@ html, body {
   position: absolute; top: 0; right: 0;
   background: none; border: 1px solid var(--border); color: var(--text-dim);
   font-family: var(--font-mono); font-size: .6rem; letter-spacing: 1px;
-  padding: 5px 9px; border-radius: 6px; cursor: pointer;
+  padding: 5px 9px; border-radius:  var(--r-sm); cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
 }
 .fil-btn:hover { color: var(--text); border-color: var(--accent); }
 .fil-badge {
   background: var(--accent); color: var(--bg-deep);
-  min-width: 16px; height: 16px; border-radius: 8px;
+  min-width: 16px; height: 16px; border-radius:  var(--r-sm);
   font-size: .58rem; font-weight: 700;
   display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
 }
@@ -253,7 +298,7 @@ html, body {
   top: calc(12px + env(safe-area-inset-top, 0px));
   max-width: min(92vw, 420px);
   background: var(--bg-panel); border: 1px solid var(--accent); color: var(--text);
-  border-radius: 8px; padding: 9px 14px; font-size: .8rem;
+  border-radius:  var(--r-sm); padding: 9px 14px; font-size: .8rem;
   opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
 }
 .fil-toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -289,7 +334,7 @@ html, body {
 
 .enigma-card {
   background: var(--bg-card);
-  border: 1px solid var(--border); border-radius: 12px;
+  border: 1px solid var(--border); border-radius:  var(--r-lg);
   min-height: 60px;
   padding: 5px 5px; margin-bottom: 8px;
   display: flex; align-items: center; gap: 5px;
@@ -340,7 +385,7 @@ html, body {
 .back-btn {
   background: none; border: 1px solid var(--border);
   color: var(--text-dim);
-  width: 36px; height: 36px; border-radius: 8px;
+  width: 36px; height: 36px; border-radius:  var(--r-sm);
   font-size: 1.1rem; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
@@ -358,7 +403,7 @@ html, body {
   background: none; border: 1px solid var(--warn-dim);
   color: var(--warn); font-family: var(--font-mono);
   font-size: .6rem; padding: 6px 12px;
-  border-radius: 6px; cursor: pointer; letter-spacing: 1px;
+  border-radius:  var(--r-sm); cursor: pointer; letter-spacing: 1px;
 }
 .hint-btn:active { background: var(--warn-dim); }
 
@@ -384,7 +429,7 @@ html, body {
 .solved-banner {
   background: var(--success-dim);
   border: 1px solid var(--success);
-  border-radius: 10px; padding: 14px 18px;
+  border-radius:  var(--r-md); padding: 14px 18px;
   text-align: center;
   font-family: var(--font-mono);
   font-size: .8rem; color: var(--success);
@@ -404,7 +449,7 @@ html, body {
   flex: 1; background: var(--bg-card);
   border: 1px solid var(--border); color: var(--text);
   font-family: var(--font-body); font-size: 1rem;
-  padding: 14px 16px; border-radius: 10px; outline: none;
+  padding: 14px 16px; border-radius:  var(--r-md); outline: none;
   transition: border-color .3s;
 }
 .answer-input:focus { border-color: var(--accent); }
@@ -413,13 +458,13 @@ html, body {
   background: var(--accent); border: none;
   color: var(--bg-deep); font-family: var(--font-display);
   font-size: .7rem; font-weight: 700; letter-spacing: 2px;
-  padding: 14px 20px; border-radius: 10px;
+  padding: 14px 20px; border-radius:  var(--r-md);
   cursor: pointer; white-space: nowrap;
 }
 .submit-btn:active { transform: scale(.95); }
 .feedback-msg {
   font-family: var(--font-mono); font-size: .8rem;
-  text-align: center; padding: 10px; border-radius: 8px; display: none;
+  text-align: center; padding: 10px; border-radius:  var(--r-sm); display: none;
   margin-bottom: 8px;
 }
 .feedback-msg.error { display: block; color: var(--warn); background: var(--warn-dim); animation: shake .4s ease; }
@@ -429,7 +474,7 @@ html, body {
 .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 280px; margin: 0 auto; }
 .keypad-display {
   grid-column: 1/-1; background: var(--bg-panel);
-  border: 1px solid var(--border); border-radius: 10px;
+  border: 1px solid var(--border); border-radius:  var(--r-md);
   padding: 16px; font-family: var(--font-display);
   font-size: 2rem; letter-spacing: 12px;
   text-align: center; color: var(--accent);
@@ -441,7 +486,7 @@ html, body {
   background: var(--bg-card); border: 1px solid var(--border);
   color: var(--text); font-family: var(--font-display);
   font-size: 1.3rem; font-weight: 700; padding: 16px;
-  border-radius: 10px; cursor: pointer; transition: all .15s;
+  border-radius:  var(--r-md); cursor: pointer; transition: all .15s;
 }
 .key-btn:active { background: var(--accent-dim); transform: scale(.95); }
 .key-btn.action { font-size: .7rem; letter-spacing: 1px; }
@@ -452,11 +497,11 @@ html, body {
   display: grid; grid-template-columns: repeat(4, 1fr);
   gap: 3px; max-width: 320px; margin: 0 auto;
   aspect-ratio: 1; background: var(--bg-panel);
-  border-radius: 12px; padding: 3px; overflow: hidden;
+  border-radius:  var(--r-lg); padding: 3px; overflow: hidden;
 }
 .puzzle-piece {
   aspect-ratio: 1; background: var(--accent-dim);
-  border-radius: 4px; cursor: grab; transition: transform .2s;
+  border-radius:  var(--r-xs); cursor: grab; transition: transform .2s;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-display); font-size: 1.4rem;
   font-weight: 700; color: var(--accent); border: 1px solid var(--border);
@@ -525,7 +570,7 @@ html, body {
   color: var(--warn);
   font-family: var(--font-mono);
   font-size: .6rem; letter-spacing: 1px;
-  padding: 10px 20px; border-radius: 8px;
+  padding: 10px 20px; border-radius:  var(--r-sm);
   cursor: pointer; transition: all .2s;
 }
 .torch-fallback-btn:active { background: var(--warn-dim); transform: scale(.95); }
@@ -601,7 +646,7 @@ html, body {
   font-family: var(--font-mono); font-size: .45rem;
   color: var(--accent); letter-spacing: 3px;
   background: rgba(10,10,15,.7);
-  padding: 2px 8px; border-radius: 4px;
+  padding: 2px 8px; border-radius:  var(--r-xs);
 }
 .gps-edge-blip {
   position: absolute;
@@ -635,7 +680,7 @@ html, body {
   transform: translate(-50%, -50%);
   background: rgba(10,10,15,.8);
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius:  var(--r-xs);
   letter-spacing: 1px;
 }
 .gps-map-wrap::after {
@@ -648,12 +693,12 @@ html, body {
 .gps-distance-wrap { margin: 14px auto 0; max-width: 340px; }
 .gps-distance-bar {
   height: 6px; background: var(--bg-card);
-  border-radius: 3px; overflow: hidden;
+  border-radius:  var(--r-xs); overflow: hidden;
   border: 1px solid var(--accent-dim);
 }
 .gps-distance-fill {
   height: 100%; width: 0%;
-  border-radius: 3px;
+  border-radius:  var(--r-xs);
   transition: width 1s ease, background .5s ease;
 }
 .gps-distance-label {
@@ -672,7 +717,7 @@ html, body {
   margin-top: 16px; padding: 16px;
   background: var(--success-dim);
   border: 1px solid var(--success);
-  border-radius: 12px;
+  border-radius:  var(--r-lg);
   animation: fadeInUp .6s ease;
 }
 .gps-secret-reveal .label {
@@ -690,7 +735,7 @@ html, body {
   background: var(--accent); color: var(--bg-deep);
   border: none; font-family: var(--font-display);
   font-size: .65rem; font-weight: 700; letter-spacing: 2px;
-  padding: 14px 28px; border-radius: 10px;
+  padding: 14px 28px; border-radius:  var(--r-md);
   cursor: pointer; margin-top: 14px;
   display: inline-flex; align-items: center; gap: 8px;
 }
@@ -712,7 +757,7 @@ html, body {
   width: 100%; max-width: 340px;
   height: 320px;
   margin: 0 auto;
-  border-radius: 14px;
+  border-radius:  var(--r-lg);
   overflow: hidden;
   border: 2px solid var(--accent-dim);
   background: #000;
@@ -753,7 +798,7 @@ html, body {
 .camera-hud .filter-label {
   font-family: var(--font-mono);
   font-size: .5rem; letter-spacing: 2px;
-  padding: 3px 10px; border-radius: 4px;
+  padding: 3px 10px; border-radius:  var(--r-xs);
   background: rgba(10,10,15,.7);
   transition: color .3s;
 }
@@ -766,7 +811,7 @@ html, body {
   font-family: var(--font-mono);
   font-size: .6rem; font-weight: 600;
   letter-spacing: 1px; padding: 10px 16px;
-  border-radius: 8px; cursor: pointer;
+  border-radius:  var(--r-sm); cursor: pointer;
   border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text-dim);
@@ -807,7 +852,7 @@ html, body {
 .camera-flip {
   background: var(--bg-card); border: 1px solid var(--border);
   color: var(--text-dim); font-size: 1.1rem;
-  width: 42px; height: 42px; border-radius: 8px;
+  width: 42px; height: 42px; border-radius:  var(--r-sm);
   cursor: pointer; display: flex;
   align-items: center; justify-content: center;
 }
@@ -829,9 +874,9 @@ html, body {
 
 /* ═══════════ AUDIO ═══════════ */
   
-.audio-player { background: var(--bg-card); border-radius: 16px; padding: 5px; text-align: center; }
+.audio-player { background: var(--bg-card); border-radius:  var(--r-xl); padding: 5px; text-align: center; }
 .audio-wave { display: flex; align-items: center; justify-content: center; gap: 3px; height: 60px; margin-bottom: 5px; }
-.audio-wave .bar { width: 4px; background: var(--accent); border-radius: 2px; transition: height .15s; }
+.audio-wave .bar { width: 4px; background: var(--accent); border-radius:  var(--r-xs); transition: height .15s; }
 .audio-controls { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
 .play-btn {
   width: 46px; height: 46px; border-radius: 50%;
@@ -844,11 +889,11 @@ html, body {
   font-family: var(--font-mono); font-size: .6rem;
   color: var(--accent); background: var(--accent-dim);
   border: 1px solid var(--accent-dim); padding: 8px 14px;
-  border-radius: 8px; cursor: pointer; letter-spacing: 1px;
+  border-radius:  var(--r-sm); cursor: pointer; letter-spacing: 1px;
 }
 .speed-btn.active { background: var(--accent); color: var(--bg-deep); }
 .audio-native {
-  width: 100%; margin-top: 16px; border-radius: 8px;
+  width: 100%; margin-top: 16px; border-radius:  var(--r-sm);
   filter: sepia(100%) saturate(300%) brightness(.8) hue-rotate(140deg);
 }
 .audio-status {
@@ -860,14 +905,14 @@ html, body {
 .rebus-container { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 20px; }
 .rebus-item {
   font-size: 2.5rem; background: var(--bg-card);
-  border-radius: 12px; width: 70px; height: 70px;
+  border-radius:  var(--r-lg); width: 70px; height: 70px;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border);
 }
 .rebus-plus { font-family: var(--font-display); font-size: 1.2rem; color: var(--text-dim); }
 .rebus-equals { font-family: var(--font-display); font-size: 1.5rem; color: var(--accent); }
 .rebus-answer-slot {
-  border: 2px dashed var(--accent-dim); border-radius: 12px;
+  border: 2px dashed var(--accent-dim); border-radius:  var(--r-lg);
   padding: 12px 24px; font-family: var(--font-display);
   font-size: 1.2rem; color: var(--accent); letter-spacing: 4px;
   min-width: 120px; text-align: center;
@@ -908,13 +953,13 @@ html, body {
   background: var(--accent); color: var(--bg-deep); border: none;
   font-family: var(--font-display); font-size: .7rem;
   font-weight: 700; letter-spacing: 3px; padding: 16px 32px;
-  border-radius: 10px; cursor: pointer; text-transform: uppercase;
+  border-radius:  var(--r-md); cursor: pointer; text-transform: uppercase;
 }
 .btn-primary:active { transform: scale(.95); }
 .btn-ghost {
   background: transparent; color: var(--text-dim);
   border: 1px solid var(--border); font-family: var(--font-mono);
-  font-size: .65rem; padding: 10px 20px; border-radius: 8px;
+  font-size: .65rem; padding: 10px 20px; border-radius:  var(--r-sm);
   cursor: pointer; letter-spacing: 1px;
 }
 .btn-ghost:active { background: var(--bg-card); }
@@ -929,7 +974,7 @@ html, body {
 }
 .dev-bar button {
   background: var(--warn-dim); border: 1px solid var(--warn);
-  color: var(--warn); padding: 4px 10px; border-radius: 4px;
+  color: var(--warn); padding: 4px 10px; border-radius:  var(--r-xs);
   font-family: var(--font-mono); font-size: .55rem;
   cursor: pointer; letter-spacing: 1px;
 }
@@ -949,7 +994,7 @@ html, body {
     <div id="pb-banner" style="font-family:var(--font-display);font-size:.65rem;letter-spacing:6px;color:var(--warn);border:1px solid var(--warn-dim);padding:6px 18px;display:inline-block;margin-bottom:24px;">/// PROTOCOLE DE SÉCURITÉ ///</div>
     <div id="pb-subtitle" style="font-family:var(--font-mono);font-size:.65rem;color:var(--accent);letter-spacing:2px;margin-bottom:20px;">BRIEFING PRÉ-MISSION</div>
     <div id="pb-consignes" style="text-align:left;max-width:340px;width:100%;display:flex;flex-direction:column;gap:14px;margin-bottom:30px;"></div>
-    <div id="pb-warning" style="font-family:var(--font-mono);font-size:.5rem;color:var(--warn);letter-spacing:1px;line-height:1.8;max-width:300px;margin-bottom:24px;padding:10px;border:1px solid var(--warn-dim);border-radius:8px;background:var(--warn-dim);">
+    <div id="pb-warning" style="font-family:var(--font-mono);font-size:.5rem;color:var(--warn);letter-spacing:1px;line-height:1.8;max-width:300px;margin-bottom:24px;padding:10px;border:1px solid var(--warn-dim);border-radius: var(--r-sm);background:var(--warn-dim);">
       ⚠ AVERTISSEMENT : Toute tentative de fermeture durant une épreuve entraînera la perte définitive de votre progression. L'agence décline toute responsabilité en cas de surchauffe neuronale.
     </div>
     <button class="btn-primary" id="pb-button" onclick="launchBoot()">J'AI COMPRIS — INITIALISER</button>
@@ -1010,27 +1055,27 @@ html, body {
 <!-- ACCUEIL JOUEUR -->
 <div id="player-home" class="screen">
   <div style="max-width:440px;margin:0 auto;width:100%;padding:32px 20px calc(32px + env(safe-area-inset-bottom, 0px));box-sizing:border-box;">
-    <img id="ph-image" alt="" style="display:none;width:96px;height:96px;object-fit:cover;border-radius:18px;border:1px solid var(--border);margin:0 auto 18px;">
+    <img id="ph-image" alt="" style="display:none;width:96px;height:96px;object-fit:cover;border-radius: var(--r-xl);border:1px solid var(--border);margin:0 auto 18px;">
     <div style="font-family:var(--font-mono);font-size:.6rem;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">Espace joueur</div>
     <div style="font-family:var(--font-display);font-size:1.5rem;margin:6px 0 2px;" id="ph-game">—</div>
     <div style="color:var(--text-dim);font-size:.9rem;margin-bottom:22px;">Bienvenue <strong id="ph-pseudo" style="color:var(--accent)">—</strong></div>
 
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius: var(--r-lg);padding:18px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;font-size:.8rem;color:var(--text-dim);margin-bottom:6px;">
         <span>Progression</span><span id="ph-prog-txt">0/0</span>
       </div>
-      <div style="height:8px;background:var(--bg-deep);border-radius:99px;overflow:hidden;">
-        <div id="ph-prog-bar" style="height:100%;width:0%;background:var(--accent);border-radius:99px;transition:width .4s;"></div>
+      <div style="height:8px;background:var(--bg-deep);border-radius:var(--r-pill);overflow:hidden;">
+        <div id="ph-prog-bar" style="height:100%;width:0%;background:var(--accent);border-radius:var(--r-pill);transition:width .4s;"></div>
       </div>
       <div style="font-size:.78rem;color:var(--text-dim);margin-top:12px;">Acte en cours : <strong id="ph-act" style="color:var(--text)">—</strong></div>
     </div>
 
     <div style="display:flex;gap:12px;margin-bottom:14px;">
-      <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;">
+      <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius: var(--r-lg);padding:14px;text-align:center;">
         <div style="font-size:1.2rem;font-weight:700;" id="ph-time">—</div>
         <div style="font-size:.62rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Temps total</div>
       </div>
-      <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;">
+      <div style="flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius: var(--r-lg);padding:14px;text-align:center;">
         <div style="font-size:1.2rem;font-weight:700;" id="ph-hints">0</div>
         <div style="font-size:.62rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Indices utilises</div>
       </div>
@@ -1086,7 +1131,7 @@ html, body {
 <!-- VICTORY -->
 <div id="victory-screen" class="screen">
   <div class="vic-emoji">🎉</div>
-  <img src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/fin.png" alt="Récompense" style="max-width:300px;width:90%;border-radius:12px;margin-top:20px;box-shadow:0 4px 20px rgba(0,0,0,.4);">
+  <img src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/fin.png" alt="Récompense" style="max-width:300px;width:90%;border-radius: var(--r-lg);margin-top:20px;box-shadow:0 4px 20px rgba(0,0,0,.4);">
   <div class="vic-title">MISSION ACCOMPLIE</div>
   <div class="vic-time" id="vic-time"></div>
   <div class="vic-text">
@@ -1821,7 +1866,7 @@ async function loadPreview(id) {
     applyConfig(j.config);
     GAME_NAME = (j.config.meta && j.config.meta.name) || '';
     if (j.config.theme) {
-      const { data: th } = await SB.from('themes').select('id,name,colors,fonts,radius,glow').eq('id', j.config.theme).maybeSingle();
+      const { data: th } = await SB.from('themes').select('id,name,colors,fonts,radius,glow,ambiance,titres').eq('id', j.config.theme).maybeSingle();
       if (th) applyTheme(th);
     }
     return true;
@@ -1832,7 +1877,7 @@ async function loadFromSupabase(slug) {  if (!SB) return false;
   try {
     const { data, error } = await SB
       .from('jeux')
-      .select('slug,name,client,note,version,branding,enigmas,acts,act_boundaries,intro,reglages,theme:themes(id,name,colors,fonts,radius,glow)')
+      .select('slug,name,client,note,version,branding,enigmas,acts,act_boundaries,intro,reglages,theme:themes(id,name,colors,fonts,radius,glow,ambiance,titres)')
       .eq('slug', slug).eq('statut', 'publie').single();
     if (error || !data || !Array.isArray(data.enigmas) || !data.enigmas.length) {
       console.log('Supabase : jeu introuvable ou vide', error);
@@ -1911,9 +1956,31 @@ function applyTheme(t) {
   const set = (k, v) => root.style.setProperty(k, v);
   set('--bg-deep', c.bg); set('--bg-card', c.card); set('--bg-panel', blend(c.bg, c.card));
   set('--accent', c.accent); set('--accent-dim', a(c.accent,'33')); set('--accent-glow', a(c.accent, t.glow?'88':'00'));
+  // Accent secondaire : sert aux dégradés et aux lueurs. Les thèmes qui n'en
+  // déclarent pas retombent sur l'accent principal, donc rien ne change pour eux.
+  const a2 = c.accent2 || c.accent;
+  set('--accent-2', a2); set('--accent-2-dim', a(a2,'33'));
   set('--warn', c.danger); set('--warn-dim', a(c.danger,'33')); set('--success', c.ok); set('--success-dim', a(c.ok,'33'));
   set('--gold', c.hint); set('--text', c.text); set('--text-dim', c.dim); set('--border', c.border);
   if (t.fonts) { set('--font-display', t.fonts.display); set('--font-body', t.fonts.body); set('--font-mono', t.fonts.mono); }
+
+  // Rayon : jusqu'ici collecté, stocké, montré dans l'aperçu admin — et jamais
+  // appliqué. Toute l'échelle du moteur en dérive désormais.
+  const r = parseInt(t.radius, 10);
+  set('--radius', (Number.isFinite(r) ? Math.max(0, Math.min(28, r)) : 12) + 'px');
+
+  // Profondeur du fond : un aplat uni est le marqueur le plus reconnaissable
+  // d'un thème fait maison. L'intensité reste un choix du thème.
+  const amb = { aucune: 0, discrete: .5, marquee: 1 };
+  set('--ambiance', String(amb[t.ambiance] !== undefined ? amb[t.ambiance] : .5));
+
+  // Caractère des titres : ce qui sépare « arcade » d'« élégant » n'est pas que
+  // la famille de police.
+  const ti = t.titres || {};
+  set('--titre-poids', ti.poids || 700);
+  set('--titre-casse', ti.casse || 'none');
+  set('--titre-interlettrage', (ti.interlettrage != null ? ti.interlettrage : 2) + 'px');
+
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta && c.bg) meta.content = c.bg;
 }
@@ -2373,7 +2440,7 @@ function applyIntro() {
   const cons = document.getElementById('pb-consignes');
   if (cons) {
     cons.innerHTML = (I.preboot.consignes || []).map(c => `
-      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius: var(--r-md);padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
         <span style="font-size:1.3rem;">${escHtml(c.icon)}</span>
         <div>
           <div style="font-family:var(--font-mono);font-size:.6rem;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">${escHtml(c.titre)}</div>

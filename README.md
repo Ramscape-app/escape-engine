@@ -71,7 +71,7 @@ reste utilisable : `index.html` retombe sur la configuration embarquée.
 | `tentatives` | `joueur_id`, `jeu_id`, `enigme_index`, `reussie`, `reponse` |
 | `evenements` | `joueur_id`, `jeu_id`, `type`, `enigme_index`, `created_at` |
 | `codes` | `code`, `jeu_id`, `label`, `actif`, `max_joueurs`, `expire_le`, `created_at` |
-| `themes` | `id`, `name`, `colors`, `fonts`, `radius`, `glow`, `updated_at` |
+| `themes` | `id`, `name`, `colors` (dont `accent2`), `fonts`, `radius`, `glow`, `ambiance`, `titres`, `updated_at` |
 | `admins` | `id` — la seule appartenance qui ouvre les fonctions serveur |
 | `bibliotheque_enigmes` | `id`, `titre`, `categorie`, `tags`, `enigme`, `created_at` |
 
@@ -176,6 +176,35 @@ joueurs distraits : le plus souvent, l'énoncé est ambigu.
 L'onglet **Débrief** reconstitue une partie — temps total, temps par acte, énigme la plus
 coriace, indices, déroulé — pour l'équipe comme pour un joueur solo. Une feuille de style
 d'impression ne laisse que le compte rendu sur le papier.
+
+## Themes
+
+Un theme pilote le moteur par variables CSS (`applyTheme`, `public/index.html`) :
+10 couleurs, 3 polices, un rayon, un halo, une profondeur de fond et le caractere des
+titres.
+
+**Le rayon commande toute une echelle.** `--radius` est la seule valeur reglee par le
+theme ; `--r-xs` a `--r-xl` en derivent par calcul. Les 46 `border-radius` du moteur
+etaient auparavant codes en dur et le curseur de l'editeur ne servait a rien.
+
+**`ambiance`** dose la profondeur du fond (`aucune` / `discrete` / `marquee`) : une
+lueur radiale teintee par les deux accents et une vignette, posees sur `body::before`
+et `::after`. Un aplat uni est le marqueur le plus reconnaissable d'un theme fait
+maison.
+
+**`colors.accent2`** sert aux degrades et aux lueurs. Les themes qui n'en declarent pas
+retombent sur l'accent principal — rien ne change pour eux.
+
+**`titres`** (`poids`, `casse`, `interlettrage`) evite que deux themes partageant une
+police se ressemblent.
+
+Cote editeur : quatre points de depart (neon, mineral, papier, chaleureux), un controle
+de contraste WCAG qui signale les paires illisibles avec leur ratio, et un apercu qui
+rend les vrais ecrans du jeu — hub, carte d'enigme, champ de reponse — avec **les memes
+derivations que `applyTheme()`**. Toute modification de l'un doit etre repercutee dans
+l'autre, sinon l'apercu ment.
+
+Migration : [`supabase/migration-06-themes.sql`](supabase/migration-06-themes.sql).
 
 ## Chrono
 

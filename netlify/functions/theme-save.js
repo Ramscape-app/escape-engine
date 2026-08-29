@@ -10,7 +10,9 @@ export default async (req) => {
   const sb = adminClient();
   const { error } = await sb.from('themes').upsert({
     id: t.id, name: t.name, colors: t.colors || {}, fonts: t.fonts || {},
-    radius: (t.radius ?? 12), glow: !!t.glow, updated_at: new Date().toISOString()
+    radius: (t.radius ?? 12), glow: !!t.glow,
+    ambiance: t.ambiance || 'discrete', titres: t.titres || {},
+    updated_at: new Date().toISOString()
   });
   if (error) return json({ error: error.message }, 500);
   return json({ ok: true });
