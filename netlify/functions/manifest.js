@@ -13,7 +13,7 @@ export default async (req) => {
 
   if (slug) {
     const { data } = await sb.from('jeux')
-      .select('name, branding, theme:themes(colors)')
+      .select('name, branding, theme:themes(*)')
       .eq('slug', slug).eq('statut', 'publie').maybeSingle();
     if (data) {
       name = data.name || name;

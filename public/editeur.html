@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js"
+        integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Console d'édition — Projet 1986</title>
@@ -1813,18 +1815,9 @@ function saveRepoSettings(){
   if(url) s.url=url; if(branch) s.branch=branch; if(path) s.path=path;
   try{ localStorage.setItem(REPO_KEY, JSON.stringify(s)); }catch(e){}
   closeRepoSettings();
-  refreshRepoBtn();
   toast("Réglages enregistrés");
 }
-function refreshRepoBtn(){
-  const btn=document.getElementById('repo-btn'); if(!btn) return;
-  const slug=currentSlug();
-  btn.textContent = slug ? ('↗ Déposer dans /'+slug) : '↗ Repo cible';
-  btn.style.opacity = buildUploadUrl() ? '1' : '.6';
-}
-
 boot();
-refreshRepoBtn();
 </script>
 </body>
 </html>

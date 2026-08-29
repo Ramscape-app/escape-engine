@@ -11,9 +11,9 @@
 <link rel="apple-touch-icon" href="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png">
 <link rel="icon" type="image/png" sizes="192x192" href="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600&family=Playfair+Display:wght@600;700&family=Bebas+Neue&family=Caveat:wght@600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js"
+        integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 /* Masque l'affichage tant que le thème du jeu n'est pas appliqué (évite le flash du thème par défaut) */
 /* Profondeur du fond. Une lueur radiale teintee par l'accent derriere le
@@ -3261,6 +3261,34 @@ function renderAudioPlayer(container, idx) {
 }
 
 // ═══════════════════════ GPS ═══════════════════════
+// Leaflet (environ 150 Ko) ne sert qu'aux enigmes GPS. Le charger d'emblee
+// faisait payer ce poids a tous les joueurs, y compris ceux dont le jeu n'a
+// aucune carte — et au pire moment, quand le groupe attend pour demarrer.
+// Il est desormais recupere a l'ouverture de la premiere enigme qui en a besoin.
+let leafletPret = null;
+function chargerLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (leafletPret) return leafletPret;
+  leafletPret = new Promise((resolve, reject) => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+    css.integrity = 'sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H';
+    css.crossOrigin = 'anonymous';
+    css.referrerPolicy = 'no-referrer';
+    document.head.appendChild(css);
+
+    const js = document.createElement('script');
+    js.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+    js.integrity = 'sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH';
+    js.crossOrigin = 'anonymous';
+    js.referrerPolicy = 'no-referrer';
+    js.onload = () => resolve();
+    js.onerror = () => { leafletPret = null; reject(new Error('Leaflet injoignable')); };
+    document.head.appendChild(js);
+  });
+  return leafletPret;
+}
 let gpsMap = null;
 let gpsPlayerMarker = null;
 let gpsAccuracyCircle = null;
@@ -3377,7 +3405,10 @@ function renderGPS(container, idx) {
   `;
   container.appendChild(module);
 
-  setTimeout(() => {
+  // La carte n'apparait qu'une fois la bibliotheque arrivee ; si elle ne vient
+  // pas (reseau coupe en pleine partie), l'enigme reste jouable sans le fond
+  // de carte plutot que de planter.
+  chargerLeaflet().then(() => {
     const TARGET = e.gpsTarget;
     gpsMap = L.map('gps-map', {
       center: [TARGET.lat, TARGET.lng],
@@ -3420,7 +3451,13 @@ function renderGPS(container, idx) {
       iconAnchor: [7, 7],
     });
     L.marker([TARGET.lat, TARGET.lng], { icon: targetIcon, interactive: false }).addTo(gpsMap);
-  }, 100);
+  }).catch((err) => {
+    console.warn('Fond de carte indisponible :', err.message);
+    const zone = document.getElementById('gps-map');
+    if (zone) zone.innerHTML = '<div style="display:grid;place-items:center;height:100%;'
+      + 'font-family:var(--font-mono);font-size:.7rem;color:var(--text-dim);text-align:center;padding:16px">'
+      + 'Fond de carte indisponible.<br>Le reperage fonctionne quand meme.</div>';
+  });
 }
 
 function cleanupGPSMap() {

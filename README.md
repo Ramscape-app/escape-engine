@@ -42,6 +42,42 @@ que par les fonctions serveur et ne doivent jamais apparaître dans `public/`.
 L'URL du projet et la clé *publiable* sont écrites en dur dans les pages de `public/`
 (c'est leur usage prévu), mais elles y sont recopiées cinq fois — voir `AUDIT.md` (M-03).
 
+## Vérifications
+
+```sh
+npm run check      # les deux ci-dessous
+npm run verifier   # contrôles structurels
+npm test           # règles de publication
+```
+
+Le projet n'a pas d'étape de build : ces contrôles sont le seul filet entre une
+modification et la production. Ils tournent sur chaque poussée et chaque PR
+(`.github/workflows/ci.yml`).
+
+`scripts/verifier.mjs` couvre 131 contrôles — syntaxe des fonctions et des scripts
+inline, équilibre des blocs CSS et des balises, ids référencés par le JS mais absents
+du HTML, absence de clé de service dans une page publique, et présence de
+`requireAdmin` sur toute fonction non listée comme publique.
+
+Un contrôle mérite d'être expliqué : **aucune requête ne doit énumérer les colonnes
+de `themes`**. PostgREST rejette la requête entière dès qu'une colonne demandée
+n'existe pas — c'est ce qui a fait basculer un jeu sur le thème par défaut après une
+migration non encore appliquée. `themes(*)` survit à toute colonne ajoutée.
+
+## Dépendances externes
+
+`@supabase/supabase-js` et Leaflet sont chargés depuis jsDelivr, **version figée et
+empreinte SRI** : le navigateur refuse le fichier s'il a été modifié. Ces pages portent
+la session d'authentification, un script CDN altéré y aurait accès.
+
+`node scripts/sri.mjs` recalcule les empreintes depuis `node_modules` — jsDelivr sert
+le contenu npm à l'octet près, donc aucun accès réseau n'est nécessaire. **À relancer
+après toute montée de version**, sinon le navigateur refusera de charger le script.
+
+Leaflet n'est récupéré qu'à l'ouverture de la première énigme GPS : les jeux sans carte
+ne paient pas ses 150 Ko. Si le chargement échoue, l'énigme reste jouable sans fond de
+carte.
+
 ## Développement local
 
 ```sh

@@ -16,7 +16,7 @@ export default async (req) => {
     sb.from('parties').select('joueur_id, jeu_id, enigme_courante, termine, updated_at'),
     sb.from('parties_equipe').select('equipe_id, jeu_id, enigme_courante, termine, updated_at'),
     sb.rpc('stats_tentatives'),
-    sb.from('themes').select('id, name'),
+    sb.from('themes').select('*'),
     sb.rpc('stats_evenements'),
     sb.rpc('stats_mauvaises_reponses', { p_limite: 120 }),
   ]);

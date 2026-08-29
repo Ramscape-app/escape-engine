@@ -1,0 +1,30 @@
+name: Vérifications
+
+# Le projet n'a pas d'étape de build : ces contrôles sont le seul filet entre une
+# modification et la production. Ils tournent sur chaque poussée et chaque PR.
+on:
+  push:
+    branches: [main, evolution, 'claude/**']
+  pull_request:
+
+jobs:
+  verifier:
+    name: Syntaxe, structure et règles de publication
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # `npm ci` exige le lockfile committé, ce qui garantit les mêmes versions
+      # qu'en production.
+      - run: npm ci
+
+      - name: Contrôles structurels
+        run: npm run verifier
+
+      - name: Règles de publication
+        run: npm test
