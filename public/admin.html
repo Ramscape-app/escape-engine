@@ -11,67 +11,112 @@
      la feuille comptait 24 tailles de police et 11 rayons differents : chaque
      ajout inventait ses propres valeurs, et rien ne tenait ensemble. */
   :root{
-    --bg:#0a0a0f;--card:#15151f;--card2:#1b1b27;--card-hi:#20202e;
-    --border:#262635;--border-bright:#33334a;
-    --text:#e9e9f2;--dim:#8a8aa0;--faint:#5a5a70;
-    --accent:#00e0d0;--accent-soft:rgba(0,224,208,.10);--accent-line:rgba(0,224,208,.32);
-    --danger:#ff4d6d;--danger-soft:rgba(255,77,109,.12);
-    --ok:#39d98a;--ok-soft:rgba(57,217,138,.12);
-    --mono:ui-monospace,Menlo,monospace;
+    /* Fond legerement plus profond que les surfaces : les cartes se detachent
+       par elles-memes, sans ombre portee. */
+    --bg:#0b0b11;--surface:#13131c;--surface-2:#181822;--surface-hi:#1e1e2a;
+    --border:#23232f;--border-hi:#30303f;
+    --text:#ececf4;--dim:#8f8fa6;--faint:#5e5e75;
+    /* L'accent ne sert plus qu'a trois choses : action primaire, onglet actif,
+       focus. Le survol passe en neutre — du cyan partout, ca dilue. */
+    --accent:#00e0d0;--accent-ink:#04140f;
+    --accent-soft:rgba(0,224,208,.09);--accent-line:rgba(0,224,208,.28);
+    --danger:#ff5c78;--danger-soft:rgba(255,92,120,.11);
+    --ok:#3ddc91;--ok-soft:rgba(61,220,145,.11);
+    --warn:#f0b955;--warn-soft:rgba(240,185,85,.11);
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI Variable Text","Segoe UI",Roboto,sans-serif;
 
-    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:44px;
-    --r-sm:6px; --r:10px; --r-lg:14px; --r-full:99px;
-    --t-micro:.62rem; --t-xs:.74rem; --t-sm:.82rem; --t-md:.9rem;
-    --t-lg:1.05rem; --t-xl:1.35rem; --t-2xl:1.75rem;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:28px; --s7:40px;
+    --r-sm:6px; --r:8px; --r-lg:12px; --r-full:99px;
+    --t-micro:.66rem; --t-xs:.75rem; --t-sm:.82rem; --t-md:.88rem;
+    --t-lg:1rem; --t-xl:1.25rem; --t-2xl:1.6rem;
     --ring:0 0 0 3px var(--accent-soft);
-    --ease:.16s ease;
+    --ease:.14s ease;
+    --nav-w:236px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;min-height:100vh;
-    -webkit-font-smoothing:antialiased}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;
+    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
 
   /* Navigation clavier : rien n'etait visible au focus avant. */
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
   @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
 
   /* ── Typographie ── */
-  h2{font-size:var(--t-lg);font-weight:600;margin-bottom:var(--s1);letter-spacing:-.01em}
-  h3{font-size:var(--t-md);font-weight:600}
-  .sub{font-size:var(--t-sm);color:var(--dim);margin-bottom:var(--s5);max-width:68ch;line-height:1.5}
+  h1,h2,h3{font-weight:600;letter-spacing:-.012em}
+  h2{font-size:var(--t-xl)}
+  h3{font-size:var(--t-md)}
+  .sub{font-size:var(--t-sm);color:var(--dim);max-width:70ch;line-height:1.55}
   .help,.hint{font-size:var(--t-xs);color:var(--faint);line-height:1.5}
-  .eyebrow{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.5px;
+  .eyebrow{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.4px;
     text-transform:uppercase;color:var(--faint)}
 
+  /* ── En-tete de page ──
+     Chaque vue commencait par un <h2> nu, avec des marges inline improvisees
+     (margin-top:34px, margin-bottom:6px, margin:0...). Un seul motif desormais :
+     titre, description, et les actions alignees a droite. */
+  .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s4);
+    padding-bottom:var(--s4);margin-bottom:var(--s5);border-bottom:1px solid var(--border);
+    flex-wrap:wrap}
+  .page-head .txt{min-width:0}
+  .page-head h2{margin-bottom:3px}
+  .page-head .sub{margin:0}
+  .page-head .actions{display:flex;gap:var(--s2);flex-wrap:wrap;flex-shrink:0}
+
+  /* Sections dans une page : le tableau de bord en empilait six sans hierarchie. */
+  .section{margin-bottom:var(--s7)}
+  .section:last-child{margin-bottom:0}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);
+    margin-bottom:var(--s3);flex-wrap:wrap}
+  .section-head h3{font-size:var(--t-lg)}
+  .section-head .sub{margin:0;font-size:var(--t-xs)}
+  .count{font-family:var(--mono);font-size:var(--t-micro);color:var(--faint);
+    background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-full);
+    padding:2px var(--s2);font-variant-numeric:tabular-nums}
+
   /* ── Barre haute ── */
-  .topbar{display:flex;align-items:center;justify-content:space-between;
-    padding:var(--s3) var(--s5);border-bottom:1px solid var(--border);background:var(--card);
+  .topbar{display:flex;align-items:center;justify-content:space-between;height:52px;
+    padding:0 var(--s5);border-bottom:1px solid var(--border);background:var(--surface);
     position:sticky;top:0;z-index:30}
-  .topbar .brand{font-family:var(--mono);font-size:var(--t-xs);letter-spacing:2px;
-    text-transform:uppercase;color:var(--accent)}
-  .topbar .me{font-size:var(--t-sm);color:var(--dim)}
+  .topbar .brand{display:flex;align-items:center;gap:var(--s2);
+    font-size:var(--t-sm);font-weight:600;letter-spacing:-.01em;color:var(--text)}
+  .topbar .brand .mark{width:20px;height:20px;border-radius:var(--r-sm);flex-shrink:0;
+    background:linear-gradient(135deg,var(--accent),#0090c0);
+    display:grid;place-items:center;font-family:var(--mono);font-size:11px;
+    font-weight:700;color:var(--accent-ink)}
+  .topbar .me{font-size:var(--t-xs);color:var(--dim);font-variant-numeric:tabular-nums}
   .topbar button{background:none;border:1px solid var(--border);color:var(--dim);
-    border-radius:var(--r-sm);padding:6px 12px;font-size:var(--t-xs);cursor:pointer;transition:var(--ease)}
-  .topbar button:hover{border-color:var(--danger);color:var(--danger)}
+    border-radius:var(--r-sm);padding:5px 11px;font-size:var(--t-xs);cursor:pointer;transition:var(--ease)}
+  .topbar button:hover{border-color:var(--border-hi);color:var(--text)}
 
   /* ── Ossature ── */
-  .shell{display:flex;min-height:calc(100vh - 56px)}
-  .side{width:212px;flex-shrink:0;border-right:1px solid var(--border);background:var(--card);
-    padding:var(--s4) var(--s2);display:flex;flex-direction:column;gap:2px}
-  .navbtn{position:relative;display:block;width:100%;text-align:left;background:none;border:none;
-    color:var(--dim);padding:10px var(--s3);border-radius:var(--r-sm);font-size:var(--t-md);
-    cursor:pointer;transition:var(--ease)}
-  .navbtn:hover{background:var(--card2);color:var(--text)}
-  /* Barre a gauche plutot que la seule couleur : l'onglet actif se repere d'un coup d'oeil. */
-  .navbtn.active{background:var(--card2);color:var(--accent)}
-  .navbtn.active::before{content:"";position:absolute;left:0;top:20%;bottom:20%;
-    width:2px;border-radius:var(--r-full);background:var(--accent)}
-  .main{flex:1;padding:var(--s6) var(--s7);max-width:1040px;min-width:0}
+  .shell{display:flex;min-height:calc(100vh - 52px)}
+  .side{width:var(--nav-w);flex-shrink:0;border-right:1px solid var(--border);
+    background:var(--surface);padding:var(--s4) var(--s3);display:flex;flex-direction:column;gap:1px;
+    position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
+  /* Neuf entrees a plat, sans hierarchie : on les groupe par moment d'usage. */
+  .navgroup{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.3px;
+    text-transform:uppercase;color:var(--faint);padding:var(--s4) var(--s3) var(--s2)}
+  .navgroup:first-child{padding-top:0}
+  .navbtn{position:relative;display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:none;border:none;color:var(--dim);padding:7px var(--s3);border-radius:var(--r-sm);
+    font-size:var(--t-md);font-family:inherit;cursor:pointer;transition:var(--ease)}
+  .navbtn svg{width:16px;height:16px;flex-shrink:0;opacity:.75}
+  .navbtn:hover{background:var(--surface-2);color:var(--text)}
+  .navbtn:hover svg{opacity:1}
+  .navbtn.active{background:var(--surface-hi);color:var(--text);font-weight:500}
+  .navbtn.active svg{color:var(--accent);opacity:1}
+  .navbtn.active::before{content:"";position:absolute;left:calc(var(--s3) * -1);
+    top:6px;bottom:6px;width:2px;border-radius:var(--r-full);background:var(--accent)}
+  .navdot{width:6px;height:6px;border-radius:50%;background:var(--danger);margin-left:auto;
+    flex-shrink:0;box-shadow:0 0 0 3px var(--danger-soft)}
+  .main{flex:1;padding:var(--s6) var(--s7) var(--s7);max-width:1120px;min-width:0}
   .burger{display:none;background:none;border:none;color:var(--accent);font-size:1.2rem;
     cursor:pointer;padding:0 var(--s2) 0 0;vertical-align:middle}
   .side-overlay{display:none}
 
   /* ── Connexion ── */
-  .login{max-width:360px;margin:80px auto;background:var(--card);border:1px solid var(--border);
+  .login{max-width:360px;margin:80px auto;background:var(--surface);border:1px solid var(--border);
     border-radius:var(--r-lg);padding:var(--s6) var(--s5)}
   .login h1{font-size:var(--t-xl);margin-bottom:var(--s1)}
   .login p{font-size:var(--t-sm);color:var(--dim);margin-bottom:var(--s5)}
@@ -97,24 +142,32 @@
   .tog,.del,.genbtn{background:none;border:1px solid var(--border);color:var(--dim);
     border-radius:var(--r-sm);padding:6px 12px;font-size:var(--t-xs);cursor:pointer;
     transition:var(--ease);white-space:nowrap;font-family:inherit}
-  .tog:hover,.genbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .tog:hover,.genbtn:hover{border-color:var(--border-hi);color:var(--text);background:var(--surface-2)}
   .del:hover{border-color:var(--danger);color:var(--danger)}
   .genbtn{padding:10px var(--s3)}
 
   /* ── Fiches : une seule fondation ──
      Il y avait neuf composants de carte, chacun avec son rayon et son padding.
      Ils partagent desormais la meme base et ne different que par leur contenu. */
-  .tile,.kpi,.scard,.dbstat,.eqcard,.filbox,.createbox,.themeedit{
-    background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg)}
+  .tile,.kpi,.scard,.dbstat,.eqcard,.filbox,.createbox,.themeedit,.tablecard{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg)}
   .tile,.createbox,.themeedit{padding:var(--s5)}
   .kpi,.scard,.dbstat{padding:var(--s4)}
   .eqcard{padding:var(--s3) var(--s4)}
   .createbox{margin-bottom:var(--s6)}
 
+  /* Coquille de tableau : les tables flottaient a nu sur le fond de page. */
+  .tablecard{overflow:hidden}
+  .tablecard > header{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+    padding:var(--s3) var(--s4);border-bottom:1px solid var(--border);background:var(--surface-2);
+    flex-wrap:wrap}
+  .tablecard > header h3{font-size:var(--t-sm)}
+  .tablecard .tablescroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
   .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:var(--s3)}
   .tile{display:flex;flex-direction:column;gap:var(--s1);cursor:pointer;text-decoration:none;
     color:inherit;transition:var(--ease)}
-  .tile:hover{border-color:var(--accent-line);background:var(--card-hi);transform:translateY(-2px)}
+  .tile:hover{border-color:var(--border-hi);background:var(--surface-2)}
   .tile .ti-ic{font-size:1.5rem;margin-bottom:var(--s1)}
   .tile b{font-size:var(--t-md)}
   .tile span{font-size:var(--t-xs);color:var(--dim)}
@@ -136,7 +189,7 @@
   .scard .stat{display:flex;justify-content:space-between;gap:var(--s3);font-size:var(--t-sm);
     color:var(--dim);padding:var(--s1) 0}
   .scard .stat b{color:var(--text);font-variant-numeric:tabular-nums}
-  .bar{height:6px;background:var(--card2);border-radius:var(--r-full);overflow:hidden;margin-top:var(--s2)}
+  .bar{height:6px;background:var(--surface-2);border-radius:var(--r-full);overflow:hidden;margin-top:var(--s2)}
   .bar i{display:block;height:100%;background:var(--accent);border-radius:var(--r-full)}
   .dbsec{margin-bottom:var(--s5)}
   .dbsec h3{margin-bottom:var(--s2)}
@@ -147,16 +200,19 @@
      defilables, ou c'est le comportement voulu. */
   table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
   th{text-align:left;font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1px;
-    text-transform:uppercase;color:var(--faint);padding:var(--s2) var(--s3);
-    border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1}
-  td{padding:11px var(--s3);border-bottom:1px solid var(--border);vertical-align:middle}
+    text-transform:uppercase;color:var(--faint);padding:9px var(--s4);font-weight:400;
+    border-bottom:1px solid var(--border);background:var(--surface-2)}
+  td{padding:10px var(--s4);border-bottom:1px solid var(--border);vertical-align:middle}
+  /* Les chiffres et la derniere colonne d'actions s'alignent a droite. */
+  th:last-child,td:last-child{text-align:right}
   tbody tr{transition:var(--ease)}
-  tbody tr:hover td{background:var(--card)}
+  tbody tr:hover td{background:var(--surface-2)}
   tbody tr:last-child td{border-bottom:none}
+  td strong{font-weight:600}
 
   /* ── Etats ── */
   .pill{display:inline-block;font-family:var(--mono);font-size:var(--t-micro);padding:2px var(--s2);
-    border-radius:var(--r-sm);background:var(--card2);color:var(--dim);border:1px solid var(--border);
+    border-radius:var(--r-sm);background:var(--surface-2);color:var(--dim);border:1px solid var(--border);
     white-space:nowrap}
   .pill.ok{color:var(--ok);border-color:rgba(57,217,138,.3);background:var(--ok-soft)}
   .pill.off{color:var(--danger);border-color:rgba(255,77,109,.3);background:var(--danger-soft)}
@@ -179,9 +235,9 @@
   .themelist{width:230px;flex-shrink:0}
   .themeedit{flex:1;min-width:0}
   .themeitem{display:flex;align-items:center;gap:var(--s2);width:100%;text-align:left;
-    background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:var(--r);
+    background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--r);
     padding:10px var(--s3);margin-bottom:6px;font-size:var(--t-sm);cursor:pointer;transition:var(--ease)}
-  .themeitem:hover{border-color:var(--accent-line);background:var(--card-hi)}
+  .themeitem:hover{border-color:var(--border-hi);background:var(--surface-2)}
   .themeitem .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
   .colorgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2)}
   .colorrow{display:flex;flex-direction:column;gap:var(--s1)}
@@ -193,12 +249,12 @@
   /* ── Suivi en direct ── */
   .livegrid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:var(--s4);align-items:start}
   .eqcard{margin-bottom:var(--s2);cursor:pointer;transition:var(--ease)}
-  .eqcard:hover{border-color:var(--accent-line);background:var(--card-hi)}
-  .eqcard.sel{border-color:var(--accent);background:var(--card2);box-shadow:var(--ring)}
+  .eqcard:hover{border-color:var(--border-hi);background:var(--surface-2)}
+  .eqcard.sel{border-color:var(--accent);background:var(--surface-2);box-shadow:var(--ring)}
   .eqcard h3{font-size:var(--t-md);margin-bottom:3px;display:flex;align-items:center;gap:var(--s2)}
   .eqcard .meta{font-size:var(--t-xs);color:var(--dim);display:flex;gap:var(--s3);flex-wrap:wrap}
   .eqcard .bloque{color:var(--danger);font-weight:600}
-  .eqbar{height:4px;background:var(--card2);border-radius:var(--r-full);margin-top:var(--s2);overflow:hidden}
+  .eqbar{height:4px;background:var(--surface-2);border-radius:var(--r-full);margin-top:var(--s2);overflow:hidden}
   .eqbar i{display:block;height:100%;background:var(--accent);border-radius:var(--r-full)}
   .filbox{overflow:hidden}
   .filbox header{padding:var(--s3) var(--s4);border-bottom:1px solid var(--border);display:flex;
@@ -210,7 +266,7 @@
   .filrow .h{font-family:var(--mono);font-size:var(--t-micro);color:var(--faint);flex:none;padding-top:2px}
   .filrow.ok{color:var(--ok)} .filrow.ko{color:var(--dim)} .filrow.orga{color:var(--accent)}
   .aidebox{padding:var(--s3) var(--s4);border-top:1px solid var(--border);display:flex;
-    flex-direction:column;gap:var(--s2);background:var(--card2)}
+    flex-direction:column;gap:var(--s2);background:var(--surface-2)}
   .aidebox .row{display:flex;gap:var(--s2);flex-wrap:wrap}
   .aidebox input,.aidebox select{flex:1;min-width:130px;margin:0}
 
@@ -265,28 +321,46 @@
 </div>
 <div id="app" style="display:none">
   <div class="topbar">
-    <span class="brand"><button class="burger" onclick="toggleSide()" aria-label="Menu">☰</button> Escape Engine - Admin</span>
+    <span class="brand"><button class="burger" onclick="toggleSide()" aria-label="Menu">&#9776;</button>
+      <span class="mark">EE</span> Escape Engine</span>
     <span><span class="me" id="me"></span> &nbsp; <button onclick="logout()">Deconnexion</button></span>
   </div>
   <div class="shell">
     <div class="side-overlay" id="side-overlay" onclick="toggleSide()"></div>
     <nav class="side" id="side">
-      <button id="nav-accueil" class="navbtn active" onclick="setTab('accueil')">🏠 Accueil</button>
-      <button id="nav-jeux" class="navbtn" onclick="setTab('jeux')">🎮 Jeux</button>
-      <button id="nav-themes" class="navbtn" onclick="setTab('themes')">🎨 Thèmes</button>
-      <button id="nav-live" class="navbtn" onclick="setTab('live')">🔴 En direct</button>
-      <button id="nav-joueurs" class="navbtn" onclick="setTab('joueurs')">👤 Joueurs</button>
-      <button id="nav-codes" class="navbtn" onclick="setTab('codes')">🎟️ Codes</button>
-      <button id="nav-biblio" class="navbtn" onclick="setTab('biblio')">📚 Bibliothèque</button>
-      <button id="nav-stats" class="navbtn" onclick="setTab('stats')">📊 Tableau de bord</button>
-      <button id="nav-debrief" class="navbtn" onclick="setTab('debrief')">🏁 Debrief</button>
+      <button id="nav-accueil" class="navbtn active" onclick="setTab('accueil')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Accueil</button>
+
+      <div class="navgroup">Contenu</div>
+      <button id="nav-jeux" class="navbtn" onclick="setTab('jeux')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M8 12h3M9.5 10.5v3M15.5 11.5h.01M17.5 13.5h.01"/></svg>Jeux</button>
+      <button id="nav-themes" class="navbtn" onclick="setTab('themes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.7 1.6-1.5 0-.9-.8-1.4-.8-2.2 0-.8.6-1.3 1.4-1.3H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8Z"/><circle cx="8" cy="11" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="16" cy="11" r="1"/></svg>Themes</button>
+      <button id="nav-biblio" class="navbtn" onclick="setTab('biblio')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5Z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H19v3H6.5"/></svg>Bibliotheque</button>
+
+      <div class="navgroup">Evenement</div>
+      <button id="nav-live" class="navbtn" onclick="setTab('live')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 16.5a6.4 6.4 0 0 0 0-9"/><path d="M4.5 4.5a10.6 10.6 0 0 0 0 15M19.5 19.5a10.6 10.6 0 0 0 0-15"/></svg>En direct<span class="navdot" id="nav-live-dot" style="display:none"></span></button>
+      <button id="nav-joueurs" class="navbtn" onclick="setTab('joueurs')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Joueurs</button>
+      <button id="nav-codes" class="navbtn" onclick="setTab('codes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5V7a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v2.5a2.5 2.5 0 0 0 0 5V17a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2.5a2.5 2.5 0 0 0 0-5Z"/><path d="M13 6v2M13 11v2M13 16v2"/></svg>Codes</button>
+
+      <div class="navgroup">Analyse</div>
+      <button id="nav-stats" class="navbtn" onclick="setTab('stats')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><rect x="5.5" y="11" width="3.5" height="6" rx="1"/><rect x="10.5" y="6" width="3.5" height="11" rx="1"/><rect x="15.5" y="13" width="3.5" height="4" rx="1"/></svg>Tableau de bord</button>
+      <button id="nav-debrief" class="navbtn" onclick="setTab('debrief')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V4"/><path d="M6 5h10.5l-1.6 3.2 1.6 3.2H6"/></svg>Debrief</button>
     </nav>
     <main class="main">
 
     <div id="view-accueil">
-      <h2>Bienvenue</h2>
-      <div class="sub">Vue d'ensemble de ton activite.</div>
-      <div id="recap" class="cards" style="margin-bottom:30px"><div class="state">Chargement...</div></div>
+      <div class="page-head"><div class="txt">
+        <h2>Accueil</h2>
+        <div class="sub">Vue d'ensemble de ton activite.</div>
+      </div></div>
+      <div id="recap" class="cards" style="margin-bottom:var(--s6)"><div class="state">Chargement...</div></div>
       <div class="tiles" id="tiles">
         <a class="tile" onclick="setTab('jeux')"><span class="ti-ic">🎮</span><b>Jeux</b><span>Creer et editer les jeux</span></a>
         <a class="tile" onclick="setTab('themes')"><span class="ti-ic">🎨</span><b>Themes</b><span>Gerer les identites visuelles</span></a>
@@ -296,8 +370,12 @@
     </div><!-- /view-accueil -->
 
     <div id="view-joueurs" style="display:none">
+      <div class="page-head"><div class="txt">
+        <h2>Joueurs</h2>
+        <div class="sub">Les comptes inscrits, leur progression et leur equipe.</div>
+      </div></div>
     <div class="createbox">
-      <h2 style="margin-bottom:14px">Pre-creer un joueur</h2>
+      <h3 style="margin-bottom:var(--s3)">Pre-creer un joueur</h3>
       <div class="msg" id="create-msg"></div>
       <div class="formrow">
         <div><label>Jeu</label><select id="c-jeu"></select></div>
@@ -314,38 +392,52 @@
     <h2>Joueurs</h2>
     <div class="sub" id="count">Chargement...</div>
     <div class="msg" id="app-msg"></div>
-    <div id="list"><div class="state">Chargement...</div></div>
+    <div class="tablecard"><div class="tablescroll" id="list"><div class="state">Chargement...</div></div></div>
     </div><!-- /view-joueurs -->
 
     <div id="view-stats" style="display:none">
-      <h2>Chiffres cles</h2>
-      <div class="sub">Vue d'ensemble de l'ecosysteme.</div>
-      <div id="kpis" class="kpis"><div class="state">Chargement...</div></div>
+      <div class="page-head"><div class="txt">
+        <h2>Tableau de bord</h2>
+        <div class="sub">Ce que disent les parties jouees : avancement, blocages, reponses donnees.</div>
+      </div></div>
+      <div class="section">
+        <div class="section-head"><h3>Chiffres cles</h3></div>
+        <div id="kpis" class="kpis"><div class="state">Chargement...</div></div>
+      </div>
 
-      <h2 style="margin-top:34px">Activite recente</h2>
-      <div id="engagement" class="kpis"></div>
+      <div class="section">
+        <div class="section-head"><h3>Activite recente</h3></div>
+        <div id="engagement" class="kpis"><div class="state">Chargement...</div></div>
+      </div>
 
-      <h2 style="margin-top:34px">Detail par jeu</h2>
-      <div class="sub">Completion, progression moyenne et theme.</div>
-      <div id="overview"><div class="state">Chargement...</div></div>
+      <div class="section">
+        <div class="section-head"><h3>Detail par jeu</h3><div class="sub">Completion, progression moyenne et theme.</div></div>
+        <div class="tablecard"><div class="tablescroll" id="overview"><div class="state">Chargement...</div></div></div>
+      </div>
 
-      <h2 style="margin-top:34px">Ou ca bloque</h2>
-      <div class="sub">Enigmes les plus ratees, avec taux d'echec.</div>
-      <div id="blocages"><div class="state">Chargement...</div></div>
+      <div class="section">
+        <div class="section-head"><h3>Ou ca bloque</h3><div class="sub">Enigmes les plus ratees, avec taux d'echec.</div></div>
+        <div class="tablecard"><div class="tablescroll" id="blocages"><div class="state">Chargement...</div></div></div>
+      </div>
 
-      <h2 style="margin-top:34px">Ce que les joueurs repondent</h2>
-      <div class="sub">Les mauvaises reponses les plus frequentes. Une reponse qui revient
-        souvent signale rarement des joueurs distraits : le plus souvent, l'enonce est ambigu.</div>
-      <div id="mauvaises"><div class="state">Chargement...</div></div>
+      <div class="section">
+        <div class="section-head"><h3>Ce que les joueurs repondent</h3><div class="sub">Les mauvaises reponses les plus frequentes. Une reponse qui revient souvent signale rarement des joueurs distraits : le plus souvent, l'enonce est ambigu.</div></div>
+        <div class="tablecard"><div class="tablescroll" id="mauvaises"><div class="state">Chargement...</div></div></div>
+      </div>
 
-      <h2 style="margin-top:34px">Themes</h2>
-      <div class="sub">Utilisation des themes par les jeux.</div>
-      <div id="themeusage"><div class="state">Chargement...</div></div>
+      <div class="section">
+        <div class="section-head"><h3>Themes</h3><div class="sub">Utilisation des themes par les jeux.</div></div>
+        <div class="tablecard"><div class="tablescroll" id="themeusage"><div class="state">Chargement...</div></div></div>
+      </div>
     </div><!-- /view-stats -->
 
     <div id="view-jeux" style="display:none">
+      <div class="page-head"><div class="txt">
+        <h2>Jeux</h2>
+        <div class="sub">Creer un jeu, l'editer, le dupliquer ou le publier.</div>
+      </div></div>
       <div class="createbox">
-        <h2 style="margin-bottom:14px">Nouveau jeu</h2>
+        <h3 style="margin-bottom:var(--s3)">Nouveau jeu</h3>
         <div class="msg" id="newjeu-msg"></div>
         <div class="formrow">
           <div><label>Nom</label><input id="nj-name" placeholder="ex : Mariage Dupont" oninput="autoSlug()"></div>
@@ -357,17 +449,15 @@
       </div>
       <h2>Jeux existants</h2>
       <div class="sub">Cliquer sur Editer pour modifier le contenu en ligne.</div>
-      <div id="jeux-list"><div class="state">Chargement...</div></div>
+      <div class="tablecard"><div class="tablescroll" id="jeux-list"><div class="state">Chargement...</div></div></div>
     </div><!-- /view-jeux -->
 
     <div id="view-live" style="display:none">
-      <div class="createbox" style="margin-bottom:20px">
-        <h2 style="margin-bottom:6px">Suivi en direct</h2>
-        <div class="hint" style="font-size:.8rem;color:var(--dim)">
-          Les equipes en cours, et depuis combien de temps chacune bute sur son enigme.
-          Tout arrive sans rechargement.
-        </div>
-      </div>
+      <div class="page-head"><div class="txt">
+        <h2>En direct</h2>
+        <div class="sub">Equipes et joueurs en cours de partie. Le temps sans progres signale un blocage ; tout arrive sans rechargement.</div>
+      </div></div>
+
       <div class="msg" id="live-msg"></div>
       <div class="livegrid">
         <div>
@@ -378,12 +468,11 @@
     </div>
 
     <div id="view-debrief" style="display:none">
-      <div class="createbox" style="margin-bottom:20px">
-        <h2 style="margin-bottom:6px">Debrief de partie</h2>
-        <div class="hint" style="font-size:.8rem;color:var(--dim);margin-bottom:14px">
-          La soiree en chiffres, a montrer ou imprimer pour le client.
-          Impression via le navigateur : seul le compte rendu sort sur le papier.
-        </div>
+      <div class="page-head"><div class="txt">
+        <h2>Debrief</h2>
+        <div class="sub">La soiree en chiffres, a montrer ou imprimer pour le client. A l'impression, seul le compte rendu sort sur le papier.</div>
+      </div></div>
+      <div class="createbox" style="margin-bottom:var(--s5)">
         <div class="formrow">
           <div style="flex:1"><label>Partie</label><select id="db-choix"></select></div>
           <div style="display:flex;align-items:flex-end;gap:8px">
@@ -397,8 +486,12 @@
     </div>
 
     <div id="view-codes" style="display:none">
+      <div class="page-head"><div class="txt">
+        <h2>Codes d'invitation</h2>
+        <div class="sub">Un code ouvre un jeu. Tous ceux qui saisissent le meme code jouent en equipe.</div>
+      </div></div>
       <div class="createbox">
-        <h2 style="margin-bottom:14px">Nouveau code d'invitation</h2>
+        <h3 style="margin-bottom:var(--s3)">Nouveau code</h3>
         <div class="msg" id="code-msg"></div>
         <div class="formrow">
           <div><label>Jeu</label><select id="cd-jeu"></select></div>
@@ -409,12 +502,16 @@
         </div>
       </div>
       <h2>Codes existants</h2>
-      <div id="codes-list"><div class="state">Chargement...</div></div>
+      <div class="tablecard"><div class="tablescroll" id="codes-list"><div class="state">Chargement...</div></div></div>
     </div><!-- /view-codes -->
 
     <div id="view-biblio" style="display:none">
+      <div class="page-head"><div class="txt">
+        <h2>Bibliotheque</h2>
+        <div class="sub">Des enigmes generalistes reutilisables dans n'importe quel jeu.</div>
+      </div></div>
       <div class="createbox">
-        <h2 style="margin-bottom:14px">Nouvelle énigme de bibliothèque</h2>
+        <h3 style="margin-bottom:var(--s3)">Nouvelle enigme</h3>
         <div class="msg" id="biblio-msg"></div>
         <p class="help" style="margin-bottom:10px">Crée ici des énigmes generalistes (maths, rebus, logique...) reutilisables dans n'importe quel jeu. Colle un JSON d'enigme ou remplis les champs de base.</p>
         <div class="formrow">
@@ -434,9 +531,9 @@
         <div style="margin-top:10px"><button class="btn inline" onclick="saveBiblio()">Ajouter a la bibliotheque</button>
           <input type="hidden" id="bx-id"></div>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;margin:6px 0 12px;flex-wrap:wrap">
-        <h2 style="margin:0">Bibliotheque</h2>
-        <select id="bx-filtre" onchange="renderBiblio()" style="margin-left:auto">
+      <div class="section-head">
+        <h3>Enigmes enregistrees</h3>
+        <select id="bx-filtre" onchange="renderBiblio()" style="width:auto;margin-left:auto">
           <option value="">Toutes categories</option>
           <option value="maths">Maths / logique</option>
           <option value="rebus">Rebus</option>
@@ -446,12 +543,14 @@
           <option value="autre">Autre</option>
         </select>
       </div>
-      <div id="biblio-list"><div class="state">Chargement...</div></div>
+      <div class="tablecard"><div class="tablescroll" id="biblio-list"><div class="state">Chargement...</div></div></div>
     </div><!-- /view-biblio -->
 
     <div id="view-themes" style="display:none">
-      <h2>Themes</h2>
-      <div class="sub">Bibliotheque d'identites visuelles. Lecture en direct ; l'enregistrement necessite le serveur en ligne.</div>
+      <div class="page-head"><div class="txt">
+        <h2>Themes</h2>
+        <div class="sub">Bibliotheque d'identites visuelles. L'enregistrement necessite le serveur en ligne.</div>
+      </div></div>
       <div class="msg" id="theme-msg"></div>
       <div class="themewrap">
         <div class="themelist">
@@ -636,7 +735,7 @@ function renderDebrief(d){
   }).join('');
 
   $('db-contenu').innerHTML = `
-    <h2 style="margin-bottom:4px">${esc(d.nom)}</h2>
+    <h2 style="margin-bottom:var(--s1)">${esc(d.nom)}</h2>
     <div class="sub">${esc(d.jeu)} — ${d.mode==='equipe'?`equipe de ${d.membres.length} : ${esc(d.membres.join(', '))}`:'partie solo'}</div>
     <div class="dbgrid" style="margin-top:18px">
       ${stat(dureeLongue(d.duree_ms),'Temps total')}
