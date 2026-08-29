@@ -62,7 +62,7 @@ reste utilisable : `index.html` retombe sur la configuration embarquée.
 
 | Table | Colonnes utilisées par le code |
 |-------|-------------------------------|
-| `jeux` | `id`, `slug`, `name`, `client`, `note`, `version`, `theme_id`, `branding`, `enigmas`, `acts`, `act_boundaries`, `intro`, `statut`, `updated_at` |
+| `jeux` | `id`, `slug`, `name`, `client`, `note`, `version`, `theme_id`, `branding`, `enigmas`, `acts`, `act_boundaries`, `intro`, `reglages`, `statut`, `updated_at` |
 | `joueurs` | `id` (= uid auth), `pseudo`, `jeu_id`, `actif`, `code_utilise`, `created_at` |
 | `parties` | `joueur_id`, `jeu_id`, `enigme_courante`, `resolues`, `indices_utilises`, `termine`, `updated_at` — unicité sur (`joueur_id`, `jeu_id`) |
 | `tentatives` | `joueur_id`, `jeu_id`, `enigme_index`, `reussie`, `reponse` |
@@ -106,6 +106,32 @@ La table `jeux` porte la colonne `enigmas`, c'est-à-dire les énigmes **avec le
 réponses**. Une policy RLS ne sait pas filtrer par colonne : c'est pourquoi le catalogue
 et l'aperçu du nom de jeu passent par cette fonction plutôt que de lire la table
 directement. Ne jamais élargir `CHAMPS` sans se demander ce qui devient public.
+
+## Chrono
+
+`jeux.reglages` (jsonb) porte les réglages de déroulé. Aujourd'hui une seule clé :
+`dureeMinutes`. Vide ou absente, aucun chrono ne s'affiche.
+
+Le compte à rebours est **indicatif** : à zéro il bascule en dépassement et continue de
+compter, mais rien ne se verrouille et la partie reste terminable. L'origine du temps est
+l'événement `debut` enregistré en base, jamais un compteur local — un rechargement de
+page ou un changement d'appareil ne remet donc rien à zéro.
+
+## Mini-jeux intégrés
+
+Le catalogue `MODULES` (`public/editeur.html`) décrit chaque module de `public/module/`
+et ses paramètres ; l'éditeur génère l'URL. Il fallait auparavant l'écrire à la main
+(`?molettes=4&solution=1986&validate=1`) sans documentation nulle part.
+
+Deux conventions à connaître si tu ajoutes un module :
+
+- `valide: false` — le module est un support de réflexion et ne valide pas l'énigme
+  (César, lampe UV). Aucune case à cocher n'est proposée.
+- `valideParDefaut: true` — le module valide sauf si `validate=0` (`guess-where`), à
+  l'inverse des autres qui exigent `validate=1`. Le catalogue inverse l'écriture du
+  paramètre pour que la case à cocher veuille dire ce qu'elle affiche.
+
+La saisie libre reste disponible pour les services tiers (lockee, ladigitale).
 
 ## Sécurité
 

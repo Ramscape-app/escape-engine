@@ -19,6 +19,7 @@ export default async (req) => {
     acts: config.acts || [],
     act_boundaries: config.actBoundaries || [],
     intro: config.intro || {},
+    reglages: config.reglages || {},
     updated_at: new Date().toISOString()
   };
   const sb = adminClient();

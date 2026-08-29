@@ -820,11 +820,89 @@ const FORMATS = [
   {v:"nfc",        l:"Scan NFC"},
   {v:"rebus",      l:"Rébus (symboles)"},
   {v:"lightdetect",l:"Détection de lumière"},
+  {v:"torch",      l:"Lampe torche"},
   {v:"camera",     l:"Caméra / filtre couleur"},
   {v:"fakebug",    l:"Faux bug système"},
   {v:"puzzle",     l:"Puzzle / taquin final"},
 ];
 const FORMAT_LABEL = Object.fromEntries(FORMATS.map(f=>[f.v,f.l]));
+
+// Mini-jeux servis par ce site (public/module/). Sans ce catalogue il fallait
+// écrire l'URL et ses paramètres à la main, sans documentation nulle part.
+// `valide: true` = le module peut valider l'énigme (case « Valider l'énigme »).
+// César et la lampe UV sont des supports de réflexion, pas des validateurs.
+const MODULES = [
+  { v:'cadenas', l:'Cadenas à molettes', valide:true, params:[
+    {k:'molettes', l:'Nombre de molettes', t:'number', d:4},
+    {k:'mode',     l:'Type', t:'select', opts:[['chiffres','Chiffres'],['lettres','Lettres']], d:'chiffres'},
+    {k:'solution', l:'Combinaison correcte', t:'text', help:'Ex : 1986 — visible par un joueur qui inspecte la page.'},
+  ]},
+  { v:'piano', l:'Piano (mélodie)', valide:true, params:[
+    {k:'sequence', l:'Notes attendues', t:'text', help:'Séparées par des virgules. Ex : do,mi,sol,do'},
+  ]},
+  { v:'simon', l:'Simon (mémoire)', valide:true, params:[
+    {k:'sequence', l:'Séquence', t:'text', d:'0,2,1,3', help:'Index des boutons, séparés par des virgules.'},
+    {k:'boutons',  l:'Nombre de boutons', t:'number', d:4},
+  ]},
+  { v:'interrupteurs', l:'Interrupteurs', valide:true, params:[
+    {k:'colonnes', l:'Colonnes', t:'number', d:3},
+    {k:'lignes',   l:'Lignes', t:'number', d:3},
+    {k:'depart',   l:'État de départ', t:'text', help:'Suite de 0 et 1, un par case. Vide = aléatoire.'},
+    {k:'objectif', l:'Objectif', t:'select', opts:[['eteint','Tout éteindre'],['allume','Tout allumer'],['cible','Motif précis']], d:'eteint'},
+    {k:'cible',    l:'Motif à atteindre', t:'text', help:'Suite de 0 et 1 — seulement si l\'objectif est « Motif précis ».'},
+  ]},
+  { v:'mots-meles', l:'Mots mêlés', valide:true, params:[
+    {k:'mots',   l:'Mots à trouver', t:'text', help:'Séparés par des virgules.'},
+    {k:'taille', l:'Taille de la grille', t:'number', help:'Vide = calculée automatiquement.'},
+  ]},
+  { v:'mots-melanged', l:'Mot mélangé (anagramme)', valide:true, params:[
+    {k:'mot', l:'Mot à reconstituer', t:'text'},
+  ]},
+  // Attention : ce module valide PAR DÉFAUT (validate !== '0'), à l'inverse des
+  // autres qui exigent validate=1. D'où `valideParDefaut`, qui inverse l'écriture
+  // du paramètre pour que la case à cocher veuille bien dire ce qu'elle affiche.
+  { v:'guess-where', l:'Trouver le lieu (carte)', valide:true, valideParDefaut:true, params:[
+    {k:'lat',  l:'Latitude', t:'text'},
+    {k:'lng',  l:'Longitude', t:'text'},
+    {k:'km',   l:'Tolérance (km)', t:'number', d:50},
+    {k:'zoom', l:'Zoom initial', t:'number', d:2},
+    {k:'hint', l:'Indice affiché', t:'text'},
+  ]},
+  { v:'lampe-uv', l:'Lampe UV (révéler un message)', valide:false, params:[
+    {k:'message', l:'Message caché', t:'text', help:'Révélé au doigt, comme sous une lampe UV.'},
+  ]},
+  { v:'cesar-roue', l:'Roue de César (outil)', valide:false, params:[] },
+];
+const MODULE_LABEL = Object.fromEntries(MODULES.map(m=>[m.v,m.l]));
+
+// ── URL d'un module ⇄ ses paramètres ──
+function moduleToUrl(nom, vals){
+  const m = MODULES.find(x=>x.v===nom); if(!m) return '';
+  const q = new URLSearchParams();
+  (m.params||[]).forEach(p=>{
+    const v = vals[p.k];
+    if(v!==undefined && v!=='' && v!==null) q.set(p.k, v);
+  });
+  if(m.valide){
+    if(m.valideParDefaut){ if(!vals.validate) q.set('validate','0'); }
+    else if(vals.validate) q.set('validate','1');
+  }
+  if(vals.title) q.set('title', vals.title);
+  if(vals.reveal) q.set('reveal', vals.reveal);
+  const qs = q.toString();
+  return 'module/'+nom+'.html' + (qs?('?'+qs):'');
+}
+function urlToModule(url){
+  const m = /^module\/([a-z0-9-]+)\.html(?:\?(.*))?$/.exec(String(url||''));
+  if(!m || !MODULES.some(x=>x.v===m[1])) return null;
+  const def = MODULES.find(x=>x.v===m[1]);
+  const vals = {};
+  new URLSearchParams(m[2]||'').forEach((v,k)=>{ vals[k] = v; });
+  vals.validate = def && def.valideParDefaut
+    ? vals.validate !== '0'          // absent = validation active
+    : vals.validate === '1';
+  return { nom:m[1], vals };
+}
 
 const DRAFT_PREFIX = "escape_admin_draft:";
 function draftKey(){ return DRAFT_PREFIX + (currentSlug() || "new"); }
@@ -977,7 +1055,7 @@ function clone(o){ return JSON.parse(JSON.stringify(o)); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function normalize(c){
   c.schemaVersion = c.schemaVersion||1;
-  c.meta = c.meta||{}; c.branding = c.branding||{};
+  c.meta = c.meta||{}; c.branding = c.branding||{}; c.reglages = c.reglages||{};
   c.acts = c.acts||[]; c.enigmas = c.enigmas||[];
   if(!Array.isArray(c.actBoundaries)||!c.actBoundaries.length){
     // déduit des actes si absent : répartition uniforme
@@ -1096,6 +1174,9 @@ function tplProject(){
       ${inp('Version','meta.version',m.version||1,'','number')}
     </div>
     ${inp('Note','meta.note',m.note||'')}
+  </fieldset>
+  <fieldset class="box"><legend>Déroulé</legend>
+    ${inp('Durée indicative (minutes)','reglages.dureeMinutes',(CFG.reglages&&CFG.reglages.dureeMinutes)||'','Laisser vide pour ne pas afficher de chrono. Le temps est indicatif : au-delà, le compteur passe en dépassement mais la partie reste terminable.','number')}
   </fieldset>
   <fieldset class="box"><legend>Thème visuel</legend>
     ${tplThemeSelect()}
@@ -1237,8 +1318,8 @@ function tplEnigma(e,i){
       ${inpImage('Image','enigmas.'+i+'.image',e.image||'','Upload ou chemin')}
       ${inpImage('Image 2','enigmas.'+i+'.image2',e.image2||'')}
     </div>
-    ${inp('Iframe (cadenas externe…)','enigmas.'+i+'.iframe',e.iframe||'','URL d\'un module externe (lockee, etc.)')}
-    ${inp('Iframe 2','enigmas.'+i+'.iframe2',e.iframe2||'')}
+    ${tplModule(i, e.iframe||'')}
+    ${inp('Intégration secondaire (URL)','enigmas.'+i+'.iframe2',e.iframe2||'','Second cadre, si l\'énigme en demande deux.')}
   </fieldset>`;
 
   if(f==='audio'){
@@ -1308,6 +1389,77 @@ function tplEnigma(e,i){
 }
 
 // ── widget builders ──
+// Choix d'un mini-jeu maison et de ses paramètres, ou saisie libre pour un
+// service tiers (lockee, ladigitale…). L'URL reste la seule chose stockée.
+function tplModule(i, url){
+  const path = 'enigmas.'+i+'.iframe';
+  const parsed = urlToModule(url);
+  const libre = !parsed && !!url;
+  const cur = parsed ? parsed.nom : (libre ? '__libre' : '');
+
+  const opts = `<option value="">— aucune intégration —</option>`
+    + MODULES.map(m=>`<option value="${m.v}" ${m.v===cur?'selected':''}>${esc(m.l)}</option>`).join('')
+    + `<option value="__libre" ${cur==='__libre'?'selected':''}>URL personnalisée (service tiers)</option>`;
+
+  let corps = '';
+  if(cur==='__libre'){
+    corps = `<input class="inp" type="text" value="${esc(url)}" placeholder="https://lockee.fr/o/..."
+               oninput="onInput('${path}',this.value,false)">
+             <div class="help">Collez l'adresse du module externe.</div>`;
+  } else if(parsed){
+    const m = MODULES.find(x=>x.v===parsed.nom);
+    const v = parsed.vals;
+    corps = (m.params||[]).map(p=>{
+      const val = v[p.k] !== undefined ? v[p.k] : (p.d!==undefined ? p.d : '');
+      const champ = p.t==='select'
+        ? `<select class="inp" onchange="onModuleParam(${i},'${p.k}',this.value)">
+             ${p.opts.map(([ov,ol])=>`<option value="${ov}" ${String(val)===ov?'selected':''}>${esc(ol)}</option>`).join('')}
+           </select>`
+        : `<input class="inp" type="${p.t==='number'?'number':'text'}" value="${esc(val)}"
+                  oninput="onModuleParam(${i},'${p.k}',this.value)">`;
+      return `<div class="field"><label>${esc(p.l)}</label>${champ}
+              ${p.help?`<div class="help">${esc(p.help)}</div>`:''}</div>`;
+    }).join('');
+    corps += `<div class="field"><label>Titre affiché</label>
+      <input class="inp" type="text" value="${esc(v.title||'')}" oninput="onModuleParam(${i},'title',this.value)"></div>`;
+    if(m.valide){
+      corps += `<div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer">
+        <input type="checkbox" ${v.validate?'checked':''} onchange="onModuleParam(${i},'validate',this.checked)">
+        Valider l'énigme quand le module est réussi</label>
+        <div class="help">Sinon le module sert seulement de support : le joueur saisit la réponse lui-même.</div></div>`;
+    } else {
+      corps += `<div class="help">Ce module est un support de réflexion : il ne valide pas l'énigme.</div>`;
+    }
+    corps += `<div class="help" style="margin-top:6px;opacity:.8">URL générée : <code>${esc(url)}</code></div>`;
+  }
+
+  return `<div class="field"><label>Mini-jeu intégré</label>
+    <select class="inp" onchange="onModuleChoice(${i},this.value)">${opts}</select>
+    ${corps?`<div style="margin-top:10px;padding-left:10px;border-left:2px solid var(--border)">${corps}</div>`:''}
+  </div>`;
+}
+
+function onModuleChoice(i, nom){
+  const path = 'enigmas.'+i+'.iframe';
+  if(nom==='' || nom==='__libre'){ bind(path, nom==='' ? '' : (CFG.enigmas[i].iframe||'')); }
+  else {
+    const m = MODULES.find(x=>x.v===nom) || {params:[]};
+    const vals = {};
+    (m.params||[]).forEach(p=>{ if(p.d!==undefined) vals[p.k]=p.d; });
+    if(m.valideParDefaut) vals.validate = true;
+    bind(path, moduleToUrl(nom, vals));
+  }
+  render();
+}
+function onModuleParam(i, cle, val){
+  const path = 'enigmas.'+i+'.iframe';
+  const parsed = urlToModule(CFG.enigmas[i].iframe||'');
+  if(!parsed) return;
+  parsed.vals[cle] = val;
+  bind(path, moduleToUrl(parsed.nom, parsed.vals));
+  renderPreviewMaybe(path);
+}
+
 function inp(label,path,val,help,type){
   const t=type==='number'?'number':'text';
   const onin = type==='bounds'

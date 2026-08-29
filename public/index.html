@@ -204,6 +204,26 @@ html, body {
   display: flex; align-items: center; gap: 8px;
 }
 .act-title .act-line { flex: 1; height: 1px; background: linear-gradient(90deg, var(--text-dim), transparent); }
+.vic-time {
+  font-family: var(--font-mono); font-size: .8rem; letter-spacing: 1px;
+  color: var(--text-dim); margin-top: 10px;
+}
+.vic-time b { color: var(--text); font-variant-numeric: tabular-nums; }
+.vic-time .depasse { color: var(--warn); }
+
+.chrono {
+  font-family: var(--font-mono);
+  font-size: .78rem; letter-spacing: 1px;
+  margin: 10px 0 4px; color: var(--text-dim);
+  display: flex; gap: 8px; justify-content: center; align-items: baseline;
+}
+.chrono #chrono-value { font-size: 1.1rem; color: var(--text); font-variant-numeric: tabular-nums; }
+.chrono #chrono-label { font-size: .58rem; opacity: .75; }
+/* Le temps imparti est indicatif : le dépassement colore, il ne bloque rien. */
+.chrono.bientot #chrono-value { color: var(--gold); }
+.chrono.depasse #chrono-value { color: var(--warn); }
+.chrono.depasse #chrono-label { color: var(--warn); opacity: 1; }
+
 .act-title.locked { color: var(--border); }
 .act-title.completed { color: var(--success); }
 
@@ -923,6 +943,7 @@ html, body {
   <div class="hub-header">
     <button class="profile-btn" onclick="showPlayerHome()">↩ Profil</button>
     <div class="codename">/// PROJET 1986 ///</div>
+    <div class="chrono" id="chrono" style="display:none"><span id="chrono-label">TEMPS</span> <span id="chrono-value">--:--</span></div>
     <div class="progress-label">PROGRESSION : <span id="progress-text">0/17</span></div>
     <div class="progress-bar-wrap">
       <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
@@ -1012,6 +1033,7 @@ html, body {
   <div class="vic-emoji">🎉</div>
   <img src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/fin.png" alt="Récompense" style="max-width:300px;width:90%;border-radius:12px;margin-top:20px;box-shadow:0 4px 20px rgba(0,0,0,.4);">
   <div class="vic-title">MISSION ACCOMPLIE</div>
+  <div class="vic-time" id="vic-time"></div>
   <div class="vic-text">
     Agent, vous avez prouvé que 40 ans n'est que le début.<br><br>
     Votre récompense a été déverrouillée.<br><br>
@@ -1744,7 +1766,7 @@ async function loadFromSupabase(slug) {  if (!SB) return false;
   try {
     const { data, error } = await SB
       .from('jeux')
-      .select('slug,name,client,note,version,branding,enigmas,acts,act_boundaries,intro,theme:themes(id,name,colors,fonts,radius,glow)')
+      .select('slug,name,client,note,version,branding,enigmas,acts,act_boundaries,intro,reglages,theme:themes(id,name,colors,fonts,radius,glow)')
       .eq('slug', slug).eq('statut', 'publie').single();
     if (error || !data || !Array.isArray(data.enigmas) || !data.enigmas.length) {
       console.log('Supabase : jeu introuvable ou vide', error);
@@ -1758,6 +1780,7 @@ async function loadFromSupabase(slug) {  if (!SB) return false;
       actBoundaries: data.act_boundaries || [],
       enigmas: data.enigmas,
       intro: data.intro || {},
+      reglages: data.reglages || {},
     });
     if (data.theme) applyTheme(data.theme);
     GAME_NAME = data.name || '';
@@ -1827,6 +1850,73 @@ function applyTheme(t) {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta && c.bg) meta.content = c.bg;
 }
+
+// ═══════════════════════ CHRONO ═══════════════════════
+// Compte à rebours volontairement INDICATIF : à zéro il passe en dépassement et
+// continue de compter, mais rien ne se verrouille et la partie reste terminable.
+// L'origine du temps est l'événement 'debut' en base, pas un compteur local :
+// un rechargement de page ou un changement d'appareil ne remet donc rien à zéro.
+let GAME_START_AT = null;
+let chronoTimer = null;
+
+function dureeLimiteMs() {
+  const m = GAME_CONFIG && GAME_CONFIG.reglages && GAME_CONFIG.reglages.dureeMinutes;
+  const n = parseInt(m, 10);
+  return (n > 0) ? n * 60000 : 0;      // 0 = pas de chrono pour ce jeu
+}
+
+async function loadGameStart() {
+  if (!SB || !JOUEUR_ID || !JEU_ID) return;
+  const { data } = await SB.from('evenements')
+    .select('created_at')
+    .eq('joueur_id', JOUEUR_ID).eq('jeu_id', JEU_ID).eq('type', 'debut')
+    .order('created_at', { ascending: true }).limit(1).maybeSingle();
+  if (data) GAME_START_AT = new Date(data.created_at).getTime();
+}
+
+function mmss(ms) {
+  const t = Math.max(0, Math.floor(ms / 1000));
+  return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+}
+
+function renderChrono() {
+  const el = document.getElementById('chrono');
+  if (!el) return;
+  const limite = dureeLimiteMs();
+  if (!limite) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+
+  const label = document.getElementById('chrono-label');
+  const value = document.getElementById('chrono-value');
+  el.classList.remove('bientot', 'depasse');
+
+  if (!GAME_START_AT) {                 // partie pas encore commencée
+    label.textContent = 'TEMPS IMPARTI';
+    value.textContent = mmss(limite);
+    return;
+  }
+  const restant = limite - (Date.now() - GAME_START_AT);
+  if (restant >= 0) {
+    label.textContent = 'TEMPS RESTANT';
+    value.textContent = mmss(restant);
+    if (restant <= 5 * 60000) el.classList.add('bientot');
+  } else {
+    label.textContent = 'DÉPASSEMENT';   // informatif : on peut toujours finir
+    value.textContent = '+' + mmss(-restant);
+    el.classList.add('depasse');
+  }
+}
+
+function startChrono() {
+  if (chronoTimer) clearInterval(chronoTimer);
+  if (!dureeLimiteMs()) return;
+  renderChrono();
+  chronoTimer = setInterval(renderChrono, 1000);
+}
+function stopChrono() { if (chronoTimer) { clearInterval(chronoTimer); chronoTimer = null; } }
+
+// Temps écoulé depuis le début, pour l'écran de victoire.
+function tempsEcouleMs() { return GAME_START_AT ? (Date.now() - GAME_START_AT) : 0; }
 
 // ═══════════════════════ STATE ═══════════════════════
 let STATE = loadState();
@@ -2002,11 +2092,14 @@ function playTone(freq, dur, type='sine') {
     osc.start(); osc.stop(ctx.currentTime + dur);
   } catch(e) {}
 }
-function playSuccess() { playTone(523,.1); setTimeout(()=>playTone(659,.1),100); setTimeout(()=>playTone(784,.2),200); }
+// Retour haptique : sur mobile il fait plus pour la sensation que n'importe quelle
+// animation. Absent sur desktop et sur iOS, d'où le garde.
+function vibrer(motif) { try { if (navigator.vibrate) navigator.vibrate(motif); } catch(e) {} }
+function playSuccess() { vibrer(30); playTone(523,.1); setTimeout(()=>playTone(659,.1),100); setTimeout(()=>playTone(784,.2),200); }
 
 
   
-function playError() { playTone(200,.3,'sawtooth'); }
+function playError() { vibrer([40,60,40]); playTone(200,.3,'sawtooth'); }
 function playBeep() { playTone(880,.05); }
 function playKeyBeep(ok) { playTone(ok?880:220,.15,ok?'sine':'square'); }
 
@@ -2138,7 +2231,7 @@ function runBoot() {
 function startGame() {
   const music = document.getElementById('intro-music');
   if (!music.paused) fadeOutAudio(music, 1000);   // coupe la musique en fin d'initialisation
-  if (!STATE.started) logEvent('debut');
+  if (!STATE.started) { logEvent('debut'); if (!GAME_START_AT) GAME_START_AT = Date.now(); }
   STATE.started = true;
   saveState();
   // Après l'intro : accueil profil si joueur authentifié, sinon le hub directement
@@ -2158,6 +2251,7 @@ function showHub() {
   stopCurrentAudio();
   showScreen('hub-screen');
   renderHub();
+  startChrono();
 }
 
 function getActForIndex(idx) {
@@ -3481,6 +3575,8 @@ function solveEnigma(idx) {
 
   if (STATE.solved.length >= TOTAL) {
     logEvent('fin');
+    afficherTempsFinal();
+    stopChrono();
     setTimeout(() => showScreen('victory-screen'), 500);
     return;
   }
@@ -3492,6 +3588,22 @@ function solveEnigma(idx) {
   } else {
     showHub();
   }
+}
+
+// Résumé de temps sur l'écran de fin. Le dépassement est signalé, jamais sanctionné.
+function afficherTempsFinal() {
+  const el = document.getElementById('vic-time');
+  if (!el) return;
+  const ecoule = tempsEcouleMs();
+  if (!ecoule) { el.innerHTML = ''; return; }
+  const limite = dureeLimiteMs();
+  let html = `Temps : <b>${fmtDur(ecoule)}</b>`;
+  if (limite) {
+    html += (ecoule <= limite)
+      ? ` — dans les temps (${Math.round(limite / 60000)} min)`
+      : ` — <span class="depasse">${fmtDur(ecoule - limite)} de plus que prévu</span>`;
+  }
+  el.innerHTML = html;
 }
 
 // ═══════════════════════ HINT ═══════════════════════
@@ -3602,6 +3714,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!(await authGuard())) { document.body.classList.remove('theme-booting'); return; }
   await loadConfig();
   await loadProgress();                 // récupère la progression sauvegardée en base
+  await loadGameStart();                // origine du chrono (événement 'debut' en base)
   applyIntro();                         // applique les textes/visuels d'intro personnalisés
   clearTimeout(revealTimer);
   document.body.classList.remove('theme-booting');  // thème appliqué : on révèle

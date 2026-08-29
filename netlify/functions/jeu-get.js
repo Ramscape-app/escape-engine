@@ -9,7 +9,7 @@ export default async (req) => {
 
   const sb = adminClient();
   const { data, error } = await sb.from('jeux')
-    .select('id, slug, name, client, note, version, theme_id, branding, enigmas, acts, act_boundaries, intro, statut')
+    .select('id, slug, name, client, note, version, theme_id, branding, enigmas, acts, act_boundaries, intro, reglages, statut')
     .eq('id', id).maybeSingle();
   if (error) return json({ error: error.message }, 500);
   if (!data) return json({ error: 'jeu introuvable' }, 404);
@@ -23,7 +23,8 @@ export default async (req) => {
     actBoundaries: data.act_boundaries || [],
     enigmas: data.enigmas || [],
     theme: data.theme_id || '',
-    intro: data.intro || {}
+    intro: data.intro || {},
+    reglages: data.reglages || {}
   };
   return json({ ok: true, uuid: data.id, statut: data.statut, config });
 };

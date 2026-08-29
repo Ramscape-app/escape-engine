@@ -26,6 +26,7 @@ export default async (req) => {
     branding: src.branding || {}, enigmas: src.enigmas || [],
     acts: src.acts || [], act_boundaries: src.act_boundaries || [],
     intro: src.intro || {},
+    reglages: src.reglages || {},
     statut: 'brouillon',
   }).select('id').single();
   if (error) return json({ error: error.message }, 500);
