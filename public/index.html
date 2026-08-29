@@ -292,6 +292,20 @@ html, body {
 .fil-h { font-family: var(--font-mono); font-size: .62rem; color: var(--text-dim); flex: none; }
 .fil-vide { padding: 26px 16px; text-align: center; color: var(--text-dim); font-size: .8rem; }
 
+/* Etat reseau : discret, en bas, pour ne pas couvrir le jeu. Il rassure autant
+   qu'il alerte — la partie locale continue meme sans connexion. */
+.reseau {
+  position: fixed; left: 50%; z-index: 65;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 16px);
+  max-width: min(92vw, 460px); text-align: center;
+  background: var(--bg-panel); border: 1px solid var(--warn);
+  color: var(--warn); border-radius: var(--r-sm);
+  padding: 7px 14px; font-size: .72rem; font-family: var(--font-mono);
+  opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+}
+.reseau.show { opacity: 1; transform: translate(-50%, 0); }
+
 /* Bandeau : l'information passe même quand le fil est fermé. */
 .fil-toast {
   position: fixed; left: 50%; transform: translate(-50%, -20px); z-index: 70;
@@ -1146,6 +1160,7 @@ html, body {
 
 <!-- FIL D'ÉQUIPE -->
 <div class="fil-toast" id="fil-toast"></div>
+<div class="reseau" id="reseau" role="status" aria-live="polite"></div>
 <div class="fil-panel" id="fil-panel">
   <div class="fil-head">
     <span>ACTIVITÉ DE L'ÉQUIPE</span>
@@ -2080,8 +2095,20 @@ function saveState() {
 // Deux modes : en équipe la progression vit dans `parties_equipe` et se partage,
 // sinon dans `parties` exactement comme avant. Les comptes créés avant les
 // équipes n'ont pas d'equipe_id et restent donc en solo, sans rien changer.
+// ── Synchronisation resiliente ──
+// Un escape game se joue souvent dans des lieux mal couverts : cave, exterieur,
+// batiment ancien. Jusqu'ici un echec de synchro se contentait d'un console.log,
+// et rien ne repartait au retour du reseau — le joueur croyait sa progression
+// enregistree alors qu'elle ne vivait plus que dans son navigateur.
+let syncEnAttente = false;      // une ecriture a echoue et attend d'etre rejouee
+let syncTimer = null;
+let syncEssais = 0;
+
 function syncToSupabase() {
   if (!SB || !JOUEUR_ID || !JEU_ID) return;
+  // Hors ligne : inutile de tenter, on met en attente et on attend l'evenement.
+  if (navigator.onLine === false) { marquerEnAttente(); return; }
+
   const commun = {
     enigme_courante: STATE.currentEnigma,
     resolues: STATE.solved, indices_utilises: STATE.hintUsed,
@@ -2092,8 +2119,58 @@ function syncToSupabase() {
         { onConflict: 'equipe_id,jeu_id' })
     : SB.from('parties').upsert({ joueur_id: JOUEUR_ID, jeu_id: JEU_ID, ...commun },
         { onConflict: 'joueur_id,jeu_id' });
-  req.then(({ error }) => { if (error) console.log('sync', error); });
+
+  req.then(({ error }) => {
+    if (error) { console.warn('Synchronisation echouee :', error.message); marquerEnAttente(); }
+    else { syncEnAttente = false; syncEssais = 0; majEtatReseau(); }
+  }, (e) => { console.warn('Synchronisation injoignable :', e); marquerEnAttente(); });
 }
+
+// Reessai avec un delai croissant, plafonne : on ne martele pas un reseau absent.
+function marquerEnAttente() {
+  syncEnAttente = true;
+  majEtatReseau();
+  if (syncTimer) return;
+  const delai = Math.min(30000, 2000 * Math.pow(2, Math.min(4, syncEssais)));
+  syncEssais++;
+  syncTimer = setTimeout(() => { syncTimer = null; syncToSupabase(); }, delai);
+}
+
+// Bandeau discret : le joueur doit savoir que sa progression n'est pas partie,
+// sans que ca prenne le pas sur le jeu. Sa partie locale, elle, continue.
+function majEtatReseau() {
+  const el = document.getElementById('reseau');
+  if (!el) return;
+  const horsLigne = navigator.onLine === false;
+  if (!horsLigne && !syncEnAttente) { el.classList.remove('show'); return; }
+  el.textContent = horsLigne
+    ? 'Hors ligne — ta progression est gardee sur ce telephone'
+    : 'Sauvegarde en attente — nouvelle tentative en cours';
+  el.classList.add('show');
+}
+
+// Au retour du reseau : on rejoue l'ecriture en attente, on se recale sur l'etat
+// distant (des coequipiers ont pu avancer pendant la coupure) et on relance le
+// temps reel, dont les evenements manques ne sont jamais rejoues.
+async function auRetourDuReseau() {
+  majEtatReseau();
+  if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+  syncEssais = 0;
+  if (!SB || !JOUEUR_ID) return;
+  syncToSupabase();
+  try {
+    await loadProgress();
+    if (typeof renderHub === 'function' && document.getElementById('hub-screen').classList.contains('active')) renderHub();
+    if (EQUIPE_ID || JOUEUR_ID) {
+      if (canalEquipe) { try { SB.removeChannel(canalEquipe); } catch(e){} canalEquipe = null; }
+      await chargerFil();
+      abonnerEquipe();
+    }
+  } catch (e) { console.warn('Resynchronisation partielle :', e); }
+}
+
+window.addEventListener('online', auRetourDuReseau);
+window.addEventListener('offline', majEtatReseau);
 async function loadProgress() {
   if (!SB || !JOUEUR_ID || !JEU_ID) return;
   const q = EQUIPE_ID
@@ -3997,6 +4074,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
   await loadProgress();                 // récupère la progression sauvegardée en base
   await loadGameStart();                // origine du chrono (événement 'debut' en base)
+  majEtatReseau();                      // si le joueur demarre deja hors ligne
   if (SB && JOUEUR_ID) {                // équipe comme solo : fil et temps réel
     const btn = document.getElementById('fil-btn');
     btn.firstChild.textContent = EQUIPE_ID ? 'Équipe ' : 'Suivi ';

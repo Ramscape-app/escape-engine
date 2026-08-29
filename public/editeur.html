@@ -156,6 +156,26 @@
   .rs-acts{display:flex;gap:9px;justify-content:flex-end}
   .reorder button{font-size:.6rem;color:var(--faint);padding:0 4px;line-height:1.1}
   .reorder button:hover{color:var(--accent)}
+
+/* ── Panneau de verification ── */
+#btn-verif.err{border-color:#c0392b;color:#e74c3c}
+#btn-verif.ok{border-color:#2e7d52;color:#39d98a}
+.verif-panel{position:fixed;right:14px;top:64px;z-index:60;width:min(92vw,420px);
+  max-height:70vh;overflow-y:auto;background:var(--panel,#fff);
+  border:1px solid var(--border,#d5d5dd);border-radius:12px;
+  box-shadow:0 12px 34px rgba(0,0,0,.22);padding:14px}
+.verif-head{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;margin-bottom:10px}
+.vgrp{border:1px solid var(--border,#d5d5dd);border-radius:9px;padding:10px 12px;margin-bottom:9px}
+.vgrp b{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px}
+.vgrp ul{margin:0;padding-left:17px;font-size:.85rem;line-height:1.65}
+.vgrp li.cliquable{cursor:pointer;text-decoration:underline dotted}
+.vgrp li.cliquable:hover{color:#1f6feb}
+.vgrp.err{border-color:rgba(231,76,60,.35);background:rgba(231,76,60,.07)}
+.vgrp.err b{color:#c0392b}
+.vgrp.ale{border-color:rgba(216,158,44,.35);background:rgba(216,158,44,.08)}
+.vgrp.ale b{color:#9a7016}
+.verif-ok{font-size:.86rem;color:#2e7d52;padding:6px 2px}
 </style>
 </head>
 <body>
@@ -170,10 +190,27 @@
   </div>
   <div class="spacer"></div>
   <div class="proj-pill"><b id="pill-name">—</b><span class="v" id="pill-ver">v1</span></div>
+  <button class="btn ghost sm" id="btn-verif" onclick="basculerVerif()" title="Verifications">✓ <span id="verif-badge">—</span></button>
   <span class="savestate" id="savestate">brouillon non sauvegardé</span>
   <button class="btn primary sm" onclick="saveOnline()">💾 Enregistrer en ligne</button>
   <a class="btn ghost sm" href="admin.html" style="text-decoration:none">↩ Admin</a>
 </header>
+
+<!-- Panneau de verification : les memes regles que le serveur applique a la
+     publication, pour qu'un probleme se decouvre ici et pas devant les joueurs. -->
+<div id="verif-panel" class="verif-panel" hidden>
+  <div class="verif-head"><b>Verifications</b>
+    <button class="btn ghost sm" onclick="basculerVerif()">Fermer</button></div>
+  <div id="verif-corps"></div>
+</div>
+
+<script type="module">
+  // Charge en module pour partager exactement le fichier du serveur, puis
+  // expose au script classique de la page. Une seule source de verite.
+  import { validerJeu, compte } from './shared/valider-jeu.js';
+  window.validerJeu = validerJeu; window.compteProblemes = compte;
+  window.dispatchEvent(new Event('validateur-pret'));
+</script>
 
 <!-- Réglage dépôt (stocké en localStorage, jamais dans les fichiers) -->
 <div class="scrim" id="repo-scrim">
@@ -999,7 +1036,7 @@ async function saveOnline(){
   if(!GAME_UUID){ toast("Aucun jeu charge depuis la base"); return; }
   try{
     await callFn('jeu-save', { method:'POST', body:{ uuid: GAME_UUID, config: buildExport() } });
-    dirtySinceExport=false; toast("Enregistre en ligne ✓");
+    dirtySinceExport=false; majVerif(); toast("Enregistre en ligne ✓");
   }catch(e){ alert("Echec de l'enregistrement : "+e.message); }
 }
 
@@ -1065,6 +1102,7 @@ function normalize(c){
 }
 function markDirty(){
   dirtySinceExport = true;
+  majVerif();
   CFG.meta.updatedAt = new Date().toISOString();
   saveDraft();
   syncTopbar();
@@ -1075,6 +1113,52 @@ function saveDraft(){
     setSave("brouillon enregistré", true);
   }catch(e){ setSave("sauvegarde locale impossible", false); }
 }
+// ── Verifications ──
+// Le meme module que le serveur applique au moment de publier. Ici il ne bloque
+// rien : il previent au fil de l'ecriture, pour que le probleme se decouvre a la
+// conception et pas devant les joueurs.
+let verifOuvert=false;
+function verifier(){
+  if(!window.validerJeu || !CFG) return null;
+  try{ return window.validerJeu(buildExport()); }catch(e){ return null; }
+}
+function majVerif(){
+  const pbs = verifier(); if(!pbs) return;
+  const c = window.compteProblemes(pbs);
+  const badge=document.getElementById('verif-badge');
+  const btn=document.getElementById('btn-verif');
+  if(badge){
+    badge.textContent = c.erreurs ? c.erreurs+' err' : (c.alertes ? c.alertes+' rem' : 'ok');
+    btn.classList.toggle('err', c.erreurs>0);
+    btn.classList.toggle('ok', c.erreurs===0 && c.alertes===0);
+  }
+  if(verifOuvert) renderVerif(pbs);
+}
+function renderVerif(pbs){
+  pbs = pbs || verifier() || [];
+  const err=pbs.filter(p=>p.niveau==='erreur'), ale=pbs.filter(p=>p.niveau==='alerte');
+  const item = p => `<li${p.enigme!=null?` onclick="selectEnigma(${p.enigme});basculerVerif()" class="cliquable"`:''}>${esc(p.message)}</li>`;
+  document.getElementById('verif-corps').innerHTML =
+      (!err.length && !ale.length)
+        ? `<div class="verif-ok">Rien a signaler. Le jeu est publiable.</div>`
+        : (err.length?`<div class="vgrp err"><b>${err.length} a corriger avant publication</b><ul>${err.map(item).join('')}</ul></div>`:'')
+        + (ale.length?`<div class="vgrp ale"><b>${ale.length} remarque(s)</b><ul>${ale.map(item).join('')}</ul></div>`:'');
+}
+function basculerVerif(){
+  verifOuvert=!verifOuvert;
+  const p=document.getElementById('verif-panel');
+  p.hidden=!verifOuvert;
+  if(verifOuvert) renderVerif();
+}
+window.addEventListener('validateur-pret', majVerif);
+
+// Garde-fou : rien n'empechait de fermer l'onglet avec des modifications non
+// enregistrees en ligne. Le brouillon local survivait, mais le jeu publie non.
+window.addEventListener('beforeunload', (e)=>{
+  if(!dirtySinceExport) return;
+  e.preventDefault(); e.returnValue = '';
+});
+
 let saveTimer=null;
 function setSave(txt,on){
   const el=document.getElementById('savestate');

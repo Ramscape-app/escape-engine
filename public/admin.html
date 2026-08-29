@@ -230,6 +230,23 @@
   .formrow > div{flex:1;min-width:140px;margin:0}
   .formrow input,.formrow select{margin:0}
 
+  /* ── Fenetre de refus de publication ── */
+  .modal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.6);
+    display:grid;place-items:center;padding:var(--s4)}
+  .modalbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+    padding:var(--s5);max-width:560px;width:100%;max-height:82vh;overflow-y:auto}
+  .modalbox h3{font-size:var(--t-lg);margin-bottom:3px}
+  .modalbox .sub{margin-bottom:var(--s4)}
+  .pbgrp{border:1px solid var(--border);border-radius:var(--r);padding:var(--s3);margin-bottom:var(--s2)}
+  .pbgrp b{display:block;font-size:var(--t-xs);font-family:var(--mono);letter-spacing:1px;
+    text-transform:uppercase;margin-bottom:var(--s2)}
+  .pbgrp ul{margin:0;padding-left:var(--s4);font-size:var(--t-sm);line-height:1.7;color:var(--dim)}
+  .pbgrp.err{border-color:rgba(255,92,120,.3);background:var(--danger-soft)}
+  .pbgrp.err b{color:var(--danger)}
+  .pbgrp.ale{border-color:rgba(240,185,85,.3);background:var(--warn-soft)}
+  .pbgrp.ale b{color:var(--warn)}
+  .modalact{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s4);flex-wrap:wrap}
+
   /* ── Points de depart ── */
   .presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s2);
     margin-bottom:var(--s4)}
@@ -698,7 +715,11 @@ async function callFn(name, options = {}){
     body: options.body ? JSON.stringify(options.body) : undefined
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.error || 'Erreur serveur');
+  if (!res.ok) {
+    const err = new Error(json.error || 'Erreur serveur');
+    err.donnees = json;          // le detail du refus, ex. la liste des problemes
+    throw err;
+  }
   return json;
 }
 async function login(){
@@ -1383,13 +1404,42 @@ async function dupliquer(id, nom){
     location.href = 'editeur.html?id='+r.uuid;
   }catch(e){ alert('Duplication impossible : '+e.message); }
 }
-async function togglePublish(id, estPublie){
+async function togglePublish(id, estPublie, forcer){
   const statut = estPublie ? 'brouillon' : 'publie';
-  if(!confirm(estPublie ? 'Depublier ce jeu (il ne sera plus jouable) ?' : 'Publier ce jeu (il devient jouable) ?')) return;
+  if(!forcer && !confirm(estPublie ? 'Depublier ce jeu (il ne sera plus jouable) ?' : 'Publier ce jeu (il devient jouable) ?')) return;
   try{
-    await callFn('jeu-statut', { method:'POST', body:{ id, statut } });
+    await callFn('jeu-statut', { method:'POST', body:{ id, statut, forcer:!!forcer } });
     jeuxLoaded=false; await loadJeux(); await renderJeux(); jeuxLoaded=true;
-  }catch(e){ alert("Erreur : " + e.message); }
+  }catch(e){
+    const pbs = e.donnees && e.donnees.problemes;
+    if(pbs && pbs.length){ montrerProblemes(id, pbs); return; }
+    alert("Erreur : " + e.message);
+  }
+}
+
+// Le serveur refuse une publication qui rendrait le jeu injouable. On montre
+// exactement ce qui bloque plutot qu'un message generique — et on laisse la
+// possibilite de passer outre, en connaissance de cause.
+function montrerProblemes(id, pbs){
+  const err = pbs.filter(p=>p.niveau==='erreur');
+  const ale = pbs.filter(p=>p.niveau==='alerte');
+  const ligne = p => `<li>${esc(p.message)}</li>`;
+  const box = document.createElement('div');
+  box.className = 'modal';
+  box.innerHTML = `<div class="modalbox">
+    <h3>Publication bloquee</h3>
+    <p class="sub">Ces points rendraient une enigme infaisable pour les joueurs.</p>
+    <div class="pbs">
+      <div class="pbgrp err"><b>${err.length} a corriger</b><ul>${err.map(ligne).join('')}</ul></div>
+      ${ale.length?`<div class="pbgrp ale"><b>${ale.length} remarque(s)</b><ul>${ale.map(ligne).join('')}</ul></div>`:''}
+    </div>
+    <div class="modalact">
+      <button class="tog" onclick="this.closest('.modal').remove()">Fermer</button>
+      <button class="tog" onclick="location.href='editeur.html?id=${esc(id)}'">Ouvrir l'editeur</button>
+      <button class="del" onclick="this.closest('.modal').remove();togglePublish('${esc(id)}',false,true)">Publier quand meme</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
 }
 async function renderJeux(){
   try{
