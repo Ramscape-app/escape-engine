@@ -15,7 +15,7 @@ pendant que l'organisateur suit la progression depuis une console d'administrati
 | `index.html` | Joueur | Le moteur : intro, hub, énigmes, écran de victoire. 1 jeu = 1 `?slug=`. |
 | `rejoindre.html` | Joueur | Inscription / connexion à partir d'un code d'invitation. |
 | `catalogue.html` | Public | Liste des jeux publiés. Non référencé ailleurs — son avenir est en suspens. |
-| `admin.html` | Organisateur | Jeux, joueurs, codes, thèmes, bibliothèque, suivi en direct, statistiques, débrief. |
+| `admin.html` | Organisateur | Clients, catalogue de questions, jeux, joueurs, codes, thèmes, bibliothèque, suivi en direct, statistiques, débrief. |
 | `editeur.html` | Organisateur | Édition d'un jeu (`?id=<uuid>`), aperçu, export `config.json`. |
 | `module/*.html` | — | Mini-jeux embarqués en iframe (cadenas, piano, simon, mots mêlés…). |
 
@@ -110,6 +110,8 @@ reste utilisable : `index.html` retombe sur la configuration embarquée.
 | `themes` | `id`, `name`, `colors` (dont `accent2`), `fonts`, `radius`, `glow`, `ambiance`, `titres`, `updated_at` |
 | `admins` | `id` — la seule appartenance qui ouvre les fonctions serveur |
 | `bibliotheque_enigmes` | `id`, `titre`, `categorie`, `tags`, `enigme`, `created_at` |
+| `clients` | `id`, `nom`, `contact_nom`, `email`, `telephone`, `projet` (jsonb, la fiche projet), `note`, `statut`, `created_at`, `updated_at` |
+| `questions` | `id` (slug), `section`, `libelle`, `aide`, `type`, `ingredient`, `options`, `ordre`, `actif` — le catalogue de questions |
 
 `statut` vaut `brouillon`, `publie` ou `archive`. Le stockage utilise un bucket public
 `assets`, rangé par slug de jeu.
@@ -241,6 +243,46 @@ derivations que `applyTheme()`**. Toute modification de l'un doit etre repercute
 l'autre, sinon l'apercu ment.
 
 Migration : [`supabase/migration-06-themes.sql`](supabase/migration-06-themes.sql).
+
+## Clients et catalogue de questions
+
+Un jeu sur mesure se prépare avant de s'écrire. Deux écrans d'`admin.html` servent cette
+préparation.
+
+**Clients** porte la fiche de chaque client : contact, statut commercial, et une **fiche
+projet** (`clients.projet`, jsonb) qui rassemble l'événement, le format, les lieux, les
+contraintes et le budget. Elle reste entre l'organisateur et le client — rien de ce qui
+s'y trouve n'est destiné à être partagé. Les jeux s'y rattachent par `jeux.client_id` ;
+l'ancien champ texte `jeux.client` n'est pas touché et sert de repli, si bien que les
+jeux d'avant remontent comme « orphelins » à rattacher en un clic.
+
+**Catalogue de questions** est la réserve dans laquelle on pioche pour composer le
+questionnaire d'un client : une soixantaine de questions réparties en sections
+(identité, personnalité, goûts, sport, enfance, histoire, chiffres, lieux, médias, ton),
+enrichissable.
+
+Chaque question déclare un **`ingredient`** : ce que sa réponse produira comme matière
+d'énigme. C'est le champ qui fait la différence entre un formulaire et un outil de
+conception.
+
+| Ingrédient | Ce qu'on en fait |
+|---|---|
+| `chiffre` | cadenas à molettes, clavier numérique, codes |
+| `mot` | réponse texte, mots mêlés, anagramme |
+| `lieu` | énigme GPS, guess-where |
+| `media` | image d'énigme, lampe UV |
+| `liste` | QCM, associations, rébus |
+| `recit` | narration, indices, ton du jeu |
+
+L'`id` d'une question est un slug dérivé de son libellé **puis figé** : le changer
+orphelinerait les réponses déjà collectées. Retirer une question la désactive par
+défaut, pour la même raison ; la suppression définitive n'est proposée que sur une
+question déjà inactive.
+
+Les deux tables ont RLS activée **sans aucune policy** : elles ne sont accessibles que
+par les fonctions serveur à clé de service, toutes derrière `requireAdmin`.
+
+Migration : [`supabase/migration-07-clients.sql`](supabase/migration-07-clients.sql).
 
 ## Chrono
 

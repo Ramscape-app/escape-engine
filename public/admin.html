@@ -151,11 +151,11 @@
   /* ── Fiches : une seule fondation ──
      Il y avait neuf composants de carte, chacun avec son rayon et son padding.
      Ils partagent desormais la meme base et ne different que par leur contenu. */
-  .tile,.kpi,.scard,.dbstat,.eqcard,.filbox,.createbox,.themeedit,.tablecard{
+  .tile,.kpi,.scard,.dbstat,.eqcard,.clicard,.filbox,.createbox,.themeedit,.tablecard{
     background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg)}
   .tile,.createbox,.themeedit{padding:var(--s5)}
   .kpi,.scard,.dbstat{padding:var(--s4)}
-  .eqcard{padding:var(--s3) var(--s4)}
+  .eqcard,.clicard{padding:var(--s3) var(--s4)}
   .createbox{margin-bottom:var(--s6)}
 
   /* Coquille de tableau : les tables flottaient a nu sur le fond de page. */
@@ -355,8 +355,42 @@
   .aidebox .row{display:flex;gap:var(--s2);flex-wrap:wrap}
   .aidebox input,.aidebox select{flex:1;min-width:130px;margin:0}
 
+  /* ── Clients ──
+     Meme partition que le suivi en direct : la liste a gauche, la fiche du
+     client choisi a droite. Un seul motif de selection dans toute l'admin. */
+  .clientgrid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);
+    gap:var(--s4);align-items:start}
+  .clicard{margin-bottom:var(--s2);cursor:pointer;transition:var(--ease)}
+  .clicard:hover{border-color:var(--border-hi);background:var(--surface-2)}
+  .clicard.sel{border-color:var(--accent);background:var(--surface-2);box-shadow:var(--ring)}
+  .clicard h3{font-size:var(--t-md);margin-bottom:var(--s1)}
+  .clicard .meta{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
+    font-size:var(--t-xs);color:var(--dim)}
+
+  /* La fiche projet compte une vingtaine de champs courts : sur une colonne
+     elle devient un formulaire interminable. */
+  .projetgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:var(--s3) var(--s3)}
+  .projetgrid .field{margin:0;min-width:0}
+  .projetgrid textarea{resize:vertical}
+
+  /* ── Catalogue de questions ──
+     Une question desactivee reste visible — ses reponses existent encore —
+     mais ne doit pas se lire comme une question active. */
+  tbody tr.inactive td{opacity:.45}
+  tbody tr.inactive:hover td{opacity:.75}
+
+  /* La couleur de la pastille dit l'ingredient d'un coup d'oeil : c'est ce
+     qu'on cherche quand on compose un questionnaire. */
+  .pill.ing-chiffre{color:#8ab4ff;border-color:rgba(138,180,255,.3);background:rgba(138,180,255,.1)}
+  .pill.ing-mot    {color:#c49bff;border-color:rgba(196,155,255,.3);background:rgba(196,155,255,.1)}
+  .pill.ing-lieu   {color:var(--ok);border-color:rgba(61,220,145,.3);background:var(--ok-soft)}
+  .pill.ing-media  {color:#ff9bc4;border-color:rgba(255,155,196,.3);background:rgba(255,155,196,.1)}
+  .pill.ing-liste  {color:var(--warn);border-color:rgba(240,185,85,.3);background:var(--warn-soft)}
+  .pill.ing-recit  {color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+
   /* ── Petits ecrans ── */
-  @media (max-width:820px){ .livegrid{grid-template-columns:1fr} }
+  @media (max-width:820px){ .livegrid,.clientgrid{grid-template-columns:1fr} }
   @media (max-width:760px){
     .topbar{padding:var(--s3) var(--s4)}
     .burger{display:inline-block}
@@ -415,6 +449,12 @@
     <nav class="side" id="side">
       <button id="nav-accueil" class="navbtn active" onclick="setTab('accueil')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Accueil</button>
+
+      <div class="navgroup">Clients</div>
+      <button id="nav-clients" class="navbtn" onclick="setTab('clients')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20v-1a5 5 0 0 1 5-5h1"/><circle cx="9.5" cy="8" r="3"/><path d="M14 20v-1a4 4 0 0 1 4-4"/><circle cx="17" cy="9.5" r="2.5"/></svg>Clients</button>
+      <button id="nav-catalogue" class="navbtn" onclick="setTab('catalogue')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h10M9 12h10M9 19h10"/><path d="M4.5 5h.01M4.5 12h.01M4.5 19h.01"/></svg>Catalogue</button>
 
       <div class="navgroup">Contenu</div>
       <button id="nav-jeux" class="navbtn" onclick="setTab('jeux')">
@@ -536,6 +576,33 @@
       <div class="sub">Cliquer sur Editer pour modifier le contenu en ligne.</div>
       <div class="tablecard"><div class="tablescroll" id="jeux-list"><div class="state">Chargement...</div></div></div>
     </div><!-- /view-jeux -->
+
+    <div id="view-clients" style="display:none">
+      <div class="page-head"><div class="txt">
+        <h2>Clients</h2>
+        <div class="sub">La fiche projet de chaque client : evenement, format, contraintes.
+          Elle reste entre toi et lui — un complice n'en voit jamais rien.</div>
+      </div><div class="actions">
+        <button class="btn inline" onclick="nouveauClient()">+ Nouveau client</button>
+      </div></div>
+      <div class="msg" id="cli-msg"></div>
+      <div class="clientgrid">
+        <div id="cli-liste"><div class="state">Chargement...</div></div>
+        <div id="cli-fiche"><div class="state">Choisis un client, ou cree-en un.</div></div>
+      </div>
+    </div>
+
+    <div id="view-catalogue" style="display:none">
+      <div class="page-head"><div class="txt">
+        <h2>Catalogue de questions</h2>
+        <div class="sub">La reserve dans laquelle tu piocheras pour composer le questionnaire
+          de chaque client. Chaque question declare ce qu'elle produit comme matiere d'enigme.</div>
+      </div><div class="actions">
+        <button class="btn inline" onclick="nouvelleQuestion()">+ Nouvelle question</button>
+      </div></div>
+      <div class="msg" id="cat-msg"></div>
+      <div id="cat-corps"><div class="state">Chargement...</div></div>
+    </div>
 
     <div id="view-live" style="display:none">
       <div class="page-head"><div class="txt">
@@ -764,13 +831,15 @@ function closeSide(){
   document.getElementById('side-overlay').classList.remove('show');
 }
 function setTab(t){
-  const sections = ['accueil','live','jeux','themes','joueurs','codes','biblio','stats','debrief'];
+  const sections = ['accueil','clients','catalogue','live','jeux','themes','joueurs','codes','biblio','stats','debrief'];
   sections.forEach(v=>{
     const nav = document.getElementById('nav-'+v); if(nav) nav.classList.toggle('active', t===v);
     const view = $('view-'+v); if(view) view.style.display = (t===v)?'block':'none';
   });
   if(t==='live'){ loadLive(); abonnerConsole(); }
   else { fermerCanalEquipe(); }
+  if(t==='clients') loadClients();
+  if(t==='catalogue') loadCatalogue();
   if(t==='debrief') loadDebriefListe();
   if(t==='stats' && !statsLoaded){ loadStats(); statsLoaded = true; }
   if(t==='jeux' && !jeuxLoaded){ renderJeux(); jeuxLoaded = true; }
@@ -792,6 +861,283 @@ async function loadRecap(){
     $('recap').innerHTML = `<div class="state">Recap indisponible (necessite le serveur en ligne).</div>`;
   }
 }
+// ════════ CLIENTS ════════
+// La fiche projet : ce qui se decide entre l'organisateur et le client. Elle ne
+// quitte jamais l'admin — le questionnaire partage au complice n'en reprendra
+// rien (pas de budget chez le meilleur pote).
+const CHAMPS_PROJET = [
+  ['evenement','Type d\'evenement','choix',['mariage','anniversaire','EVG','EVJF','entreprise','enquete','autre']],
+  ['occasion','Ce qu\'on fete','texte'],
+  ['date_event','Date de l\'evenement','date'],
+  ['date_livraison','Livraison souhaitee','date'],
+  ['budget','Budget indicatif','texte'],
+  ['ambiance','Ambiance','choix',['romantique','fun','mysterieuse','solennelle','dejantee','autre']],
+  ['mode','Le jeu se joue','choix',['presentiel','a distance','hybride']],
+  ['duree','Duree souhaitee','texte'],
+  ['nb_enigmes','Nombre d\'enigmes','nombre'],
+  ['difficulte','Difficulte','choix',['facile','moyen','corse','expert']],
+  ['nb_joueurs','Nombre de joueurs','nombre'],
+  ['nb_equipes','Nombre d\'equipes','nombre'],
+  ['profil_joueurs','Profil des joueurs','texte'],
+  ['accessibilite','Contraintes / accessibilite','long'],
+  ['animateur','Animateur ou jeu autonome ?','texte'],
+  ['lieu','Lieu principal (nom + adresse)','long'],
+  ['plan_b','Plan B en cas de mauvais temps','texte'],
+  ['deplacement','Les joueurs peuvent-ils se deplacer ?','texte'],
+  ['nfc','Tags NFC / objets a cacher','texte'],
+  ['recompense','Recompense finale','long'],
+  ['surprise','Est-ce une surprise ?','choix',['oui','non']],
+  ['contact_jour_j','Contact le jour J','texte'],
+];
+
+let CLIENTS = [], ORPHELINS = [], CLI_SEL = null;
+
+async function loadClients(){
+  try{
+    const r = await callFn('clients-list');
+    CLIENTS = r.clients||[]; ORPHELINS = r.orphelins||[];
+    renderClients();
+    if(CLI_SEL) renderFiche(CLIENTS.find(c=>c.id===CLI_SEL));
+  }catch(e){ $('cli-liste').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`; }
+}
+
+function renderClients(){
+  const box=$('cli-liste'); if(!box) return;
+  if(!CLIENTS.length){
+    box.innerHTML = `<div class="state">Aucun client.<br>Cree le premier pour demarrer une preparation.</div>`;
+    return;
+  }
+  const pastille = { prospect:'', en_cours:'ok', livre:'ok', archive:'off' };
+  box.innerHTML = CLIENTS.map(c=>`
+    <div class="clicard ${CLI_SEL===c.id?'sel':''}" onclick="ouvrirClient('${c.id}')">
+      <h3>${esc(c.nom)}</h3>
+      <div class="meta">
+        <span class="pill ${pastille[c.statut]||''}">${esc(c.statut.replace('_',' '))}</span>
+        <span>${c.jeux.length} jeu${c.jeux.length>1?'x':''}</span>
+        ${c.projet && c.projet.date_event ? `<span>${esc(c.projet.date_event)}</span>`:''}
+      </div>
+    </div>`).join('');
+}
+
+function ouvrirClient(id){ CLI_SEL=id; renderClients(); renderFiche(CLIENTS.find(c=>c.id===id)); }
+function nouveauClient(){ CLI_SEL=null; renderClients(); renderFiche({ nom:'', statut:'prospect', projet:{}, jeux:[] }); }
+
+function renderFiche(c){
+  const box=$('cli-fiche'); if(!box) return;
+  if(!c){ box.innerHTML=`<div class="state">Choisis un client, ou cree-en un.</div>`; return; }
+  const pj = c.projet||{};
+  const champ = ([cle,lib,type,opts]) => {
+    const v = pj[cle]||'';
+    if(type==='choix') return `<div class="field"><label>${lib}</label>
+      <select id="pj-${cle}">${['',...opts].map(o=>`<option value="${esc(o)}" ${o===v?'selected':''}>${esc(o||'—')}</option>`).join('')}</select></div>`;
+    if(type==='long') return `<div class="field" style="grid-column:1/-1"><label>${lib}</label>
+      <textarea id="pj-${cle}" rows="2">${esc(v)}</textarea></div>`;
+    const t = type==='date'?'date':(type==='nombre'?'number':'text');
+    return `<div class="field"><label>${lib}</label><input id="pj-${cle}" type="${t}" value="${esc(v)}"></div>`;
+  };
+
+  box.innerHTML = `
+    <div class="createbox">
+      <div class="section-head"><h3>${c.id?'Fiche client':'Nouveau client'}</h3>
+        ${c.id?`<button class="del" onclick="supprimerClient('${c.id}','${esc(c.nom)}')">Supprimer</button>`:''}</div>
+      <div class="formrow">
+        <div><label>Nom du client</label><input id="cli-nom" value="${esc(c.nom||'')}" placeholder="Famille Dupont"></div>
+        <div><label>Statut</label><select id="cli-statut">
+          ${['prospect','en_cours','livre','archive'].map(v=>`<option value="${v}" ${v===c.statut?'selected':''}>${v.replace('_',' ')}</option>`).join('')}
+        </select></div>
+      </div>
+      <div class="formrow">
+        <div><label>Contact</label><input id="cli-contact" value="${esc(c.contact_nom||'')}"></div>
+        <div><label>Email</label><input id="cli-email" type="email" value="${esc(c.email||'')}"></div>
+        <div><label>Telephone</label><input id="cli-tel" value="${esc(c.telephone||'')}"></div>
+      </div>
+
+      <div class="section-head" style="margin-top:var(--s5)"><h3>Fiche projet</h3>
+        <div class="sub">Reste entre toi et le client.</div></div>
+      <div class="projetgrid">${CHAMPS_PROJET.map(champ).join('')}</div>
+
+      <div class="field" style="margin-top:var(--s4)"><label>Notes internes</label>
+        <textarea id="cli-note" rows="3">${esc(c.note||'')}</textarea></div>
+
+      <div style="display:flex;gap:var(--s2);margin-top:var(--s4)">
+        <button class="btn inline" onclick="enregistrerClient('${c.id||''}')">Enregistrer</button>
+      </div>
+    </div>
+
+    ${c.id?`<div class="createbox">
+      <div class="section-head"><h3>Jeux de ce client</h3></div>
+      ${c.jeux.length
+        ? `<table><tbody>${c.jeux.map(j=>`<tr><td><strong>${esc(j.name)}</strong></td>
+            <td><span class="pill">${esc(j.slug)}</span></td>
+            <td><button class="tog" onclick="location.href='editeur.html?id=${j.id}'">Editer</button>
+              <button class="del" onclick="detacherJeu('${j.id}')">Detacher</button></td></tr>`).join('')}</tbody></table>`
+        : `<div class="state" style="padding:var(--s4)">Aucun jeu rattache.</div>`}
+      ${ORPHELINS.length?`<div class="field" style="margin-top:var(--s3)">
+        <label>Rattacher un jeu existant</label>
+        <div style="display:flex;gap:var(--s2)">
+          <select id="cli-jeu-lier">${ORPHELINS.map(j=>`<option value="${j.id}">${esc(j.name)}${j.client?` — ${esc(j.client)}`:''}</option>`).join('')}</select>
+          <button class="tog" onclick="lierJeu('${c.id}')">Rattacher</button>
+        </div></div>`:''}
+    </div>`:''}`;
+}
+
+function collecterProjet(){
+  const pj={};
+  CHAMPS_PROJET.forEach(([cle])=>{ const el=$('pj-'+cle); if(el && el.value!=='') pj[cle]=el.value; });
+  return pj;
+}
+
+async function enregistrerClient(id){
+  const m=$('cli-msg'); m.className='msg';
+  const body = {
+    id: id||undefined,
+    nom: $('cli-nom').value, contact_nom: $('cli-contact').value,
+    email: $('cli-email').value, telephone: $('cli-tel').value,
+    note: $('cli-note').value, statut: $('cli-statut').value,
+    projet: collecterProjet(),
+  };
+  try{
+    const r = await callFn('client-save',{method:'POST',body});
+    CLI_SEL = r.id;
+    m.textContent='Fiche enregistree.'; m.className='msg ok';
+    await loadClients();
+  }catch(e){ m.textContent='Erreur : '+e.message; m.className='msg err'; }
+}
+
+async function supprimerClient(id,nom){
+  if(!confirm(`Supprimer la fiche « ${nom} » ?\n\nSes jeux ne sont pas supprimes : ils seront simplement detaches.`)) return;
+  const m=$('cli-msg'); m.className='msg';
+  try{
+    await callFn('client-delete',{method:'POST',body:{id}});
+    CLI_SEL=null; m.textContent='Fiche supprimee.'; m.className='msg ok';
+    await loadClients(); renderFiche(null);
+  }catch(e){ m.textContent='Erreur : '+e.message; m.className='msg err'; }
+}
+
+async function lierJeu(client_id){
+  const jeu_id = $('cli-jeu-lier').value; if(!jeu_id) return;
+  try{ await callFn('jeu-client',{method:'POST',body:{jeu_id,client_id}}); await loadClients(); }
+  catch(e){ const m=$('cli-msg'); m.textContent='Erreur : '+e.message; m.className='msg err'; }
+}
+async function detacherJeu(jeu_id){
+  try{ await callFn('jeu-client',{method:'POST',body:{jeu_id,client_id:null}}); await loadClients(); }
+  catch(e){ const m=$('cli-msg'); m.textContent='Erreur : '+e.message; m.className='msg err'; }
+}
+
+// ════════ CATALOGUE DE QUESTIONS ════════
+// Ce que chaque question produira comme matiere d'enigme. C'est ce champ qui
+// permettra plus tard a l'editeur de proposer les bons ingredients au bon moment.
+const INGREDIENTS = {
+  chiffre: ['Chiffre','cadenas, clavier, codes'],
+  mot:     ['Mot','reponse texte, mots meles, anagramme'],
+  lieu:    ['Lieu','enigme GPS, guess-where'],
+  media:   ['Media','image d\'enigme, lampe UV'],
+  liste:   ['Liste','QCM, associations, rebus'],
+  recit:   ['Recit','narration, indices, ton du jeu'],
+};
+const TYPES_Q = ['texte','texte_long','nombre','date','liste','choix','media'];
+let CATALOGUE = [];
+
+async function loadCatalogue(){
+  try{
+    const { questions } = await callFn('questions-list');
+    CATALOGUE = questions||[];
+    renderCatalogue();
+  }catch(e){ $('cat-corps').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`; }
+}
+
+function renderCatalogue(){
+  const box=$('cat-corps'); if(!box) return;
+  if(!CATALOGUE.length){ box.innerHTML=`<div class="state">Catalogue vide. Lance la migration pour l'amorcer.</div>`; return; }
+  const parSection={};
+  CATALOGUE.forEach(q=>{ (parSection[q.section]=parSection[q.section]||[]).push(q); });
+
+  const compte = Object.entries(CATALOGUE.reduce((a,q)=>{ a[q.ingredient]=(a[q.ingredient]||0)+1; return a; },{}))
+    .sort((a,b)=>b[1]-a[1])
+    .map(([k,n])=>`<span class="pill">${esc(INGREDIENTS[k]?INGREDIENTS[k][0]:k)} ${n}</span>`).join(' ');
+
+  box.innerHTML = `<div class="section-head"><h3>${CATALOGUE.length} questions</h3><div>${compte}</div></div>`
+    + Object.keys(parSection).sort().map(sec=>`
+      <div class="section">
+        <div class="section-head"><h3>${esc(sec)}</h3>
+          <span class="count">${parSection[sec].length}</span></div>
+        <div class="tablecard"><div class="tablescroll"><table><tbody>
+          ${parSection[sec].map(q=>`<tr class="${q.actif?'':'inactive'}">
+            <td><strong>${esc(q.libelle)}</strong>
+              ${q.aide?`<div style="font-size:var(--t-xs);color:var(--dim)">${esc(q.aide)}</div>`:''}</td>
+            <td><span class="pill">${esc(q.type)}</span></td>
+            <td><span class="pill ing-${esc(q.ingredient)}" title="${esc(INGREDIENTS[q.ingredient]?INGREDIENTS[q.ingredient][1]:'')}">${esc(INGREDIENTS[q.ingredient]?INGREDIENTS[q.ingredient][0]:q.ingredient)}</span></td>
+            <td><button class="tog" onclick="editerQuestion('${esc(q.id)}')">Editer</button>
+              <button class="del" onclick="retirerQuestion('${esc(q.id)}','${esc(q.libelle)}')">${q.actif?'Desactiver':'Supprimer'}</button></td>
+          </tr>`).join('')}
+        </tbody></table></div></div>
+      </div>`).join('');
+}
+
+function nouvelleQuestion(){ formulaireQuestion({ section:'', libelle:'', type:'texte', ingredient:'recit', ordre:0, actif:true }); }
+function editerQuestion(id){ const q=CATALOGUE.find(x=>x.id===id); if(q) formulaireQuestion(q); }
+
+function formulaireQuestion(q){
+  const sections=[...new Set(CATALOGUE.map(x=>x.section))].sort();
+  const box=document.createElement('div');
+  box.className='modal';
+  box.innerHTML=`<div class="modalbox">
+    <h3>${q.id?'Modifier la question':'Nouvelle question'}</h3>
+    <p class="sub">${q.id?`Identifiant <code>${esc(q.id)}</code> — fige, des reponses peuvent y faire reference.`:'L\'identifiant sera derive du libelle.'}</p>
+    <div class="field"><label>Libelle</label><input id="q-libelle" value="${esc(q.libelle||'')}"></div>
+    <div class="field"><label>Aide (optionnel)</label><input id="q-aide" value="${esc(q.aide||'')}" placeholder="Ce qui aide le complice a repondre"></div>
+    <div class="formrow">
+      <div><label>Section</label><input id="q-section" list="q-sections" value="${esc(q.section||'')}">
+        <datalist id="q-sections">${sections.map(s=>`<option value="${esc(s)}">`).join('')}</datalist></div>
+      <div><label>Type de champ</label><select id="q-type">
+        ${TYPES_Q.map(t=>`<option value="${t}" ${t===q.type?'selected':''}>${t}</option>`).join('')}</select></div>
+      <div><label>Ordre</label><input id="q-ordre" type="number" value="${q.ordre||0}"></div>
+    </div>
+    <div class="field"><label>Ingredient d'enigme</label>
+      <select id="q-ingredient">${Object.entries(INGREDIENTS).map(([k,[lib,quoi]])=>
+        `<option value="${k}" ${k===q.ingredient?'selected':''}>${lib} — ${quoi}</option>`).join('')}</select>
+      <div class="help">Ce que la reponse produira. C'est ce qui permettra de retrouver les bons ingredients au moment de construire une enigme.</div>
+    </div>
+    <div class="modalact">
+      <button class="tog" onclick="this.closest('.modal').remove()">Annuler</button>
+      <button class="btn inline" onclick="enregistrerQuestion('${esc(q.id||'')}',this)">Enregistrer</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+}
+
+async function enregistrerQuestion(id, btn){
+  const m=$('cat-msg'); m.className='msg';
+  const body = {
+    id: id||undefined,
+    libelle: $('q-libelle').value, aide: $('q-aide').value,
+    section: $('q-section').value, type: $('q-type').value,
+    ingredient: $('q-ingredient').value, ordre: $('q-ordre').value,
+  };
+  try{
+    await callFn('question-save',{method:'POST',body});
+    btn.closest('.modal').remove();
+    m.textContent='Question enregistree.'; m.className='msg ok';
+    await loadCatalogue();
+  }catch(e){ m.textContent='Erreur : '+e.message; m.className='msg err'; }
+}
+
+async function retirerQuestion(id, libelle){
+  const q=CATALOGUE.find(x=>x.id===id); if(!q) return;
+  // Une question deja posee garde des reponses : on la desactive d'abord.
+  const definitif = !q.actif;
+  const texte = definitif
+    ? `Supprimer definitivement « ${libelle} » ?\n\nA ne faire que si elle n'a jamais ete posee.`
+    : `Desactiver « ${libelle} » ?\n\nElle ne sera plus proposee, mais les reponses deja collectees restent lisibles.`;
+  if(!confirm(texte)) return;
+  const m=$('cat-msg'); m.className='msg';
+  try{
+    await callFn('question-delete',{method:'POST',body:{id,definitif}});
+    m.textContent = definitif?'Question supprimee.':'Question desactivee.'; m.className='msg ok';
+    await loadCatalogue();
+  }catch(e){ m.textContent='Erreur : '+e.message; m.className='msg err'; }
+}
+
 // ════════ DEBRIEF ════════
 function dureeLongue(ms){
   if(!ms) return '-';
