@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atelier — console d'administration</title>
+<link rel="stylesheet" href="css/admin.css">
+<style>
+  /* Réservé à l'atelier : rien d'ici ne part dans l'application.
+     Sert uniquement à étiqueter les échantillons. */
+  .at-note{max-width:70ch;font-size:var(--t-sm);color:var(--dim);line-height:1.6;margin-bottom:var(--s4)}
+  .at-note code{font-family:var(--mono);font-size:.9em;background:var(--surface-2);
+    padding:1px 5px;border-radius:4px;border:1px solid var(--border)}
+  .at-lbl{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.4px;
+    text-transform:uppercase;color:var(--accent);margin:var(--s5) 0 var(--s2);
+    padding-top:var(--s3);border-top:1px dashed var(--border-hi)}
+  .at-lbl:first-of-type{margin-top:0;border-top:none;padding-top:0}
+  .at-rangee{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:flex-start;margin-bottom:var(--s3)}
+  .at-jetons{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--s2)}
+  .at-jeton{display:flex;align-items:center;gap:var(--s2);background:var(--surface-2);
+    border:1px solid var(--border);border-radius:var(--r-sm);padding:var(--s2);
+    font-family:var(--mono);font-size:var(--t-micro)}
+  .at-jeton i{width:22px;height:22px;border-radius:5px;flex:none;border:1px solid rgba(255,255,255,.14)}
+  .at-alerte{background:var(--warn-soft);border:1px solid rgba(240,185,85,.3);
+    color:var(--warn);border-radius:var(--r);padding:var(--s3) var(--s4);
+    font-size:var(--t-sm);line-height:1.6;margin-bottom:var(--s5);max-width:80ch}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="topbar">
+    <button class="burger" onclick="document.getElementById('side').classList.toggle('open');document.getElementById('side-overlay').classList.toggle('show')">☰</button>
+    <div class="brand"><span class="mark">EE</span> Escape Engine</div>
+    <div class="me">atelier@exemple.fr</div>
+    <button class="tog" onclick="basculerTheme()">☀︎ / ☾</button>
+  </header>
+
+  <!-- Le voile du tiroir de navigation, visible sous 760 px seulement. -->
+  <div class="side-overlay" id="side-overlay"
+       onclick="document.getElementById('side').classList.remove('open');this.classList.remove('show')"></div>
+
+  <div class="shell">
+    <nav class="side" id="side">
+      <div class="navgroup">Clients</div>
+      <button class="navbtn active">Clients</button>
+      <button class="navbtn">Catalogue</button>
+      <div class="navgroup">Contenu</div>
+      <button class="navbtn">Jeux</button>
+      <button class="navbtn">Thèmes</button>
+      <button class="navbtn">Bibliothèque</button>
+      <div class="navgroup">Événement</div>
+      <button class="navbtn">En direct <span class="navdot"></span></button>
+      <button class="navbtn">Joueurs</button>
+      <button class="navbtn">Codes</button>
+      <div class="navgroup">Analyse</div>
+      <button class="navbtn">Tableau de bord</button>
+      <button class="navbtn">Débrief</button>
+    </nav>
+
+    <main class="main">
+
+      <div class="page-head"><div class="txt">
+        <h2>Atelier</h2>
+        <div class="sub">Tous les composants de la console, dans tous leurs états.
+          C'est la page de travail : chaque bloc ci-dessous existe tel quel dans
+          <code>admin.html</code>.</div>
+      </div><div class="actions">
+        <button class="btn inline">Action primaire</button>
+      </div></div>
+
+      <div class="at-alerte">
+        <b>Le bouton ☀︎/☾ en haut ne fait encore rien.</b> Il pose
+        <code>data-theme="light"</code> sur <code>&lt;html&gt;</code> et c'est tout :
+        la feuille n'a aujourd'hui aucune règle pour le mode clair. C'est précisément
+        le crochet sur lequel bâtir. Voir <code>LISEZMOI.md</code>, section « Mode clair ».
+      </div>
+
+      <!-- ════════ JETONS ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Jetons</h3><span class="count">42</span></div>
+        <div class="at-note">Une seule source pour l'espacement, les rayons et la typographie.
+          Avant, la feuille comptait 24 tailles de police et 11 rayons : chaque ajout
+          inventait ses propres valeurs. Les <b>noms</b> sont figés, les <b>valeurs</b> sont
+          à toi.</div>
+
+        <div class="at-lbl">Surfaces et bordures</div>
+        <div class="at-jetons">
+          <div class="at-jeton"><i style="background:var(--bg)"></i>--bg</div>
+          <div class="at-jeton"><i style="background:var(--surface)"></i>--surface</div>
+          <div class="at-jeton"><i style="background:var(--surface-2)"></i>--surface-2</div>
+          <div class="at-jeton"><i style="background:var(--surface-hi)"></i>--surface-hi</div>
+          <div class="at-jeton"><i style="background:var(--border)"></i>--border</div>
+          <div class="at-jeton"><i style="background:var(--border-hi)"></i>--border-hi</div>
+        </div>
+
+        <div class="at-lbl">Texte</div>
+        <div class="at-jetons">
+          <div class="at-jeton"><i style="background:var(--text)"></i>--text</div>
+          <div class="at-jeton"><i style="background:var(--dim)"></i>--dim</div>
+          <div class="at-jeton"><i style="background:var(--faint)"></i>--faint</div>
+        </div>
+
+        <div class="at-lbl">Accent et états</div>
+        <div class="at-jetons">
+          <div class="at-jeton"><i style="background:var(--accent)"></i>--accent</div>
+          <div class="at-jeton"><i style="background:var(--ok)"></i>--ok</div>
+          <div class="at-jeton"><i style="background:var(--warn)"></i>--warn</div>
+          <div class="at-jeton"><i style="background:var(--danger)"></i>--danger</div>
+        </div>
+        <div class="at-note" style="margin-top:var(--s3)">L'accent ne sert qu'à trois choses :
+          action primaire, onglet actif, focus. Le survol passe en neutre — du cyan partout,
+          ça dilue.</div>
+      </div>
+
+      <!-- ════════ TYPOGRAPHIE ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Typographie</h3></div>
+        <div class="eyebrow">Sur-titre · eyebrow</div>
+        <h2>Titre de page · h2</h2>
+        <div class="sub">Sous-titre : une phrase qui explique à quoi sert l'écran, bornée à 70
+          caractères de large pour rester lisible.</div>
+        <h3 style="margin-top:var(--s4)">Titre de section · h3</h3>
+        <div class="help">Aide · le texte le plus discret, sous un champ.</div>
+        <div class="hint">Indication · même niveau que l'aide.</div>
+      </div>
+
+      <!-- ════════ BOUTONS ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Boutons</h3></div>
+        <div class="at-lbl">Les quatre rôles</div>
+        <div class="at-rangee">
+          <button class="btn">Bloc primaire</button>
+          <button class="btn inline">Primaire en ligne</button>
+          <button class="tog">Secondaire</button>
+          <button class="del">Destructif</button>
+          <button class="genbtn">Générer</button>
+        </div>
+        <div class="at-lbl">Désactivés</div>
+        <div class="at-rangee">
+          <button class="btn inline" disabled>Primaire</button>
+          <button class="tog" disabled>Secondaire</button>
+        </div>
+      </div>
+
+      <!-- ════════ FORMULAIRES ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Formulaires</h3></div>
+        <div class="createbox">
+          <div class="section-head"><h3>Dans une boîte de création</h3>
+            <div class="sub">Le conteneur de tout formulaire.</div></div>
+          <div class="formrow">
+            <div><label>Texte</label><input value="Famille Dupont"></div>
+            <div><label>Liste</label><select><option>prospect</option><option>en cours</option></select></div>
+            <div><label>Date</label><input type="date" value="2026-06-14"></div>
+          </div>
+          <div class="field"><label>Zone de texte</label>
+            <textarea rows="3">Le lieu principal est la maison de famille, avec repli possible sous la véranda.</textarea>
+            <div class="help">L'aide se place sous le champ.</div>
+          </div>
+          <div class="field"><label>Champ au focus (simulé)</label>
+            <input value="celui-ci porte l'anneau d'accent" style="border-color:var(--accent);box-shadow:var(--ring)"></div>
+        </div>
+      </div>
+
+      <!-- ════════ MESSAGES ET ÉTATS ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Messages et états</h3></div>
+        <div class="msg ok">Questionnaire enregistré — 24 questions.</div>
+        <div class="msg err">Erreur : ce jeu porte 3 réponses déjà collectées.</div>
+        <div class="created show">Code créé : MARIAGE-DUPONT-2026</div>
+        <div class="tablecard" style="margin-top:var(--s3)">
+          <div class="state">Aucun client.<br>Crée le premier pour démarrer une préparation.</div>
+        </div>
+        <div class="at-lbl">Pastilles</div>
+        <div class="at-rangee">
+          <span class="pill">neutre</span>
+          <span class="pill ok">publié</span>
+          <span class="pill off">désactivé</span>
+        </div>
+        <div class="at-lbl">Pastilles d'ingrédient — la couleur dit le type d'un coup d'œil</div>
+        <div class="at-rangee">
+          <span class="pill ing-chiffre">Chiffre</span>
+          <span class="pill ing-mot">Mot</span>
+          <span class="pill ing-lieu">Lieu</span>
+          <span class="pill ing-media">Média</span>
+          <span class="pill ing-liste">Liste</span>
+          <span class="pill ing-recit">Récit</span>
+        </div>
+      </div>
+
+      <!-- ════════ CHIFFRES ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Chiffres</h3></div>
+        <div class="kpis">
+          <div class="kpi"><div class="v">12</div><div class="l">Jeux</div><div class="sub2">3 publiés</div></div>
+          <div class="kpi"><div class="v">148</div><div class="l">Joueurs</div></div>
+          <div class="kpi"><div class="v">37</div><div class="l">Parties finies</div><div class="sub2">25 %</div></div>
+          <div class="kpi"><div class="v">6</div><div class="l">Équipes actives</div></div>
+        </div>
+        <div class="dbgrid" style="margin-top:var(--s4)">
+          <div class="dbstat"><b>1 h 24</b><span>Durée totale</span></div>
+          <div class="dbstat"><b>9 / 12</b><span>Énigmes résolues</span></div>
+          <div class="dbstat"><b>4</b><span>Indices utilisés</span></div>
+        </div>
+        <div class="cards" style="margin-top:var(--s4)">
+          <div class="scard"><h3>Énigme 4 — le code du coffre</h3>
+            <div class="stat"><span>Échecs</span><b>23</b></div>
+            <div class="stat"><span>Réussites</span><b>9</b></div>
+            <div class="bar"><i style="width:28%"></i></div>
+          </div>
+          <div class="scard"><h3>Énigme 7 — la carte</h3>
+            <div class="stat"><span>Échecs</span><b>4</b></div>
+            <div class="stat"><span>Réussites</span><b>28</b></div>
+            <div class="bar"><i style="width:87%"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ TUILES ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Tuiles d'accueil</h3></div>
+        <div class="tiles">
+          <a class="tile" href="#"><div class="ti-ic">🧩</div><b>Nouveau jeu</b><span>Partir d'un modèle vierge</span></a>
+          <a class="tile" href="#"><div class="ti-ic">👥</div><b>Clients</b><span>Fiches et questionnaires</span></a>
+          <a class="tile" href="#"><div class="ti-ic">📡</div><b>En direct</b><span>Suivre une soirée</span></a>
+        </div>
+      </div>
+
+      <!-- ════════ TABLEAUX ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Tableaux</h3><span class="count">3</span></div>
+        <div class="tablecard">
+          <header><h3>Jeux existants</h3><button class="tog">Exporter</button></header>
+          <div class="tablescroll">
+            <table>
+              <thead><tr><th>Nom</th><th>Slug</th><th>Statut</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Projet 1986</strong></td><td><span class="pill">projet-1986</span></td>
+                  <td><span class="pill ok">publié</span></td>
+                  <td><button class="tog">Éditer</button> <button class="del">Supprimer</button></td></tr>
+                <tr><td><strong>Anniversaire Julie</strong></td><td><span class="pill">anniv-julie</span></td>
+                  <td><span class="pill">brouillon</span></td>
+                  <td><button class="tog">Éditer</button> <button class="del">Supprimer</button></td></tr>
+                <tr class="inactive"><td><strong>Essai de mars</strong></td><td><span class="pill">essai-mars</span></td>
+                  <td><span class="pill off">archivé</span></td>
+                  <td><button class="tog">Éditer</button> <button class="del">Supprimer</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="at-note" style="margin-top:var(--s2)">La ligne grisée est une entrée
+          désactivée : elle reste lisible — ses données existent encore — sans se lire
+          comme une entrée active.</div>
+      </div>
+
+      <!-- ════════ CLIENTS ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Clients</h3></div>
+        <div class="at-note">Liste à gauche, fiche du client choisi à droite. Le même motif
+          de sélection que le suivi en direct.</div>
+        <div class="clientgrid">
+          <div>
+            <div class="clicard sel">
+              <h3>Famille Dupont</h3>
+              <div class="meta"><span class="pill ok">en cours</span><span>2 jeux</span><span>2026-06-14</span></div>
+            </div>
+            <div class="clicard">
+              <h3>Julie &amp; Marc</h3>
+              <div class="meta"><span class="pill">prospect</span><span>0 jeu</span></div>
+            </div>
+            <div class="clicard">
+              <h3>Cabinet Lemoine</h3>
+              <div class="meta"><span class="pill off">archivé</span><span>1 jeu</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="createbox">
+              <div class="section-head"><h3>Fiche client</h3><button class="del">Supprimer</button></div>
+              <div class="formrow">
+                <div><label>Nom du client</label><input value="Famille Dupont"></div>
+                <div><label>Statut</label><select><option>en cours</option></select></div>
+              </div>
+              <div class="section-head" style="margin-top:var(--s5)"><h3>Fiche projet</h3>
+                <div class="sub">Reste entre toi et le client.</div></div>
+              <div class="projetgrid">
+                <div class="field"><label>Type d'événement</label><select><option>mariage</option></select></div>
+                <div class="field"><label>Date de l'événement</label><input type="date" value="2026-06-14"></div>
+                <div class="field"><label>Budget indicatif</label><input value="1 200 €"></div>
+                <div class="field"><label>Nombre de joueurs</label><input type="number" value="18"></div>
+                <div class="field" style="grid-column:1/-1"><label>Contraintes / accessibilité</label>
+                  <textarea rows="2">Un participant en fauteuil ; éviter l'étage.</textarea></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ QUESTIONNAIRES ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Questionnaires et complices</h3></div>
+        <div class="createbox">
+          <div class="section-head"><h3>Questionnaires</h3><button class="btn inline">+ Nouveau</button></div>
+          <div class="qnbloc">
+            <div class="qnhead">
+              <div><strong>Proches de Julie</strong> <span class="pill">24 questions</span></div>
+              <div style="display:flex;gap:var(--s2);flex-wrap:wrap">
+                <button class="tog">Composer</button><button class="del">Supprimer</button>
+              </div>
+            </div>
+            <table><tbody>
+              <tr><td><strong>Marie</strong> <span class="pill">sœur</span></td>
+                <td><span class="pill ok">terminé — 24/24</span></td>
+                <td><button class="tog">Copier le lien</button> <button class="del">Retirer</button></td></tr>
+              <tr><td><strong>Thomas</strong> <span class="pill">meilleur ami</span></td>
+                <td><span class="pill">en cours — 9/24</span></td>
+                <td><button class="tog">Copier le lien</button> <button class="del">Retirer</button></td></tr>
+              <tr><td><strong>Sophie</strong> <span class="pill">collègue</span></td>
+                <td><span class="pill off">lien jamais ouvert</span></td>
+                <td><button class="tog">Copier le lien</button> <button class="del">Retirer</button></td></tr>
+            </tbody></table>
+            <div class="formrow" style="margin-top:var(--s3)">
+              <div><label>Nom du complice</label><input placeholder="Marie"></div>
+              <div><label>Relation</label><input placeholder="sœur"></div>
+              <div style="flex:none;display:flex;align-items:flex-end"><button class="tog">Ajouter</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ MATIÈRE COLLECTÉE ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Matière collectée</h3><span class="count">31 réponses</span></div>
+        <div class="createbox">
+          <div class="matsec">
+            <h4><span class="pill ing-chiffre">Chiffre</span><span class="help">cadenas, clavier, codes</span></h4>
+            <table><tbody>
+              <tr><td style="width:45%"><span class="help">En quelle année vous êtes-vous rencontrés ?</span></td>
+                <td><strong>2014</strong></td><td><span class="pill">Marie</span></td></tr>
+              <tr><td style="width:45%"><span class="help">Le numéro de leur premier appartement</span></td>
+                <td><strong>17</strong></td><td><span class="pill">Thomas</span></td></tr>
+            </tbody></table>
+          </div>
+          <div class="matsec">
+            <h4><span class="pill ing-media">Média</span><span class="help">image d'énigme, lampe UV</span></h4>
+            <table><tbody>
+              <tr><td style="width:45%"><span class="help">Une photo de leur voyage préféré</span></td>
+                <td>
+                  <div class="medialist">
+                    <div class="mediaitem">
+                      <div class="apercu" style="background:linear-gradient(135deg,#2a3f5f,#1a2332)"></div>
+                      <div class="mediameta"><span>IMG_4213.jpg</span><span class="help">1 842 Ko</span></div>
+                      <span class="pill ok">public</span>
+                    </div>
+                    <div class="mediaitem">
+                      <div class="apercu" style="background:linear-gradient(135deg,#5f3a2a,#332018)"></div>
+                      <div class="mediameta"><span>lisbonne-2019.jpg</span><span class="help">920 Ko</span></div>
+                      <button class="tog">Rendre public</button>
+                    </div>
+                  </div>
+                </td><td><span class="pill">Marie</span></td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ SUIVI EN DIRECT ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Suivi en direct</h3></div>
+        <div class="livegrid">
+          <div>
+            <div class="eqcard sel">
+              <h3>Les Renards <span class="pill ok">en cours</span></h3>
+              <div class="meta"><span>Projet 1986</span><span>énigme 7/12</span><span class="bloque">bloquée 14 min</span></div>
+              <div class="eqbar"><i style="width:58%"></i></div>
+            </div>
+            <div class="eqcard">
+              <h3>Les Hiboux</h3>
+              <div class="meta"><span>Projet 1986</span><span>énigme 3/12</span><span>4 min</span></div>
+              <div class="eqbar"><i style="width:25%"></i></div>
+            </div>
+          </div>
+          <div>
+            <div class="filbox">
+              <header><h3>Fil des Renards</h3><span class="pill">temps réel</span></header>
+              <div class="fillist">
+                <div class="filrow ok"><span class="h">21:14</span><span>Marie a résolu « Le code du coffre »</span></div>
+                <div class="filrow ko"><span class="h">21:11</span><span>Thomas a proposé « 1985 » — refusé</span></div>
+                <div class="filrow orga"><span class="h">21:09</span><span>Organisateur : « Regardez sous la table »</span></div>
+                <div class="filrow"><span class="h">21:02</span><span>Sophie a rejoint l'équipe</span></div>
+              </div>
+              <div class="aidebox">
+                <div class="row">
+                  <input placeholder="Message à l'équipe…">
+                  <button class="btn inline">Envoyer</button>
+                </div>
+                <div class="row">
+                  <select><option>Énigme 7 — la carte</option></select>
+                  <button class="tog">Débloquer</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ THÈMES ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Éditeur de thème</h3></div>
+        <div class="themewrap">
+          <div class="themelist">
+            <button class="themeitem"><span class="dot" style="background:#00e0d0"></span>Néon</button>
+            <button class="themeitem"><span class="dot" style="background:#c9a227"></span>Minéral</button>
+            <button class="themeitem"><span class="dot" style="background:#8b5e3c"></span>Papier</button>
+          </div>
+          <div class="themeedit">
+            <div class="presets">
+              <button class="preset">
+                <div class="swatches"><i style="background:#0a0a0f"></i><i style="background:#00e0d0"></i><i style="background:#ff4d6d"></i></div>
+                <b>Néon</b><span class="d">Sombre, cyan, années 80</span>
+              </button>
+              <button class="preset">
+                <div class="swatches"><i style="background:#14100c"></i><i style="background:#c9a227"></i><i style="background:#8b5e3c"></i></div>
+                <b>Minéral</b><span class="d">Chaud, doré, feutré</span>
+              </button>
+            </div>
+            <div class="colorgrid">
+              <div class="colorrow"><label>Fond</label><input type="color" value="#0a0a0f"><input value="#0a0a0f"></div>
+              <div class="colorrow"><label>Accent</label><input type="color" value="#00e0d0"><input value="#00e0d0"></div>
+              <div class="colorrow"><label>Texte</label><input type="color" value="#e9e9f2"><input value="#e9e9f2"></div>
+            </div>
+
+            <div class="ctrbox">
+              <div class="ctrhead"><span>Lisibilité — WCAG</span><span>ratio</span></div>
+              <div class="ctr ok"><span class="p" style="background:#0a0a0f;color:#e9e9f2">Aa</span>
+                <span class="lb">Texte sur fond</span><b>13.4</b><span class="vd">AAA</span></div>
+              <div class="ctr ok"><span class="p" style="background:#0a0a0f;color:#00e0d0">Aa</span>
+                <span class="lb">Accent sur fond</span><b>9.8</b><span class="vd">AAA</span></div>
+              <div class="ctr ko"><span class="p" style="background:#15151f;color:#5a5a70">Aa</span>
+                <span class="lb">Discret sur carte</span><b>2.1</b><span class="vd">insuffisant</span></div>
+            </div>
+
+            <div class="at-lbl">Aperçu fidèle — rend les vrais écrans du jeu</div>
+            <div class="at-note">Ces classes <code>.tpv-*</code> reproduisent le moteur de jeu
+              avec <b>les mêmes dérivations que <code>applyTheme()</code></b>. Un aperçu qui ne
+              correspond pas au résultat ne sert à rien : à modifier avec précaution.</div>
+            <div class="tpv" style="--pv-bg:#0a0a0f;--pv-card:#15151f;--pv-bd:#262635;--pv-tx:#e9e9f2;
+              --pv-dim:#8a8aa0;--pv-ac:#00e0d0;--pv-a2:#7b5cff;--pv-glow:rgba(0,224,208,.35);
+              --pv-ok:#39d98a;--pv-ko:#ff4d6d;--pv-hint:#ffb020;--pv-r:12px;--pv-amb:.5;
+              --pv-mono:ui-monospace,monospace;--pv-disp:system-ui;--pv-body:system-ui">
+              <div class="tpv-screen"><div class="tpv-amb"></div><div class="tpv-in">
+                <div class="tpv-eyebrow">PROJET 1986</div>
+                <div class="tpv-logo">Le dernier signal</div>
+                <div class="tpv-bar"><i style="width:58%"></i></div>
+                <div class="tpv-acte">Acte II · La station</div>
+                <div class="tpv-cards">
+                  <div class="tpv-card done"><b>05</b><span>FAIT</span></div>
+                  <div class="tpv-card now"><b>06</b><span>ICI</span></div>
+                  <div class="tpv-card"><b>07</b><span>—</span></div>
+                </div>
+              </div></div>
+              <div class="tpv-screen"><div class="tpv-amb"></div><div class="tpv-in">
+                <div class="tpv-narr">La radio grésille encore…</div>
+                <div class="tpv-q">Quel est le code du coffre ?</div>
+                <div class="tpv-hint">Cherche une date qui compte pour eux.</div>
+                <div class="tpv-input"><span>ta réponse</span><b>OK</b></div>
+                <div class="tpv-fb"><span class="ok">✓ juste</span><span class="ko">✗ raté</span></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ DÉBRIEF ════════ -->
+      <div class="section">
+        <div class="section-head"><h3>Débrief</h3></div>
+        <div class="dbsec">
+          <h3>Les Renards — 1 h 24</h3>
+          <div class="dbgrid">
+            <div class="dbstat"><b>9/12</b><span>Énigmes</span></div>
+            <div class="dbstat"><b>4</b><span>Indices</span></div>
+            <div class="dbstat"><b>14 min</b><span>Plus long blocage</span></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ════════ MODALES ════════ -->
+<div class="section" style="padding:0 var(--s5) var(--s7);max-width:1180px;margin:0 auto">
+  <div class="section-head"><h3>Fenêtres</h3></div>
+  <div class="at-note">Affichées ici à plat pour être travaillées. Dans l'application elles
+    apparaissent par-dessus, sur un voile sombre.</div>
+
+  <div class="at-lbl">Refus de publication</div>
+  <div class="modalbox" style="margin-bottom:var(--s5)">
+    <h3>Ce jeu ne peut pas être publié</h3>
+    <div class="sub">Trois problèmes bloquent la publication, deux méritent un coup d'œil.</div>
+    <div class="pbgrp err"><b>Bloquant</b>
+      <ul><li>Énigme 4 : aucune réponse acceptée</li>
+        <li>Énigme 9 : clavier numérique avec des lettres dans la solution</li></ul></div>
+    <div class="pbgrp ale"><b>Alerte</b>
+      <ul><li>Énigme 2 : aucun indice</li><li>Acte III : vide</li></ul></div>
+    <div class="modalact">
+      <button class="tog">Annuler</button>
+      <button class="btn inline">Publier quand même</button>
+    </div>
+  </div>
+
+  <div class="at-lbl">Compositeur de questionnaire</div>
+  <div class="modalbox large">
+    <h3>Composer « Proches de Julie »</h3>
+    <p class="sub">Coche les questions à poser. L'ordre d'affichage est celui du catalogue.</p>
+    <div class="field"><label>Mot d'accueil</label>
+      <textarea rows="2">Salut ! Je prépare une surprise pour Julie…</textarea>
+      <div class="help">C'est ici qu'on explique que c'est une surprise.</div></div>
+    <div class="cphead"><span>24 questions sélectionnées</span><button class="tog">Tout décocher</button></div>
+    <div class="cplist">
+      <div class="cpsec"><h4>identite</h4>
+        <div class="cprow on">
+          <label class="cptop"><input type="checkbox" checked>
+            <span><strong>En quelle année vous êtes-vous rencontrés ?</strong>
+              <span class="pill ing-chiffre">Chiffre</span>
+              <div class="help">Une année à quatre chiffres.</div></span></label>
+          <div class="cpdetail">
+            <div class="formrow">
+              <div><label>Reformuler</label><input placeholder="En quelle année…"></div>
+              <div><label>Pré-remplir</label><input value="2014"></div>
+              <div style="flex:none"><label>&nbsp;</label>
+                <label class="cpobl"><input type="checkbox" checked> obligatoire</label></div>
+            </div>
+          </div>
+        </div>
+        <div class="cprow">
+          <label class="cptop"><input type="checkbox">
+            <span><strong>Le prénom de leur premier animal</strong>
+              <span class="pill ing-mot">Mot</span></span></label>
+          <div class="cpdetail" style="display:none"></div>
+        </div>
+        <div class="cprow">
+          <label class="cptop"><input type="checkbox">
+            <span><strong>Une photo de leur voyage préféré</strong>
+              <span class="pill ing-media">Média</span></span></label>
+          <div class="cpdetail" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modalact">
+      <button class="tog">Annuler</button>
+      <button class="btn inline">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ CONNEXION ════════ -->
+<div class="section" style="padding:0 var(--s5) var(--s7);max-width:1180px;margin:0 auto">
+  <div class="section-head"><h3>Écran de connexion</h3></div>
+  <div class="at-note">Le seul écran hors console : centré, sans navigation.</div>
+  <div class="login" style="position:static;min-height:0;transform:none">
+    <h1>Espace administrateur</h1>
+    <p>Connecte-toi avec ton compte admin.</p>
+    <label>Email</label><input type="email" placeholder="ton@email">
+    <label>Mot de passe</label><input type="password" placeholder="••••••••">
+    <button class="btn">Se connecter</button>
+  </div>
+</div>
+
+<script>
+// Le crochet du mode clair. Il pose l'attribut, rien de plus : c'est à la
+// feuille de style d'en faire quelque chose.
+function basculerTheme(){
+  const h = document.documentElement;
+  h.dataset.theme = h.dataset.theme === 'light' ? 'dark' : 'light';
+}
+</script>
+</body>
+</html>

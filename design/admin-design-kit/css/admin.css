@@ -1,0 +1,483 @@
+  /* ── Jetons ───────────────────────────────────────────────────────────────
+     Une seule source pour l'espacement, les rayons et la typographie. Avant,
+     la feuille comptait 24 tailles de police et 11 rayons differents : chaque
+     ajout inventait ses propres valeurs, et rien ne tenait ensemble. */
+  :root{
+    /* Fond legerement plus profond que les surfaces : les cartes se detachent
+       par elles-memes, sans ombre portee. */
+    --bg:#0b0b11;--surface:#13131c;--surface-2:#181822;--surface-hi:#1e1e2a;
+    --border:#23232f;--border-hi:#30303f;
+    --text:#ececf4;--dim:#8f8fa6;--faint:#5e5e75;
+    /* L'accent ne sert plus qu'a trois choses : action primaire, onglet actif,
+       focus. Le survol passe en neutre — du cyan partout, ca dilue. */
+    --accent:#00e0d0;--accent-ink:#04140f;
+    --accent-soft:rgba(0,224,208,.09);--accent-line:rgba(0,224,208,.28);
+    --danger:#ff5c78;--danger-soft:rgba(255,92,120,.11);
+    --ok:#3ddc91;--ok-soft:rgba(61,220,145,.11);
+    --warn:#f0b955;--warn-soft:rgba(240,185,85,.11);
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI Variable Text","Segoe UI",Roboto,sans-serif;
+
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:28px; --s7:40px;
+    --r-sm:6px; --r:8px; --r-lg:12px; --r-full:99px;
+    --t-micro:.66rem; --t-xs:.75rem; --t-sm:.82rem; --t-md:.88rem;
+    --t-lg:1rem; --t-xl:1.25rem; --t-2xl:1.6rem;
+    --ring:0 0 0 3px var(--accent-soft);
+    --ease:.14s ease;
+    --nav-w:236px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;
+    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+
+  /* Navigation clavier : rien n'etait visible au focus avant. */
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
+
+  /* ── Typographie ── */
+  h1,h2,h3{font-weight:600;letter-spacing:-.012em}
+  h2{font-size:var(--t-xl)}
+  h3{font-size:var(--t-md)}
+  .sub{font-size:var(--t-sm);color:var(--dim);max-width:70ch;line-height:1.55}
+  .help,.hint{font-size:var(--t-xs);color:var(--faint);line-height:1.5}
+  .eyebrow{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.4px;
+    text-transform:uppercase;color:var(--faint)}
+
+  /* ── En-tete de page ──
+     Chaque vue commencait par un <h2> nu, avec des marges inline improvisees
+     (margin-top:34px, margin-bottom:6px, margin:0...). Un seul motif desormais :
+     titre, description, et les actions alignees a droite. */
+  .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s4);
+    padding-bottom:var(--s4);margin-bottom:var(--s5);border-bottom:1px solid var(--border);
+    flex-wrap:wrap}
+  .page-head .txt{min-width:0}
+  .page-head h2{margin-bottom:3px}
+  .page-head .sub{margin:0}
+  .page-head .actions{display:flex;gap:var(--s2);flex-wrap:wrap;flex-shrink:0}
+
+  /* Sections dans une page : le tableau de bord en empilait six sans hierarchie. */
+  .section{margin-bottom:var(--s7)}
+  .section:last-child{margin-bottom:0}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);
+    margin-bottom:var(--s3);flex-wrap:wrap}
+  .section-head h3{font-size:var(--t-lg)}
+  .section-head .sub{margin:0;font-size:var(--t-xs)}
+  .count{font-family:var(--mono);font-size:var(--t-micro);color:var(--faint);
+    background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-full);
+    padding:2px var(--s2);font-variant-numeric:tabular-nums}
+
+  /* ── Barre haute ── */
+  .topbar{display:flex;align-items:center;justify-content:space-between;height:52px;
+    padding:0 var(--s5);border-bottom:1px solid var(--border);background:var(--surface);
+    position:sticky;top:0;z-index:30}
+  .topbar .brand{display:flex;align-items:center;gap:var(--s2);
+    font-size:var(--t-sm);font-weight:600;letter-spacing:-.01em;color:var(--text)}
+  .topbar .brand .mark{width:20px;height:20px;border-radius:var(--r-sm);flex-shrink:0;
+    background:linear-gradient(135deg,var(--accent),#0090c0);
+    display:grid;place-items:center;font-family:var(--mono);font-size:11px;
+    font-weight:700;color:var(--accent-ink)}
+  .topbar .me{font-size:var(--t-xs);color:var(--dim);font-variant-numeric:tabular-nums}
+  .topbar button{background:none;border:1px solid var(--border);color:var(--dim);
+    border-radius:var(--r-sm);padding:5px 11px;font-size:var(--t-xs);cursor:pointer;transition:var(--ease)}
+  .topbar button:hover{border-color:var(--border-hi);color:var(--text)}
+
+  /* ── Ossature ── */
+  .shell{display:flex;min-height:calc(100vh - 52px)}
+  .side{width:var(--nav-w);flex-shrink:0;border-right:1px solid var(--border);
+    background:var(--surface);padding:var(--s4) var(--s3);display:flex;flex-direction:column;gap:1px;
+    position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
+  /* Neuf entrees a plat, sans hierarchie : on les groupe par moment d'usage. */
+  .navgroup{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.3px;
+    text-transform:uppercase;color:var(--faint);padding:var(--s4) var(--s3) var(--s2)}
+  .navgroup:first-child{padding-top:0}
+  .navbtn{position:relative;display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:none;border:none;color:var(--dim);padding:7px var(--s3);border-radius:var(--r-sm);
+    font-size:var(--t-md);font-family:inherit;cursor:pointer;transition:var(--ease)}
+  .navbtn svg{width:16px;height:16px;flex-shrink:0;opacity:.75}
+  .navbtn:hover{background:var(--surface-2);color:var(--text)}
+  .navbtn:hover svg{opacity:1}
+  .navbtn.active{background:var(--surface-hi);color:var(--text);font-weight:500}
+  .navbtn.active svg{color:var(--accent);opacity:1}
+  .navbtn.active::before{content:"";position:absolute;left:calc(var(--s3) * -1);
+    top:6px;bottom:6px;width:2px;border-radius:var(--r-full);background:var(--accent)}
+  .navdot{width:6px;height:6px;border-radius:50%;background:var(--danger);margin-left:auto;
+    flex-shrink:0;box-shadow:0 0 0 3px var(--danger-soft)}
+  .main{flex:1;padding:var(--s6) var(--s7) var(--s7);max-width:1120px;min-width:0}
+  .burger{display:none;background:none;border:none;color:var(--accent);font-size:1.2rem;
+    cursor:pointer;padding:0 var(--s2) 0 0;vertical-align:middle}
+  .side-overlay{display:none}
+
+  /* ── Connexion ── */
+  .login{max-width:360px;margin:80px auto;background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--r-lg);padding:var(--s6) var(--s5)}
+  .login h1{font-size:var(--t-xl);margin-bottom:var(--s1)}
+  .login p{font-size:var(--t-sm);color:var(--dim);margin-bottom:var(--s5)}
+
+  /* ── Champs ── */
+  label{display:block;font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1px;
+    text-transform:uppercase;color:var(--dim);margin:0 0 var(--s1)}
+  /* `textarea` manquait a cette liste depuis le debut : tous les champs longs
+     de la console — notes internes, fiche projet, mot d'accueil, aide d'une
+     question — s'affichaient avec le style par defaut du navigateur, fond
+     blanc compris. Trouve en rendant l'atelier du kit de design. */
+  input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--border);
+    border-radius:var(--r);color:var(--text);padding:10px var(--s3);font-size:var(--t-md);
+    margin-bottom:var(--s3);transition:var(--ease);font-family:inherit;line-height:1.5}
+  select{margin-bottom:0}
+  textarea{resize:vertical;min-height:64px}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
+  input::placeholder,textarea::placeholder{color:var(--faint)}
+
+  /* ── Boutons ──
+     .btn s'etirait sur toute la largeur, d'ou six surcharges inline
+     « width:auto » disseminees. La variante .btn.inline remplace ce bricolage. */
+  .btn{width:100%;background:var(--accent);color:#04140f;font-weight:700;font-size:var(--t-md);
+    border:none;border-radius:var(--r);padding:12px;cursor:pointer;transition:var(--ease)}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.5;cursor:default;filter:none}
+  .btn.inline{width:auto;padding:11px 18px}
+  .tog,.del,.genbtn{background:none;border:1px solid var(--border);color:var(--dim);
+    border-radius:var(--r-sm);padding:6px 12px;font-size:var(--t-xs);cursor:pointer;
+    transition:var(--ease);white-space:nowrap;font-family:inherit}
+  .tog:hover,.genbtn:hover{border-color:var(--border-hi);color:var(--text);background:var(--surface-2)}
+  .del:hover{border-color:var(--danger);color:var(--danger)}
+  .genbtn{padding:10px var(--s3)}
+
+  /* ── Fiches : une seule fondation ──
+     Il y avait neuf composants de carte, chacun avec son rayon et son padding.
+     Ils partagent desormais la meme base et ne different que par leur contenu. */
+  .tile,.kpi,.scard,.dbstat,.eqcard,.clicard,.filbox,.createbox,.themeedit,.tablecard{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg)}
+  .tile,.createbox,.themeedit{padding:var(--s5)}
+  .kpi,.scard,.dbstat{padding:var(--s4)}
+  .eqcard,.clicard{padding:var(--s3) var(--s4)}
+  .createbox{margin-bottom:var(--s6)}
+
+  /* Coquille de tableau : les tables flottaient a nu sur le fond de page. */
+  .tablecard{overflow:hidden}
+  .tablecard > header{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+    padding:var(--s3) var(--s4);border-bottom:1px solid var(--border);background:var(--surface-2);
+    flex-wrap:wrap}
+  .tablecard > header h3{font-size:var(--t-sm)}
+  .tablecard .tablescroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:var(--s3)}
+  .tile{display:flex;flex-direction:column;gap:var(--s1);cursor:pointer;text-decoration:none;
+    color:inherit;transition:var(--ease)}
+  .tile:hover{border-color:var(--border-hi);background:var(--surface-2)}
+  .tile .ti-ic{font-size:1.5rem;margin-bottom:var(--s1)}
+  .tile b{font-size:var(--t-md)}
+  .tile span{font-size:var(--t-xs);color:var(--dim)}
+
+  .kpis,.cards,.dbgrid{display:grid;gap:var(--s3)}
+  .kpis{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .cards{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+  .dbgrid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:var(--s5)}
+  /* Les chiffres s'alignent en colonne : chasse fixe obligatoire. */
+  .kpi .v,.dbstat b{font-variant-numeric:tabular-nums}
+  .kpi .v{font-size:var(--t-2xl);font-weight:700;line-height:1}
+  .kpi .l,.dbstat span{font-size:var(--t-micro);color:var(--dim);text-transform:uppercase;
+    letter-spacing:1px;margin-top:var(--s1);font-family:var(--mono)}
+  .kpi .sub2{font-size:var(--t-xs);color:var(--faint);margin-top:2px}
+  .dbstat b{display:block;font-size:var(--t-xl);margin-bottom:2px}
+  .dbstat span{display:block;margin:0}
+
+  .scard h3{margin-bottom:var(--s3)}
+  .scard .stat{display:flex;justify-content:space-between;gap:var(--s3);font-size:var(--t-sm);
+    color:var(--dim);padding:var(--s1) 0}
+  .scard .stat b{color:var(--text);font-variant-numeric:tabular-nums}
+  .bar{height:6px;background:var(--surface-2);border-radius:var(--r-full);overflow:hidden;margin-top:var(--s2)}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:var(--r-full)}
+  .dbsec{margin-bottom:var(--s5)}
+  .dbsec h3{margin-bottom:var(--s2)}
+
+  /* ── Tableaux ──
+     `table{min-width:520px}` etait global : toutes les tables forcaient un
+     defilement horizontal, y compris les etroites. Reserve aux conteneurs
+     defilables, ou c'est le comportement voulu. */
+  table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
+  th{text-align:left;font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1px;
+    text-transform:uppercase;color:var(--faint);padding:9px var(--s4);font-weight:400;
+    border-bottom:1px solid var(--border);background:var(--surface-2)}
+  td{padding:10px var(--s4);border-bottom:1px solid var(--border);vertical-align:middle}
+  /* Les chiffres et la derniere colonne d'actions s'alignent a droite. */
+  th:last-child,td:last-child{text-align:right}
+  tbody tr{transition:var(--ease)}
+  tbody tr:hover td{background:var(--surface-2)}
+  tbody tr:last-child td{border-bottom:none}
+  td strong{font-weight:600}
+
+  /* ── Etats ── */
+  .pill{display:inline-block;font-family:var(--mono);font-size:var(--t-micro);padding:2px var(--s2);
+    border-radius:var(--r-sm);background:var(--surface-2);color:var(--dim);border:1px solid var(--border);
+    white-space:nowrap}
+  .pill.ok{color:var(--ok);border-color:rgba(57,217,138,.3);background:var(--ok-soft)}
+  .pill.off{color:var(--danger);border-color:rgba(255,77,109,.3);background:var(--danger-soft)}
+  .msg{font-size:var(--t-sm);border-radius:var(--r);padding:10px var(--s3);margin-bottom:var(--s3);
+    display:none;border:1px solid transparent}
+  .msg.err{display:block;background:var(--danger-soft);color:var(--danger);border-color:rgba(255,77,109,.25)}
+  .msg.ok{display:block;background:var(--ok-soft);color:var(--ok);border-color:rgba(57,217,138,.25)}
+  .state{padding:var(--s7) var(--s5);text-align:center;color:var(--faint);font-size:var(--t-sm);line-height:1.6}
+  .created{margin-top:var(--s3);font-size:var(--t-sm);color:var(--ok);font-family:var(--mono);display:none}
+  .created.show{display:block;background:var(--ok-soft);border:1px solid rgba(57,217,138,.25);
+    border-radius:var(--r);padding:var(--s3) var(--s4)}
+
+  /* ── Formulaires en ligne ── */
+  .formrow{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:flex-end}
+  .formrow > div{flex:1;min-width:140px;margin:0}
+  .formrow input,.formrow select{margin:0}
+
+  /* ── Fenetre de refus de publication ── */
+  .modal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.6);
+    display:grid;place-items:center;padding:var(--s4)}
+  .modalbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+    padding:var(--s5);max-width:560px;width:100%;max-height:82vh;overflow-y:auto}
+  .modalbox h3{font-size:var(--t-lg);margin-bottom:3px}
+  .modalbox .sub{margin-bottom:var(--s4)}
+  .pbgrp{border:1px solid var(--border);border-radius:var(--r);padding:var(--s3);margin-bottom:var(--s2)}
+  .pbgrp b{display:block;font-size:var(--t-xs);font-family:var(--mono);letter-spacing:1px;
+    text-transform:uppercase;margin-bottom:var(--s2)}
+  .pbgrp ul{margin:0;padding-left:var(--s4);font-size:var(--t-sm);line-height:1.7;color:var(--dim)}
+  .pbgrp.err{border-color:rgba(255,92,120,.3);background:var(--danger-soft)}
+  .pbgrp.err b{color:var(--danger)}
+  .pbgrp.ale{border-color:rgba(240,185,85,.3);background:var(--warn-soft)}
+  .pbgrp.ale b{color:var(--warn)}
+  .modalact{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s4);flex-wrap:wrap}
+
+  /* ── Points de depart ── */
+  .presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s2);
+    margin-bottom:var(--s4)}
+  .preset{display:flex;flex-direction:column;gap:3px;text-align:left;cursor:pointer;
+    background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);
+    padding:var(--s3);color:var(--text);font-family:inherit;transition:var(--ease)}
+  .preset:hover{border-color:var(--border-hi);background:var(--surface-hi)}
+  .preset b{font-size:var(--t-sm);font-weight:600}
+  .preset .d{font-size:var(--t-micro);color:var(--dim)}
+  .preset .swatches{display:flex;gap:3px;margin-bottom:var(--s1)}
+  .preset .swatches i{width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.14)}
+
+  /* ── Lisibilite ── */
+  .ctrbox{margin-top:var(--s3);border:1px solid var(--border);border-radius:var(--r);
+    background:var(--surface-2);overflow:hidden}
+  .ctrhead{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);
+    padding:var(--s2) var(--s3);border-bottom:1px solid var(--border);
+    font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--faint)}
+  .ctr{display:flex;align-items:center;gap:var(--s3);padding:6px var(--s3);font-size:var(--t-xs)}
+  .ctr .p{width:26px;height:22px;border-radius:var(--r-sm);display:grid;place-items:center;
+    font-size:11px;flex:none;border:1px solid var(--border)}
+  .ctr .lb{flex:1;color:var(--dim)}
+  .ctr b{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .ctr .vd{width:16ch;text-align:right;color:var(--faint)}
+  .ctr.ok b{color:var(--ok)} .ctr.ko b,.ctr.ko .vd{color:var(--danger)}
+
+  /* ── Apercu du theme ──
+     Rend les vrais ecrans du jeu, avec les memes derivations que applyTheme()
+     cote moteur : un apercu qui ne correspond pas au resultat ne sert a rien. */
+  .tpv{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--s3)}
+  .tpv-screen{position:relative;overflow:hidden;border:1px solid var(--pv-bd);
+    border-radius:var(--pv-r);background:var(--pv-bg);min-height:210px;
+    font-family:var(--pv-body)}
+  .tpv-amb{position:absolute;inset:0;opacity:var(--pv-amb);pointer-events:none;
+    background:
+      radial-gradient(120% 70% at 50% -10%, var(--pv-ac), transparent 62%),
+      radial-gradient(90% 55% at 92% 105%, var(--pv-a2), transparent 66%);
+    mix-blend-mode:screen}
+  .tpv-in{position:relative;padding:var(--s4);display:flex;flex-direction:column;gap:var(--s2)}
+  .tpv-eyebrow{font-family:var(--pv-mono);font-size:9px;color:var(--pv-dim);letter-spacing:1.5px}
+  .tpv-logo{font-family:var(--pv-disp);font-size:1.25rem;color:var(--pv-ac);
+    text-shadow:0 0 14px var(--pv-glow);line-height:1.1}
+  .tpv-bar{height:4px;background:var(--pv-card);border-radius:99px;overflow:hidden}
+  .tpv-bar i{display:block;height:100%;background:var(--pv-ac);box-shadow:0 0 8px var(--pv-glow)}
+  .tpv-acte{font-family:var(--pv-disp);font-size:.66rem;color:var(--pv-dim);margin-top:var(--s1)}
+  .tpv-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .tpv-card{background:var(--pv-card);border:1px solid var(--pv-bd);border-radius:calc(var(--pv-r) * .75);
+    padding:8px 6px;text-align:center;color:var(--pv-dim)}
+  .tpv-card b{display:block;font-family:var(--pv-mono);font-size:.85rem;color:var(--pv-tx)}
+  .tpv-card span{font-size:8px;letter-spacing:.5px}
+  .tpv-card.done{border-color:var(--pv-ok)} .tpv-card.done b{color:var(--pv-ok)}
+  .tpv-card.now{border-color:var(--pv-ac);box-shadow:0 0 0 1px var(--pv-ac),0 0 14px var(--pv-glow)}
+  .tpv-card.now b{color:var(--pv-ac)}
+  .tpv-narr{font-family:var(--pv-mono);font-size:9px;color:var(--pv-ac);opacity:.85}
+  .tpv-q{font-family:var(--pv-disp);font-size:.95rem;color:var(--pv-tx);line-height:1.3}
+  .tpv-hint{font-size:.68rem;color:var(--pv-hint);border-left:2px solid var(--pv-hint);
+    padding-left:8px;line-height:1.4}
+  .tpv-input{display:flex;align-items:center;gap:6px;margin-top:auto}
+  .tpv-input span{flex:1;background:var(--pv-card);border:1px solid var(--pv-bd);
+    border-radius:calc(var(--pv-r) * .6);padding:7px 9px;font-size:.68rem;color:var(--pv-dim)}
+  .tpv-input b{background:var(--pv-ac);color:var(--pv-bg);border-radius:calc(var(--pv-r) * .6);
+    padding:7px 11px;font-size:.6rem;letter-spacing:1px}
+  .tpv-fb{display:flex;gap:10px;font-size:.62rem;font-family:var(--pv-mono)}
+  .tpv-fb .ok{color:var(--pv-ok)} .tpv-fb .ko{color:var(--pv-ko)}
+
+  /* ── Themes ── */
+  .themewrap{display:flex;gap:var(--s5);align-items:flex-start}
+  .themelist{width:230px;flex-shrink:0}
+  .themeedit{flex:1;min-width:0}
+  .themeitem{display:flex;align-items:center;gap:var(--s2);width:100%;text-align:left;
+    background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--r);
+    padding:10px var(--s3);margin-bottom:6px;font-size:var(--t-sm);cursor:pointer;transition:var(--ease)}
+  .themeitem:hover{border-color:var(--border-hi);background:var(--surface-2)}
+  .themeitem .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+  .colorgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2)}
+  .colorrow{display:flex;flex-direction:column;gap:var(--s1)}
+  .colorrow label{margin:0}
+  .colorrow input[type=color]{width:100%;height:30px;padding:0;border:1px solid var(--border);
+    border-radius:var(--r-sm);background:none;cursor:pointer;margin:0}
+  .colorrow input:not([type=color]){font-family:var(--mono);font-size:var(--t-xs);padding:6px var(--s2);margin:0}
+
+  /* ── Suivi en direct ── */
+  .livegrid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:var(--s4);align-items:start}
+  .eqcard{margin-bottom:var(--s2);cursor:pointer;transition:var(--ease)}
+  .eqcard:hover{border-color:var(--border-hi);background:var(--surface-2)}
+  .eqcard.sel{border-color:var(--accent);background:var(--surface-2);box-shadow:var(--ring)}
+  .eqcard h3{font-size:var(--t-md);margin-bottom:3px;display:flex;align-items:center;gap:var(--s2)}
+  .eqcard .meta{font-size:var(--t-xs);color:var(--dim);display:flex;gap:var(--s3);flex-wrap:wrap}
+  .eqcard .bloque{color:var(--danger);font-weight:600}
+  .eqbar{height:4px;background:var(--surface-2);border-radius:var(--r-full);margin-top:var(--s2);overflow:hidden}
+  .eqbar i{display:block;height:100%;background:var(--accent);border-radius:var(--r-full)}
+  .filbox{overflow:hidden}
+  .filbox header{padding:var(--s3) var(--s4);border-bottom:1px solid var(--border);display:flex;
+    justify-content:space-between;align-items:center;gap:var(--s2);flex-wrap:wrap}
+  .fillist{max-height:46vh;overflow-y:auto}
+  .filrow{display:flex;gap:var(--s3);padding:var(--s2) var(--s4);
+    border-bottom:1px solid var(--border);font-size:var(--t-sm);line-height:1.45}
+  .filrow:last-child{border-bottom:none}
+  .filrow .h{font-family:var(--mono);font-size:var(--t-micro);color:var(--faint);flex:none;padding-top:2px}
+  .filrow.ok{color:var(--ok)} .filrow.ko{color:var(--dim)} .filrow.orga{color:var(--accent)}
+  .aidebox{padding:var(--s3) var(--s4);border-top:1px solid var(--border);display:flex;
+    flex-direction:column;gap:var(--s2);background:var(--surface-2)}
+  .aidebox .row{display:flex;gap:var(--s2);flex-wrap:wrap}
+  .aidebox input,.aidebox select{flex:1;min-width:130px;margin:0}
+
+  /* ── Clients ──
+     Meme partition que le suivi en direct : la liste a gauche, la fiche du
+     client choisi a droite. Un seul motif de selection dans toute l'admin. */
+  .clientgrid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);
+    gap:var(--s4);align-items:start}
+  .clicard{margin-bottom:var(--s2);cursor:pointer;transition:var(--ease)}
+  .clicard:hover{border-color:var(--border-hi);background:var(--surface-2)}
+  .clicard.sel{border-color:var(--accent);background:var(--surface-2);box-shadow:var(--ring)}
+  .clicard h3{font-size:var(--t-md);margin-bottom:var(--s1)}
+  .clicard .meta{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
+    font-size:var(--t-xs);color:var(--dim)}
+
+  /* La fiche projet compte une vingtaine de champs courts : sur une colonne
+     elle devient un formulaire interminable. */
+  .projetgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:var(--s3) var(--s3)}
+  .projetgrid .field{margin:0;min-width:0}
+  /* `resize:vertical` et `min-height` viennent maintenant de la regle de base. */
+
+  /* ── Questionnaires et complices ── */
+  .qnbloc{border:1px solid var(--border);border-radius:var(--r);background:var(--surface-2);
+    padding:var(--s3) var(--s4);margin-bottom:var(--s3)}
+  .qnhead{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+    flex-wrap:wrap;margin-bottom:var(--s2)}
+  .qnhead strong{font-size:var(--t-md);margin-right:var(--s2)}
+  .qnbloc table{margin-bottom:var(--s2)}
+  .qnbloc td{padding:8px 0;border-color:var(--border)}
+  .qnbloc td:first-child{padding-left:0}
+
+  /* ── Le compositeur ──
+     Le catalogue entier tient dans une fenetre : il faut qu'il defile seul,
+     sinon les boutons d'action partent hors de l'ecran. */
+  .modalbox.large{max-width:860px;display:flex;flex-direction:column}
+  .cphead{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+    font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--faint);
+    padding:var(--s2) 0;border-bottom:1px solid var(--border);margin-top:var(--s3)}
+  .cplist{max-height:46vh;overflow-y:auto;margin:0 calc(var(--s2) * -1);padding:0 var(--s2)}
+  .cpsec{margin-top:var(--s3)}
+  .cpsec h4{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--dim);font-weight:400;margin-bottom:var(--s2)}
+  .cprow{border:1px solid var(--border);border-radius:var(--r-sm);
+    padding:var(--s2) var(--s3);margin-bottom:6px;transition:var(--ease)}
+  .cprow.on{border-color:var(--accent-line);background:var(--accent-soft)}
+  /* `.cptop` est un <label>, et la regle globale des <label> met tout en
+     monospace, majuscules et minuscule — bon pour un intitule de champ, faux
+     pour ce qu'il contient ici : le libelle d'une question doit se lire comme
+     une phrase. On rend donc la typographie courante a son contenu. */
+  .cptop{display:flex;align-items:flex-start;gap:var(--s3);cursor:pointer;margin:0;
+    font-family:var(--sans);text-transform:none;letter-spacing:normal;color:var(--text)}
+  .cptop input[type=checkbox]{margin:3px 0 0;width:16px;height:16px;flex:none;accent-color:var(--accent)}
+  .cptop strong{font-size:var(--t-sm);font-weight:550;margin-right:var(--s2)}
+  .cptop .help{margin-top:2px}
+  .cpdetail{margin:var(--s2) 0 var(--s1) 28px}
+  .cpdetail label{font-size:var(--t-micro)}
+  .cpdetail input{margin:0;font-size:var(--t-xs);padding:6px var(--s2)}
+  .cpobl{display:flex;align-items:center;gap:6px;font-size:var(--t-xs);
+    color:var(--dim);white-space:nowrap;padding-bottom:7px;cursor:pointer}
+  .cpobl input{width:15px;height:15px;margin:0;accent-color:var(--accent)}
+
+  /* ── Matiere collectee ── */
+  .medialist{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s2)}
+  .mediaitem{display:flex;flex-direction:column;gap:6px;width:132px;
+    background:var(--surface-2);border:1px solid var(--border);
+    border-radius:var(--r-sm);padding:var(--s2)}
+  .apercu{height:86px;border-radius:var(--r-sm);overflow:hidden;background:var(--bg);
+    display:grid;place-items:center}
+  .apercu img{width:100%;height:100%;object-fit:cover;display:block}
+  .apercu audio{width:100%;max-width:116px}
+  .mediameta{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .mediameta span:first-child{font-size:var(--t-xs);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .mediaitem .tog,.mediaitem .pill{align-self:stretch;text-align:center}
+
+  .matsec{margin-bottom:var(--s4)}
+  .matsec h4{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s1)}
+  .matsec td{padding:7px var(--s2);vertical-align:top}
+  .matsec td:first-child{padding-left:0}
+  .matsec td:last-child{text-align:right}
+
+  /* ── Catalogue de questions ──
+     Une question desactivee reste visible — ses reponses existent encore —
+     mais ne doit pas se lire comme une question active. */
+  tbody tr.inactive td{opacity:.45}
+  tbody tr.inactive:hover td{opacity:.75}
+
+  /* La couleur de la pastille dit l'ingredient d'un coup d'oeil : c'est ce
+     qu'on cherche quand on compose un questionnaire. */
+  .pill.ing-chiffre{color:#8ab4ff;border-color:rgba(138,180,255,.3);background:rgba(138,180,255,.1)}
+  .pill.ing-mot    {color:#c49bff;border-color:rgba(196,155,255,.3);background:rgba(196,155,255,.1)}
+  .pill.ing-lieu   {color:var(--ok);border-color:rgba(61,220,145,.3);background:var(--ok-soft)}
+  .pill.ing-media  {color:#ff9bc4;border-color:rgba(255,155,196,.3);background:rgba(255,155,196,.1)}
+  .pill.ing-liste  {color:var(--warn);border-color:rgba(240,185,85,.3);background:var(--warn-soft)}
+  .pill.ing-recit  {color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+
+  /* ── Petits ecrans ── */
+  @media (max-width:820px){ .livegrid,.clientgrid{grid-template-columns:1fr} }
+  @media (max-width:760px){
+    .topbar{padding:var(--s3) var(--s4)}
+    .burger{display:inline-block}
+    .shell{display:block}
+    .side{position:fixed;top:0;left:0;height:100vh;width:230px;z-index:50;
+      transform:translateX(-100%);transition:transform .25s;padding-top:60px}
+    .side.open{transform:translateX(0)}
+    .side-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40}
+    .side-overlay.show{display:block}
+    .main{padding:var(--s5) var(--s4);max-width:100%}
+    .formrow{flex-direction:column;align-items:stretch}
+    .formrow > div{min-width:0;width:100%}
+    .themewrap{flex-direction:column}
+    .themelist{width:100%}
+    .colorgrid{grid-template-columns:repeat(2,1fr)}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .tiles{grid-template-columns:1fr 1fr}
+    /* Le defilement horizontal ne concerne que ces conteneurs. */
+    #list,#jeux-list,#codes-list,#overview,#blocages,#mauvaises,#themeusage,#recap,#engagement{
+      overflow-x:auto;-webkit-overflow-scrolling:touch}
+    #list table,#jeux-list table,#codes-list table,#overview table,#blocages table,
+    #mauvaises table,#themeusage table{min-width:520px}
+  }
+
+  /* ── Impression du debrief ── */
+  @media print{
+    body{background:#fff;color:#000}
+    #side,.topbar,.navbtn,.createbox,.msg,#side-overlay,.tog,.btn,.burger{display:none!important}
+    #app,.main{margin:0!important;padding:0!important;max-width:none!important}
+    .dbstat,.filbox,.scard{border:1px solid #ccc;background:#fff;color:#000}
+    .dbstat span,.filrow .h{color:#555}
+    .fillist{max-height:none;overflow:visible}
+    table{color:#000} th,td{border-color:#ccc;position:static}
+  }

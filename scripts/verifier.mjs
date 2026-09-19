@@ -170,6 +170,59 @@ for (const f of fonctions) {
     ko(`netlify/functions/${f}`, 'ecriture dans le bucket public « assets » — la promotion passe par media-promouvoir');
 }
 
+// ── 12. Tout champ de saisie utilise porte une regle de style ─────────────
+// `admin.html` a affiche pendant des mois des `textarea` au style par defaut du
+// navigateur — fond blanc dans une console sombre — parce que l'element
+// manquait a la regle de base. Rien ne le signalait : la page s'affichait.
+// Le critere n'est pas « une regle existe » mais « une regle lui donne un
+// fond ». C'est la nuance qui compte : `admin.html` avait bien un
+// `.projetgrid textarea{resize:vertical}`, et ses champs longs restaient blancs.
+// On cherche donc les selecteurs qui declarent `background`, puis on verifie
+// que chaque champ est atteint par l'un d'eux, par son type ou par une classe.
+const PAS_UN_CHAMP = /type="(hidden|file|checkbox|radio|color|range|submit|button)"/;
+
+for (const p of PAGES) {
+  const src = lire(p);
+  if (!src.includes('<style>')) continue;
+  const css = src.slice(src.indexOf('<style>') + 7, src.indexOf('</style>'))
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // Les selecteurs qui posent un fond, decoupes en jetons exploitables.
+  const typesAvecFond = new Set(), classesAvecFond = new Set();
+  for (const regle of css.split('}')) {
+    const i = regle.indexOf('{');
+    if (i < 0) continue;
+    const decls = regle.slice(i + 1);
+    if (!/(^|[;\s])background(-color)?\s*:/.test(decls)) continue;
+    for (const sel of regle.slice(0, i).split(',')) {
+      // Le dernier jeton du selecteur est ce qu'il cible reellement.
+      const cible = sel.trim().split(/[\s>+~]+/).pop() || '';
+      const base = cible.replace(/:[a-z-]+(\([^)]*\))?/g, '').replace(/\[[^\]]*\]/g, '');
+      if (/^[a-z]+$/.test(base)) typesAvecFond.add(base);
+      for (const c of base.matchAll(/\.([a-zA-Z][\w-]*)/g)) classesAvecFond.add(c[1]);
+    }
+  }
+
+  for (const balise of ['input', 'select', 'textarea']) {
+    if (!new RegExp(`<${balise}\\b`).test(src)) continue;
+    controles++;
+    if (typesAvecFond.has(balise)) continue;
+    const nus = [];
+    for (const m of src.matchAll(new RegExp(`<${balise}\\b([^>]*)>`, 'g'))) {
+      if (PAS_UN_CHAMP.test(m[1])) continue;
+      const brut = (m[1].match(/class="([^"]*)"/) || [, ''])[1];
+      // Une classe entierement calculee (`class="${cls}"`) n'est pas lisible
+      // ici : on ne peut ni la confirmer ni l'accuser, donc on passe.
+      if (/\$\{/.test(brut)) continue;
+      const cls = brut.split(/\s+/).filter(Boolean);
+      if (!cls.some(c => classesAvecFond.has(c))) nus.push(m[0].slice(0, 44));
+    }
+    if (nus.length)
+      ko(p, `${nus.length} <${balise}> auxquels aucune regle ne donne de fond `
+        + `— ils s'afficheront en blanc. Ex. ${nus[0]}…`);
+  }
+}
+
 // ── Verdict ───────────────────────────────────────────────────────────────
 if (echecs.length) {
   console.error(`\n✗ ${echecs.length} probleme(s) sur ${controles} controles\n`);
