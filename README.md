@@ -402,6 +402,31 @@ deux chemins ; `tests/medias.test.mjs` les couvre.
 Migration : [`supabase/migration-09-medias.sql`](supabase/migration-09-medias.sql) — elle
 crée le bucket privé et ajoute `reponses.medias`.
 
+## Des réponses à l'énigme
+
+Bout de chaîne : le questionnaire collecte, l'énigme consomme. Dans `editeur.html`, le
+bouton **🧩** ouvre le panneau **Ingrédients du client** — les réponses des proches,
+groupées par ce qu'on peut en fabriquer, avec le compte affiché sur le bouton.
+
+Le panneau reste ouvert pendant qu'on écrit : c'est un plan de travail, pas un
+diagnostic. *Insérer* place la valeur **au curseur du dernier champ où l'on écrivait**,
+rappelé en haut du panneau — sans ce rappel, cliquer dans le panneau fait perdre le focus
+et l'insertion devient un pari.
+
+L'insertion passe par un événement `input` et non par une écriture directe dans `CFG` :
+chaque champ de l'éditeur porte son propre gestionnaire (`onInput`, `onTextarea`,
+`onBoundsInput`…), et le contourner ferait diverger l'écran de la configuration.
+
+Seuls les **médias promus** sont insérables, et c'est le point : un chemin du bucket privé
+dans une énigme afficherait une image que les joueurs ne peuvent pas lire. Le panneau
+signale les fichiers encore en attente de promotion plutôt que de les proposer.
+
+Le bouton reste visible même sans fiche client rattachée — il explique alors comment
+rattacher le jeu, parce qu'un panneau vide se lit comme une panne.
+
+`jeu-get` renvoie `client_id` **hors de `config`** : ce n'est pas du contenu de jeu et ça
+ne doit pas partir dans le `config.json` exporté.
+
 ## Chrono
 
 `jeux.reglages` (jsonb) porte les réglages de déroulé. Aujourd'hui une seule clé :

@@ -178,6 +178,39 @@
 .vgrp.ale{border-color:rgba(216,158,44,.35);background:rgba(216,158,44,.08)}
 .vgrp.ale b{color:#9a7016}
 .verif-ok{font-size:.86rem;color:#2e7d52;padding:6px 2px}
+
+/* ── Ingredients du client ──
+   Meme place que le panneau de verification, mais il reste ouvert pendant
+   qu'on ecrit : c'est un plan de travail, pas un diagnostic. */
+.ingr-panel{position:fixed;right:14px;top:64px;z-index:59;width:min(92vw,380px);
+  max-height:78vh;display:flex;flex-direction:column;
+  background:var(--card);border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 12px 34px rgba(0,0,0,.45)}
+.ingr-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:12px 14px;border-bottom:1px solid var(--border)}
+/* La cible de l'insertion, toujours visible : sans elle on ne sait pas ou le
+   texte va atterrir, et le panneau devient un pari. */
+.ingr-cible{padding:8px 14px;font-family:var(--mono);font-size:.68rem;
+  color:var(--faint);border-bottom:1px solid var(--border);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ingr-cible.actif{color:var(--accent);background:var(--accent-dim)}
+#ingr-corps{overflow-y:auto;padding:10px 14px 14px}
+.ingr-sec{margin-top:12px}
+.ingr-sec:first-child{margin-top:0}
+.ingr-sec-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:.66rem;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--dim);padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.ingr-card{background:var(--card2);border:1px solid var(--border);
+  border-radius:9px;padding:9px 11px;margin-bottom:7px}
+.ingr-q{font-size:.72rem;color:var(--faint);line-height:1.4;margin-bottom:4px}
+.ingr-v{font-size:.88rem;line-height:1.45;word-break:break-word}
+.ingr-v.mono{font-family:var(--mono);font-size:.72rem;color:var(--dim)}
+.ingr-acts{display:flex;align-items:center;gap:8px;margin-top:7px}
+.ingr-who{font-family:var(--mono);font-size:.62rem;color:var(--faint);margin-left:auto}
+.ingr-media{display:flex;flex-direction:column;gap:5px;margin-top:8px;
+  padding-top:8px;border-top:1px solid var(--border)}
+.ingr-media .btn{align-self:flex-start}
+@media (max-width:760px){ .ingr-panel{left:14px;right:14px;width:auto} }
 </style>
 </head>
 <body>
@@ -193,6 +226,8 @@
   <div class="spacer"></div>
   <div class="proj-pill"><b id="pill-name">—</b><span class="v" id="pill-ver">v1</span></div>
   <button class="btn ghost sm" id="btn-verif" onclick="basculerVerif()" title="Verifications">✓ <span id="verif-badge">—</span></button>
+  <button class="btn ghost sm" id="btn-ingr" onclick="basculerIngredients()"
+          title="Ce que les proches ont repondu pour ce client">🧩 <span id="ingr-badge">—</span></button>
   <span class="savestate" id="savestate">brouillon non sauvegardé</span>
   <button class="btn primary sm" onclick="saveOnline()">💾 Enregistrer en ligne</button>
   <a class="btn ghost sm" href="admin.html" style="text-decoration:none">↩ Admin</a>
@@ -204,6 +239,16 @@
   <div class="verif-head"><b>Verifications</b>
     <button class="btn ghost sm" onclick="basculerVerif()">Fermer</button></div>
   <div id="verif-corps"></div>
+</div>
+
+<!-- Les ingredients du client : ce que ses proches ont repondu, groupe par ce
+     qu'on peut en fabriquer. Le panneau sert a fabriquer une enigme, donc il
+     reste ouvert pendant qu'on ecrit et insere dans le champ ou on etait. -->
+<div id="ingr-panel" class="ingr-panel" hidden>
+  <div class="ingr-head"><b>Ingredients du client</b>
+    <button class="btn ghost sm" onclick="basculerIngredients()">Fermer</button></div>
+  <div class="ingr-cible" id="ingr-cible">Clique dans un champ, puis « inserer ».</div>
+  <div id="ingr-corps"><div class="help" style="padding:14px">Chargement...</div></div>
 </div>
 
 <script type="module">
@@ -1053,12 +1098,16 @@ async function boot(){
   if(id){
     try{
       const r = await callFn('jeu-get?id='+encodeURIComponent(id));
-      live = r.config; GAME_UUID = r.uuid;
+      live = r.config; GAME_UUID = r.uuid; CLIENT_ID = r.client_id || null;
     }catch(e){ alert("Chargement du jeu impossible : "+e.message); }
   }
   CFG = clone(live || DEFAULT_CONFIG);
   normalize(CFG);
   render();
+
+  // Le bouton n'apparait que pour un jeu rattache a une fiche client : sans
+  // client, il n'y a pas de proches, donc rien a proposer.
+  if(CLIENT_ID) compterIngredients();
 
   // brouillon local non exporté pour CE jeu uniquement ?
   const draftRaw = localStorage.getItem(draftKey());
@@ -1153,6 +1202,136 @@ function basculerVerif(){
   if(verifOuvert) renderVerif();
 }
 window.addEventListener('validateur-pret', majVerif);
+
+// ════════════ INGRÉDIENTS DU CLIENT ════════════
+// Ce que les proches ont répondu, groupé par ce qu'on peut en fabriquer. C'est
+// le bout de chaîne : le questionnaire a collecté, l'énigme consomme.
+const INGREDIENTS = {
+  chiffre: ['Chiffre','cadenas, clavier, codes'],
+  mot:     ['Mot','réponse texte, mots mêlés, anagramme'],
+  lieu:    ['Lieu','énigme GPS, guess-where'],
+  media:   ['Média',"image d'énigme, lampe UV"],
+  liste:   ['Liste','QCM, associations, rébus'],
+  recit:   ['Récit','narration, indices, ton du jeu'],
+};
+let CLIENT_ID = null, INGR = [], ingrOuvert = false, ingrCharge = false;
+
+// Le dernier champ où l'on écrivait. Sans lui, « insérer » n'aurait aucune
+// destination : le panneau est à côté, et cliquer dedans fait perdre le focus.
+let dernierChamp = null;
+document.addEventListener('focusin', (e)=>{
+  const el = e.target;
+  if(!el || !/^(INPUT|TEXTAREA)$/.test(el.tagName)) return;
+  if(el.type === 'file' || el.type === 'checkbox') return;
+  if(el.closest('#ingr-panel')) return;      // les champs du panneau lui-même
+  dernierChamp = el;
+  majCible();
+});
+
+function majCible(){
+  const el = document.getElementById('ingr-cible'); if(!el) return;
+  if(!dernierChamp){ el.textContent = 'Clique dans un champ, puis « insérer ».'; el.className='ingr-cible'; return; }
+  const lab = dernierChamp.closest('.field');
+  const nom = lab && lab.querySelector('label') ? lab.querySelector('label').textContent : 'champ';
+  el.textContent = '→ ' + nom;
+  el.className = 'ingr-cible actif';
+}
+
+// Le compte au chargement : voir « 34 » sur le bouton donne envie de l'ouvrir,
+// et dit tout de suite si les complices ont repondu.
+async function compterIngredients(){
+  try{
+    const r = await callFn('reponses-list?client_id='+encodeURIComponent(CLIENT_ID));
+    INGR = r.reponses||[]; ingrCharge = true;
+    document.getElementById('ingr-badge').textContent = INGR.length;
+    if(ingrOuvert) renderIngredients();
+  }catch(e){ /* le compte manque, le panneau chargera a l'ouverture */ }
+}
+
+function basculerIngredients(){
+  ingrOuvert = !ingrOuvert;
+  document.getElementById('ingr-panel').hidden = !ingrOuvert;
+  if(ingrOuvert){ majCible(); if(!ingrCharge) chargerIngredients(); }
+}
+
+async function chargerIngredients(){
+  // Un jeu sans fiche client n'a pas de proches : le dire vaut mieux qu'un
+  // panneau vide, qui se lit comme une panne.
+  if(!CLIENT_ID){
+    document.getElementById('ingr-corps').innerHTML = `<div class="help" style="padding:14px;line-height:1.6">
+      Ce jeu n'est rattaché à aucune fiche client.<br><br>
+      Rattache-le dans <b>Admin → Clients</b>, section « Jeux de ce client »,
+      puis recharge cette page : tu verras ici ce que ses proches ont répondu.</div>`;
+    return;
+  }
+  ingrCharge = true;
+  try{
+    const r = await callFn('reponses-list?client_id='+encodeURIComponent(CLIENT_ID));
+    INGR = r.reponses||[];
+    renderIngredients();
+  }catch(e){
+    document.getElementById('ingr-corps').innerHTML = `<div class="help" style="padding:14px;color:var(--danger)">${esc(e.message)}</div>`;
+  }
+}
+
+function renderIngredients(){
+  const box = document.getElementById('ingr-corps');
+  if(!INGR.length){
+    box.innerHTML = `<div class="help" style="padding:14px">Aucune réponse collectée pour ce client.
+      Compose un questionnaire dans l'admin et envoie son lien à un proche.</div>`;
+    return;
+  }
+  const parIng = {};
+  INGR.forEach(x=>{ (parIng[x.ingredient]=parIng[x.ingredient]||[]).push(x); });
+
+  box.innerHTML = Object.keys(INGREDIENTS).filter(k=>parIng[k]).map(k=>`
+    <div class="ingr-sec">
+      <div class="ingr-sec-head">${INGREDIENTS[k][0]}
+        <span class="help">${INGREDIENTS[k][1]}</span></div>
+      ${parIng[k].map((x,n)=>carteIngredient(x, k+'-'+n)).join('')}
+    </div>`).join('');
+}
+
+function carteIngredient(x, cle){
+  // Les médias promus sont les seuls insérables : un chemin du bucket privé
+  // dans une énigme afficherait une image que les joueurs ne peuvent pas lire.
+  const promus = (x.medias||[]).filter(m=>m.promu);
+  const enAttente = (x.medias||[]).length - promus.length;
+  return `<div class="ingr-card">
+    <div class="ingr-q">${esc(x.libelle)}</div>
+    ${x.valeur?`<div class="ingr-v" id="iv-${cle}">${esc(x.valeur)}</div>
+      <div class="ingr-acts">
+        <button class="btn sm" onclick="insererIngredient('iv-${cle}')">↵ Insérer</button>
+        <span class="ingr-who">${esc(x.complice)}</span>
+      </div>`:''}
+    ${promus.map((m,j)=>`<div class="ingr-media">
+      <div class="ingr-v mono" id="im-${cle}-${j}">${esc(m.promu)}</div>
+      <button class="btn sm" onclick="insererIngredient('im-${cle}-${j}')">↵ Insérer le chemin</button>
+    </div>`).join('')}
+    ${enAttente?`<div class="help">${enAttente} fichier(s) pas encore rendus publics —
+      va les promouvoir dans l'admin, sinon les joueurs ne les verront pas.</div>`:''}
+  </div>`;
+}
+
+// L'insertion passe par un evenement `input` et non par une ecriture directe
+// dans CFG : chaque champ porte son propre `oninput` (onInput, onTextarea,
+// onBoundsInput…), et le contourner ferait diverger l'ecran de la config.
+function insererIngredient(idSource){
+  const src = document.getElementById(idSource);
+  if(!src) return;
+  const texte = src.textContent;
+  if(!dernierChamp){ toast('Clique d\'abord dans le champ où insérer.'); return; }
+
+  const el = dernierChamp;
+  const debut = el.selectionStart != null ? el.selectionStart : el.value.length;
+  const fin   = el.selectionEnd   != null ? el.selectionEnd   : el.value.length;
+  el.value = el.value.slice(0, debut) + texte + el.value.slice(fin);
+  const apres = debut + texte.length;
+  el.dispatchEvent(new Event('input', { bubbles:true }));
+  el.focus();
+  try{ el.setSelectionRange(apres, apres); }catch(e){}
+  toast('Inséré.');
+}
 
 // Garde-fou : rien n'empechait de fermer l'onglet avec des modifications non
 // enregistrees en ligne. Le brouillon local survivait, mais le jeu publie non.

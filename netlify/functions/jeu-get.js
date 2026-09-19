@@ -8,9 +8,11 @@ export default async (req) => {
   if (!id) return json({ error: 'id manquant' }, 400);
 
   const sb = adminClient();
-  const { data, error } = await sb.from('jeux')
-    .select('id, slug, name, client, note, version, theme_id, branding, enigmas, acts, act_boundaries, intro, reglages, statut')
-    .eq('id', id).maybeSingle();
+  // `select('*')` et non la liste des colonnes : `jeux` s'est étendue à chaque
+  // migration (`reglages`, `client_id`…) et PostgREST rejette la requête
+  // entière dès qu'une colonne demandée manque. C'est ce qui avait fait
+  // basculer un jeu sur le thème par défaut.
+  const { data, error } = await sb.from('jeux').select('*').eq('id', id).maybeSingle();
   if (error) return json({ error: error.message }, 500);
   if (!data) return json({ error: 'jeu introuvable' }, 404);
 
@@ -26,6 +28,9 @@ export default async (req) => {
     intro: data.intro || {},
     reglages: data.reglages || {}
   };
-  return json({ ok: true, uuid: data.id, statut: data.statut, config });
+  // `client_id` reste hors de `config` : ce n'est pas du contenu de jeu, ça ne
+  // part pas dans le config.json exporté. L'éditeur s'en sert pour aller
+  // chercher la matière collectée chez les complices de ce client.
+  return json({ ok: true, uuid: data.id, statut: data.statut, client_id: data.client_id || null, config });
 };
 function json(o, s = 200){ return new Response(JSON.stringify(o), { status:s, headers:{'Content-Type':'application/json'} }); }
