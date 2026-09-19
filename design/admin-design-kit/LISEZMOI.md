@@ -59,6 +59,7 @@ comprendre la structure et les enchaînements, pas pour être modifié.
 
 ```
 LISEZMOI.md          ← ce fichier : le brief
+PROMPT.md            ← le message d'accompagnement, si le kit t'est transmis seul
 CONTRAT.md           ← l'inventaire figé : 127 classes, 117 ids, 42 jetons (généré)
 atelier.html         ← ★ la page de travail : tous les composants, tous les états
 css/admin.css        ← ★ la feuille de style, extraite telle quelle de l'application
