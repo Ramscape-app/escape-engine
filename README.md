@@ -14,6 +14,7 @@ pendant que l'organisateur suit la progression depuis une console d'administrati
 |------|----------|------|
 | `index.html` | Joueur | Le moteur : intro, hub, énigmes, écran de victoire. 1 jeu = 1 `?slug=`. |
 | `rejoindre.html` | Joueur | Inscription / connexion à partir d'un code d'invitation. |
+| `repondre.html` | Complice | Le questionnaire d'un proche (`?jeton=`). Aucune clé, aucun accès direct à la base. |
 | `catalogue.html` | Public | Liste des jeux publiés. Non référencé ailleurs — son avenir est en suspens. |
 | `admin.html` | Organisateur | Clients, catalogue de questions, jeux, joueurs, codes, thèmes, bibliothèque, suivi en direct, statistiques, débrief. |
 | `editeur.html` | Organisateur | Édition d'un jeu (`?id=<uuid>`), aperçu, export `config.json`. |
@@ -112,6 +113,9 @@ reste utilisable : `index.html` retombe sur la configuration embarquée.
 | `bibliotheque_enigmes` | `id`, `titre`, `categorie`, `tags`, `enigme`, `created_at` |
 | `clients` | `id`, `nom`, `contact_nom`, `email`, `telephone`, `projet` (jsonb, la fiche projet), `note`, `statut`, `created_at`, `updated_at` |
 | `questions` | `id` (slug), `section`, `libelle`, `aide`, `type`, `ingredient`, `options`, `ordre`, `actif` — le catalogue de questions |
+| `questionnaires` | `id`, `client_id`, `nom`, `items` (jsonb : la sélection de questions et sa personnalisation), `mot_accueil` |
+| `complices` | `id`, `questionnaire_id`, `nom`, `relation`, `jeton` (unique), `ouvert_le`, `termine_le` |
+| `reponses` | `id`, `complice_id`, `question_id`, `libelle_pose`, `valeur` — unicité sur (`complice_id`, `question_id`) |
 
 `statut` vaut `brouillon`, `publie` ou `archive`. Le stockage utilise un bucket public
 `assets`, rangé par slug de jeu.
@@ -284,6 +288,69 @@ par les fonctions serveur à clé de service, toutes derrière `requireAdmin`.
 
 Migration : [`supabase/migration-07-clients.sql`](supabase/migration-07-clients.sql).
 
+## Questionnaires et complices
+
+Un **questionnaire** est une sélection de questions du catalogue, personnalisée pour un
+client. Un client peut en avoir plusieurs : celui du conjoint n'est pas celui des
+collègues de bureau.
+
+Chaque question retenue peut être **reformulée** (pour tutoyer le complice et nommer les
+personnes), **pré-remplie** (ce que l'organisateur sait déjà) et marquée **obligatoire**.
+L'ordre d'affichage est celui du catalogue — `section`, puis `ordre` — plutôt qu'un
+glisser-déposer par questionnaire : l'ordre appartient au catalogue, où il est réglé une
+fois pour toutes les fois où la question resservira.
+
+### Le lien du complice
+
+Chaque complice reçoit **son propre** lien, `repondre.html?jeton=…`. Un jeton par
+complice et non un par questionnaire : on sait ainsi qui a répondu quoi, qui n'a pas
+ouvert son lien, et on peut en révoquer un — l'action *Révoquer* tire un nouveau jeton,
+l'ancien cesse de marcher, les réponses restent — sans couper les autres.
+
+Le jeton **est** l'authentification : un complice n'a pas de compte, et lui en faire
+créer un le ferait abandonner avant la première question. Il est donc tiré au sort côté
+serveur sur 24 octets (192 bits).
+
+`public/repondre.html` est la page la plus exposée du site : un lien circule par SMS, se
+transfère, se retrouve dans un groupe. Elle ne porte donc **aucune clé Supabase, aucun
+client, aucune requête** — seulement trois appels aux fonctions publiques
+`repondre-charger`, `repondre-enregistrer` et `repondre-terminer`, qui la cadrent sur son
+seul jeton. `scripts/verifier.mjs` vérifie les deux moitiés de cette règle : qu'aucune
+fonction `repondre-*` n'oublie `resoudreJeton`, et que la page ne touche jamais la base
+directement.
+
+Ce qui ne sort jamais vers un complice : la fiche projet du client, ses coordonnées, et
+les réponses des autres complices. Seul le nom du client sort, pour que la page puisse
+dire pour qui c'est.
+
+### Enregistrement
+
+Le complice répond sur son téléphone, entre deux choses. Chaque champ s'enregistre seul,
+une seconde après la dernière frappe, et à la sortie du champ ; un `sendBeacon` rattrape
+ce qui partirait à la fermeture de l'onglet.
+
+**Une valeur pré-remplie n'est pas une réponse** tant que personne ne l'a confirmée :
+elle s'affiche dans le champ mais ne part pas en base. Le bouton *J'ai fini* est
+précisément le geste par lequel le complice dit avoir tout relu — c'est donc là que ces
+valeurs deviennent des réponses. *J'ai fini* est un signal, pas un verrou : le lien
+continue de fonctionner, pour qui se souvient d'un détail trois jours plus tard.
+
+### Ce que l'organisateur en récupère
+
+Sous la fiche client, le panneau **Matière collectée** regroupe les réponses **par
+ingrédient** et non par section : au moment de construire une énigme on cherche « un
+chiffre », pas « quelque chose sur l'enfance ».
+
+`reponses.question_id` n'a **volontairement pas** de clé étrangère vers `questions` : une
+réponse est de la matière déjà collectée, parfois irremplaçable, et la perdre parce que
+la question a quitté le catalogue serait le pire des défauts. Le libellé exact tel qu'il
+a été posé est copié dans `reponses.libelle_pose`, pour que la réponse reste lisible même
+si la question change ou disparaît. Les garde-fous correspondants sont côté serveur :
+supprimer définitivement une question, un questionnaire ou un complice est refusé tant
+que des réponses y font référence.
+
+Migration : [`supabase/migration-08-questionnaires.sql`](supabase/migration-08-questionnaires.sql).
+
 ## Chrono
 
 `jeux.reglages` (jsonb) porte les réglages de déroulé. Aujourd'hui une seule clé :
@@ -315,7 +382,11 @@ La saisie libre reste disponible pour les services tiers (lockee, ladigitale).
 Toutes les fonctions d'administration passent par `requireAdmin`
 (`netlify/functions/_auth.js`), qui valide le jeton **puis** vérifie l'appartenance à la
 table `admins`. Toute nouvelle fonction doit faire de même dès sa première ligne. Les
-trois seules fonctions publiques sont `manifest`, `code-resolve` et `rejoindre`.
+seules fonctions publiques sont `manifest`, `code-resolve`, `rejoindre`, `jeux-publics`
+et les trois `repondre-*`. Ces dernières n'ont pas d'administrateur à vérifier — leur
+appelant est un complice sans compte — mais elles ne sont pas pour autant ouvertes :
+`resoudreJeton` les cadre toutes sur le seul questionnaire du jeton présenté, et le
+vérificateur refuse toute fonction `repondre-*` qui l'omettrait.
 
 Le durcissement RLS correspondant a été appliqué : `codes` n'est plus lisible depuis
 le navigateur et l'insertion publique dans `joueurs` est retirée. Compte rendu et

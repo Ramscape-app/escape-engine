@@ -10,7 +10,8 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const PAGES = ['index', 'admin', 'editeur', 'rejoindre', 'catalogue'].map(n => `public/${n}.html`);
+const PAGES = ['index', 'admin', 'editeur', 'rejoindre', 'catalogue', 'repondre']
+  .map(n => `public/${n}.html`);
 const echecs = [];
 const ko = (fichier, message) => echecs.push({ fichier, message });
 let controles = 0;
@@ -105,12 +106,54 @@ for (const p of PAGES) {
 }
 
 // ── 7. Toute fonction mutatrice passe par requireAdmin ────────────────────
-const PUBLIQUES = ['manifest.js', 'code-resolve.js', 'rejoindre.js', 'jeux-publics.js', '_auth.js', '_suivi.js'];
+const PUBLIQUES = [
+  'manifest.js', 'code-resolve.js', 'rejoindre.js', 'jeux-publics.js',
+  // Le complice n'a pas de compte : son jeton tient lieu d'authentification,
+  // et `resoudreJeton` le cadre sur son seul questionnaire.
+  'repondre-charger.js', 'repondre-enregistrer.js', 'repondre-terminer.js',
+  '_auth.js', '_suivi.js', '_complice.js',
+];
 for (const f of fonctions) {
   if (PUBLIQUES.includes(f)) continue;
   controles++;
   if (!lire(`netlify/functions/${f}`).includes('requireAdmin'))
     ko(`netlify/functions/${f}`, 'fonction sans requireAdmin — ajoute-la aux publiques si c\'est voulu');
+}
+
+// ── 8. Toute fonction « repondre-* » passe par resoudreJeton ──────────────
+// Le pendant de la regle precedente pour la seule autre porte d'entree du site.
+// Un `repondre-*` qui lirait son `complice_id` depuis le corps de la requete
+// laisserait n'importe quel porteur de lien ecrire chez les autres.
+for (const f of fonctions) {
+  if (!f.startsWith('repondre-')) continue;
+  controles++;
+  if (!lire(`netlify/functions/${f}`).includes('resoudreJeton'))
+    ko(`netlify/functions/${f}`, 'fonction publique sans resoudreJeton — le jeton est la seule authentification du complice');
+}
+
+// ── 9. La page du complice ne touche pas directement a la base ────────────
+// Elle est publique et son lien circule : elle ne doit porter ni cle Supabase,
+// ni client, ni requete. Tout passe par les fonctions serveur.
+controles++;
+{
+  const src = lire('public/repondre.html');
+  if (/SUPABASE_ANON|createClient|sb_publishable/.test(src))
+    ko('public/repondre.html', 'acces direct a Supabase depuis la page du complice — passer par les fonctions repondre-*');
+}
+
+// ── 10. Pas deux fonctions du meme nom dans une page ──────────────────────
+// Ces pages sont des monolithes d'un seul tenant : deux `function truc()` y
+// cohabitent sans erreur, la seconde ecrasant la premiere, et c'est un bouton
+// au hasard qui se met a faire autre chose. Arrive une fois avec `basculer()`.
+for (const p of PAGES) {
+  controles++;
+  const noms = new Map();
+  for (const bloc of blocsScript(lire(p))) {
+    for (const m of bloc.matchAll(/^\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/gm))
+      noms.set(m[1], (noms.get(m[1]) || 0) + 1);
+  }
+  const doubles = [...noms].filter(([, n]) => n > 1).map(([nom]) => nom);
+  if (doubles.length) ko(p, 'fonctions declarees deux fois : ' + doubles.join(', '));
 }
 
 // ── Verdict ───────────────────────────────────────────────────────────────

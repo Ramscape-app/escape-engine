@@ -18,6 +18,16 @@ export default async (req) => {
 
   const sb = adminClient();
   if (body.definitif) {
+    // Une question deja posee a des reponses qui la citent. `reponses` n'a pas
+    // de cle etrangere vers `questions` — c'est voulu, pour qu'aucune
+    // suppression n'efface de la matiere collectee — donc le garde-fou est ici.
+    const { count } = await sb.from('reponses')
+      .select('id', { count: 'exact', head: true }).eq('question_id', body.id);
+    if (count) return json({
+      error: `Cette question porte ${count} réponse(s) déjà collectée(s). Désactive-la plutôt.`,
+      reponses: count,
+    }, 409);
+
     const { error } = await sb.from('questions').delete().eq('id', body.id);
     if (error) return json({ error: error.message }, 500);
     return json({ ok: true, supprime: true });

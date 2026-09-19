@@ -374,6 +374,49 @@
   .projetgrid .field{margin:0;min-width:0}
   .projetgrid textarea{resize:vertical}
 
+  /* ── Questionnaires et complices ── */
+  .qnbloc{border:1px solid var(--border);border-radius:var(--r);background:var(--surface-2);
+    padding:var(--s3) var(--s4);margin-bottom:var(--s3)}
+  .qnhead{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+    flex-wrap:wrap;margin-bottom:var(--s2)}
+  .qnhead strong{font-size:var(--t-md);margin-right:var(--s2)}
+  .qnbloc table{margin-bottom:var(--s2)}
+  .qnbloc td{padding:8px 0;border-color:var(--border)}
+  .qnbloc td:first-child{padding-left:0}
+
+  /* ── Le compositeur ──
+     Le catalogue entier tient dans une fenetre : il faut qu'il defile seul,
+     sinon les boutons d'action partent hors de l'ecran. */
+  .modalbox.large{max-width:860px;display:flex;flex-direction:column}
+  .cphead{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+    font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--faint);
+    padding:var(--s2) 0;border-bottom:1px solid var(--border);margin-top:var(--s3)}
+  .cplist{max-height:46vh;overflow-y:auto;margin:0 calc(var(--s2) * -1);padding:0 var(--s2)}
+  .cpsec{margin-top:var(--s3)}
+  .cpsec h4{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--dim);font-weight:400;margin-bottom:var(--s2)}
+  .cprow{border:1px solid var(--border);border-radius:var(--r-sm);
+    padding:var(--s2) var(--s3);margin-bottom:6px;transition:var(--ease)}
+  .cprow.on{border-color:var(--accent-line);background:var(--accent-soft)}
+  .cptop{display:flex;align-items:flex-start;gap:var(--s3);cursor:pointer;margin:0}
+  .cptop input[type=checkbox]{margin:3px 0 0;width:16px;height:16px;flex:none;accent-color:var(--accent)}
+  .cptop strong{font-size:var(--t-sm);font-weight:550;margin-right:var(--s2)}
+  .cptop .help{margin-top:2px}
+  .cpdetail{margin:var(--s2) 0 var(--s1) 28px}
+  .cpdetail label{font-size:var(--t-micro)}
+  .cpdetail input{margin:0;font-size:var(--t-xs);padding:6px var(--s2)}
+  .cpobl{display:flex;align-items:center;gap:6px;font-size:var(--t-xs);
+    color:var(--dim);white-space:nowrap;padding-bottom:7px;cursor:pointer}
+  .cpobl input{width:15px;height:15px;margin:0;accent-color:var(--accent)}
+
+  /* ── Matiere collectee ── */
+  .matsec{margin-bottom:var(--s4)}
+  .matsec h4{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s1)}
+  .matsec td{padding:7px var(--s2);vertical-align:top}
+  .matsec td:first-child{padding-left:0}
+  .matsec td:last-child{text-align:right}
+
   /* ── Catalogue de questions ──
      Une question desactivee reste visible — ses reponses existent encore —
      mais ne doit pas se lire comme une question active. */
@@ -978,7 +1021,11 @@ function renderFiche(c){
           <select id="cli-jeu-lier">${ORPHELINS.map(j=>`<option value="${j.id}">${esc(j.name)}${j.client?` — ${esc(j.client)}`:''}</option>`).join('')}</select>
           <button class="tog" onclick="lierJeu('${c.id}')">Rattacher</button>
         </div></div>`:''}
-    </div>`:''}`;
+    </div>
+    <div id="cli-questionnaires"><div class="state">Chargement des questionnaires...</div></div>
+    <div id="cli-matiere"></div>`:''}`;
+
+  if(c.id){ loadQuestionnaires(c.id); loadMatiere(c.id); }
 }
 
 function collecterProjet(){
@@ -1136,6 +1183,280 @@ async function retirerQuestion(id, libelle){
     m.textContent = definitif?'Question supprimee.':'Question desactivee.'; m.className='msg ok';
     await loadCatalogue();
   }catch(e){ m.textContent='Erreur : '+e.message; m.className='msg err'; }
+}
+
+// ════════ QUESTIONNAIRES ET COMPLICES ════════
+// Le questionnaire est une selection de questions du catalogue, personnalisee
+// pour un client. Chaque complice en recoit son propre lien : on sait ainsi qui
+// a repondu quoi, qui n'a pas ouvert, et on peut revoquer un lien sans couper
+// les autres.
+//
+// L'ordre d'affichage est celui du catalogue (section, puis `ordre`). Pas de
+// glisser-deposer ici : l'ordre appartient au catalogue, ou il est modifiable
+// une fois pour toutes les fois ou la question resservira.
+let QUESTIONNAIRES = [], QN_SEL = null;
+
+async function loadQuestionnaires(clientId){
+  const box = $('cli-questionnaires'); if(!box) return;
+  try{
+    const r = await callFn('questionnaires-list?client_id='+encodeURIComponent(clientId));
+    QUESTIONNAIRES = r.questionnaires||[];
+    renderQuestionnaires(clientId);
+  }catch(e){
+    box.innerHTML = `<div class="createbox"><div class="state" style="color:var(--danger)">${esc(e.message)}</div></div>`;
+  }
+}
+
+function renderQuestionnaires(clientId){
+  const box = $('cli-questionnaires'); if(!box) return;
+  box.innerHTML = `<div class="createbox">
+    <div class="section-head"><h3>Questionnaires</h3>
+      <button class="btn inline" onclick="nouveauQuestionnaire('${clientId}')">+ Nouveau</button></div>
+    <div class="sub" style="margin-bottom:var(--s3)">Les questions posees aux proches. Chaque complice recoit son propre lien.</div>
+    ${QUESTIONNAIRES.length
+      ? QUESTIONNAIRES.map(q=>blocQuestionnaire(q)).join('')
+      : `<div class="state" style="padding:var(--s4)">Aucun questionnaire.<br>Cree-en un et choisis les questions a poser.</div>`}
+  </div>`;
+}
+
+function blocQuestionnaire(q){
+  const n = Array.isArray(q.items)?q.items.length:0;
+  return `<div class="qnbloc">
+    <div class="qnhead">
+      <div><strong>${esc(q.nom)}</strong>
+        <span class="pill">${n} question${n>1?'s':''}</span></div>
+      <div style="display:flex;gap:var(--s2);flex-wrap:wrap">
+        <button class="tog" onclick="composer('${q.id}')">Composer</button>
+        <button class="del" onclick="supprimerQuestionnaire('${q.id}')">Supprimer</button>
+      </div>
+    </div>
+    <table><tbody>
+      ${(q.complices||[]).map(c=>`<tr>
+        <td><strong>${esc(c.nom)}</strong>${c.relation?` <span class="pill">${esc(c.relation)}</span>`:''}</td>
+        <td>${etatComplice(c, n)}</td>
+        <td><button class="tog" onclick="copierLien('${esc(c.jeton)}',this)">Copier le lien</button>
+          <button class="tog" onclick="revoquerComplice('${c.id}')" title="Tire un nouveau lien ; l'ancien cesse de marcher">Revoquer</button>
+          <button class="del" onclick="supprimerComplice('${c.id}','${esc(c.nom)}')">Retirer</button></td>
+      </tr>`).join('')}
+    </tbody></table>
+    <div class="formrow" style="margin-top:var(--s3)">
+      <div><label>Nom du complice</label><input id="cp-nom-${q.id}" placeholder="Marie"></div>
+      <div><label>Relation</label><input id="cp-rel-${q.id}" placeholder="soeur"></div>
+      <div style="flex:none;display:flex;align-items:flex-end">
+        <button class="tog" onclick="ajouterComplice('${q.id}')">Ajouter</button></div>
+    </div>
+  </div>`;
+}
+
+// Ce qu'on veut savoir d'un complice tient en un mot : faut-il le relancer ?
+function etatComplice(c, total){
+  if(c.termine_le) return `<span class="pill ok">termine — ${c.repondues}/${total}</span>`;
+  if(c.repondues)  return `<span class="pill">en cours — ${c.repondues}/${total}</span>`;
+  if(c.ouvert_le)  return `<span class="pill">ouvert, rien rempli</span>`;
+  return `<span class="pill off">lien jamais ouvert</span>`;
+}
+
+function nouveauQuestionnaire(clientId){
+  const nom = prompt('Nom du questionnaire ?\n\nEx. « Proches de Julie », « Collegues de bureau ».', 'Questionnaire');
+  if(nom===null) return;
+  callFn('questionnaire-save',{method:'POST',body:{client_id:clientId, nom}})
+    .then(()=>loadQuestionnaires(clientId))
+    .catch(e=>{ const m=$('cli-msg'); m.textContent='Erreur : '+e.message; m.className='msg err'; });
+}
+
+async function supprimerQuestionnaire(id){
+  const q = QUESTIONNAIRES.find(x=>x.id===id); if(!q) return;
+  if(!confirm(`Supprimer « ${q.nom} » ?\n\nSes complices et leurs reponses seront supprimes avec lui.`)) return;
+  try{
+    await callFn('questionnaire-delete',{method:'POST',body:{id}});
+  }catch(e){
+    // 409 : des reponses existent. On ne les perd pas sans le dire explicitement.
+    if(!/réponse/.test(e.message)) { alerteClient(e.message); return; }
+    if(!confirm(e.message+'\n\nLes supprimer quand meme ? Cette matiere est irremplacable : un complice ne repondra pas deux fois.')) return;
+    try{ await callFn('questionnaire-delete',{method:'POST',body:{id, force:true}}); }
+    catch(e2){ alerteClient(e2.message); return; }
+  }
+  loadQuestionnaires(CLI_SEL);
+}
+
+async function ajouterComplice(qid){
+  const nom = $('cp-nom-'+qid).value.trim();
+  if(!nom){ alerteClient('Donne un nom au complice.'); return; }
+  try{
+    await callFn('complice-create',{method:'POST',body:{
+      questionnaire_id:qid, nom, relation:$('cp-rel-'+qid).value.trim() }});
+    loadQuestionnaires(CLI_SEL);
+  }catch(e){ alerteClient(e.message); }
+}
+
+const lienComplice = jeton => location.origin + '/repondre.html?jeton=' + jeton;
+
+function copierLien(jeton, btn){
+  const lien = lienComplice(jeton);
+  const fini = ()=>{ const t=btn.textContent; btn.textContent='Copie !'; setTimeout(()=>btn.textContent=t,1500); };
+  // `navigator.clipboard` n'existe pas hors HTTPS ni sur les vieux navigateurs :
+  // afficher le lien vaut mieux que ne rien faire.
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(lien).then(fini, ()=>prompt('Copie ce lien :', lien));
+  } else prompt('Copie ce lien :', lien);
+}
+
+async function revoquerComplice(id){
+  if(!confirm('Tirer un nouveau lien pour ce complice ?\n\nL\'ancien cessera de fonctionner. Ses reponses sont conservees.')) return;
+  try{ await callFn('complice-delete',{method:'POST',body:{id, action:'revoquer'}}); loadQuestionnaires(CLI_SEL); }
+  catch(e){ alerteClient(e.message); }
+}
+
+async function supprimerComplice(id, nom){
+  if(!confirm(`Retirer ${nom} ?`)) return;
+  try{
+    await callFn('complice-delete',{method:'POST',body:{id}});
+  }catch(e){
+    if(!/réponse/.test(e.message)) { alerteClient(e.message); return; }
+    if(!confirm(e.message+'\n\nLe retirer quand meme, avec ses reponses ?')) return;
+    try{ await callFn('complice-delete',{method:'POST',body:{id, force:true}}); }
+    catch(e2){ alerteClient(e2.message); return; }
+  }
+  loadQuestionnaires(CLI_SEL);
+}
+
+function alerteClient(texte){ const m=$('cli-msg'); m.textContent='Erreur : '+texte; m.className='msg err'; }
+
+// ── Le compositeur ────────────────────────────────────────────────────────
+// Le catalogue entier, section par section. Cocher une question l'ajoute et
+// ouvre sa personnalisation : reformuler pour tutoyer le complice, pre-remplir
+// ce qu'on sait deja, marquer obligatoire.
+async function composer(qid){
+  const q = QUESTIONNAIRES.find(x=>x.id===qid); if(!q) return;
+  if(!CATALOGUE.length) await loadCatalogue();
+  QN_SEL = qid;
+
+  const choisis = {};
+  (Array.isArray(q.items)?q.items:[]).forEach(it=>{ choisis[it.q]=it; });
+
+  const actives = CATALOGUE.filter(x=>x.actif!==false);
+  const parSection = {};
+  actives.forEach(x=>{ (parSection[x.section]=parSection[x.section]||[]).push(x); });
+
+  const box = document.createElement('div');
+  box.className = 'modal';
+  box.id = 'modal-composer';
+  box.innerHTML = `<div class="modalbox large">
+    <h3>Composer « ${esc(q.nom)} »</h3>
+    <p class="sub">Coche les questions a poser. L'ordre d'affichage est celui du catalogue.</p>
+    <div class="formrow" style="margin-bottom:var(--s4)">
+      <div><label>Nom du questionnaire</label><input id="qn-nom" value="${esc(q.nom)}"></div>
+    </div>
+    <div class="field"><label>Mot d'accueil (lu par le complice en ouvrant le lien)</label>
+      <textarea id="qn-accueil" rows="3" placeholder="Salut ! Je prepare une surprise pour Julie...">${esc(q.mot_accueil||'')}</textarea>
+      <div class="help">C'est ici qu'on explique que c'est une surprise et qu'il ne faut pas en parler.</div>
+    </div>
+    <div class="cphead"><span id="qn-compte">0 question selectionnee</span>
+      <button class="tog" onclick="toutDecocher()">Tout decocher</button></div>
+    <div class="cplist">
+      ${Object.keys(parSection).sort().map(sec=>`
+        <div class="cpsec"><h4>${esc(sec)}</h4>
+        ${parSection[sec].map(x=>ligneCompose(x, choisis[x.id])).join('')}
+        </div>`).join('')}
+    </div>
+    <div class="modalact">
+      <button class="tog" onclick="this.closest('.modal').remove()">Annuler</button>
+      <button class="btn inline" onclick="enregistrerQuestionnaire('${qid}',this)">Enregistrer</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+  majCompte();
+}
+
+function ligneCompose(x, item){
+  const on = !!item;
+  return `<div class="cprow ${on?'on':''}" id="cp-${esc(x.id)}">
+    <label class="cptop">
+      <input type="checkbox" id="ck-${esc(x.id)}" ${on?'checked':''} onchange="basculerQuestion('${esc(x.id)}')">
+      <span><strong>${esc(x.libelle)}</strong>
+        <span class="pill ing-${esc(x.ingredient)}">${esc(INGREDIENTS[x.ingredient]?INGREDIENTS[x.ingredient][0]:x.ingredient)}</span>
+        ${x.aide?`<div class="help">${esc(x.aide)}</div>`:''}</span>
+    </label>
+    <div class="cpdetail" ${on?'':'style="display:none"'}>
+      <div class="formrow">
+        <div><label>Reformuler (facultatif)</label>
+          <input id="lb-${esc(x.id)}" value="${esc(item&&item.libelle||'')}" placeholder="${esc(x.libelle)}"></div>
+        <div><label>Pre-remplir (facultatif)</label>
+          <input id="vl-${esc(x.id)}" value="${esc(item&&item.valeur||'')}" placeholder="ce que tu sais deja"></div>
+        <div style="flex:none"><label>&nbsp;</label>
+          <label class="cpobl"><input type="checkbox" id="ob-${esc(x.id)}" ${item&&item.obligatoire?'checked':''}> obligatoire</label></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function basculerQuestion(id){
+  const ck = $('ck-'+id), row = $('cp-'+id);
+  if(!ck||!row) return;
+  row.classList.toggle('on', ck.checked);
+  row.querySelector('.cpdetail').style.display = ck.checked?'block':'none';
+  majCompte();
+}
+
+function toutDecocher(){
+  CATALOGUE.forEach(x=>{ const ck=$('ck-'+x.id); if(ck&&ck.checked){ ck.checked=false; basculerQuestion(x.id); } });
+}
+
+function majCompte(){
+  const n = CATALOGUE.filter(x=>{ const ck=$('ck-'+x.id); return ck&&ck.checked; }).length;
+  const el = $('qn-compte'); if(el) el.textContent = `${n} question${n>1?'s':''} selectionnee${n>1?'s':''}`;
+}
+
+async function enregistrerQuestionnaire(qid, btn){
+  // L'ordre du catalogue fait l'ordre du questionnaire.
+  const items = [];
+  CATALOGUE.forEach(x=>{
+    const ck = $('ck-'+x.id); if(!ck||!ck.checked) return;
+    const it = { q:x.id };
+    const lb = $('lb-'+x.id), vl = $('vl-'+x.id), ob = $('ob-'+x.id);
+    if(lb && lb.value.trim()) it.libelle = lb.value.trim();
+    if(vl && vl.value.trim()) it.valeur = vl.value.trim();
+    if(ob && ob.checked) it.obligatoire = true;
+    items.push(it);
+  });
+  try{
+    await callFn('questionnaire-save',{method:'POST',body:{
+      id:qid, nom:$('qn-nom').value, mot_accueil:$('qn-accueil').value, items }});
+    btn.closest('.modal').remove();
+    const m=$('cli-msg'); m.textContent=`Questionnaire enregistre — ${items.length} question(s).`; m.className='msg ok';
+    loadQuestionnaires(CLI_SEL);
+  }catch(e){ alerteClient(e.message); }
+}
+
+// ── La matiere collectee ──────────────────────────────────────────────────
+// Groupee par ingredient et non par section : au moment de construire une
+// enigme on cherche « un chiffre », pas « quelque chose sur l'enfance ».
+async function loadMatiere(clientId){
+  const box = $('cli-matiere'); if(!box) return;
+  try{
+    const r = await callFn('reponses-list?client_id='+encodeURIComponent(clientId));
+    const reps = r.reponses||[];
+    if(!reps.length){ box.innerHTML=''; return; }
+
+    const parIng = {};
+    reps.forEach(x=>{ (parIng[x.ingredient]=parIng[x.ingredient]||[]).push(x); });
+
+    box.innerHTML = `<div class="createbox">
+      <div class="section-head"><h3>Matiere collectee</h3>
+        <span class="count">${reps.length} reponse${reps.length>1?'s':''}</span></div>
+      <div class="sub" style="margin-bottom:var(--s3)">Groupee par ce qu'elle permet de fabriquer.</div>
+      ${Object.keys(INGREDIENTS).filter(k=>parIng[k]).map(k=>`
+        <div class="matsec">
+          <h4><span class="pill ing-${k}">${INGREDIENTS[k][0]}</span>
+            <span class="help">${INGREDIENTS[k][1]}</span></h4>
+          <table><tbody>${parIng[k].map(x=>`<tr>
+            <td style="width:45%"><span class="help">${esc(x.libelle)}</span></td>
+            <td><strong>${esc(x.valeur)}</strong></td>
+            <td style="white-space:nowrap"><span class="pill">${esc(x.complice)}</span></td>
+          </tr>`).join('')}</tbody></table>
+        </div>`).join('')}
+    </div>`;
+  }catch(e){ box.innerHTML=''; }
 }
 
 // ════════ DEBRIEF ════════

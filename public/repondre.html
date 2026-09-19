@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Questionnaire</title>
+<!--
+  La page du complice.
+
+  Volontairement seule : aucun script externe, aucune cle Supabase, aucun acces
+  a la base depuis le navigateur. Elle ne parle qu'aux trois fonctions publiques
+  `repondre-*`, qui la cadrent sur son seul jeton. C'est la page la plus exposee
+  du site — un lien circule par SMS, se transfere, se retrouve dans un groupe —
+  donc c'est celle qui doit tenir le moins de pouvoir.
+-->
+<style>
+  :root{
+    --bg:#0e0e14;--card:#17171f;--card-2:#1d1d27;--border:#282834;--border-hi:#363646;
+    --text:#ececf2;--dim:#9a9ab0;--faint:#64647c;
+    --accent:#ffb454;--accent-ink:#241605;--accent-soft:rgba(255,180,84,.12);
+    --ok:#3ddc91;--ok-soft:rgba(61,220,145,.12);
+    --danger:#ff5c78;--danger-soft:rgba(255,92,120,.12);
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --r:12px;--r-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);
+    min-height:100vh;line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:radial-gradient(900px 500px at 50% -15%,rgba(255,180,84,.09),transparent 62%)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
+
+  .wrap{position:relative;z-index:1;max-width:660px;margin:0 auto;padding:28px 18px 120px}
+
+  /* ── En-tete ── */
+  .eyebrow{font-family:var(--mono);font-size:.64rem;letter-spacing:2px;
+    text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+  h1{font-size:1.5rem;font-weight:650;letter-spacing:-.015em;margin-bottom:6px}
+  .pour{color:var(--accent);font-size:.95rem;margin-bottom:20px}
+  .accueil{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--accent);
+    border-radius:var(--r);padding:16px 18px;font-size:.93rem;color:var(--dim);
+    margin-bottom:26px;white-space:pre-wrap}
+
+  /* ── Sections ── */
+  .sec{margin-bottom:30px}
+  .sec > h2{font-family:var(--mono);font-size:.68rem;letter-spacing:1.6px;
+    text-transform:uppercase;color:var(--faint);font-weight:400;
+    padding-bottom:8px;margin-bottom:14px;border-bottom:1px solid var(--border)}
+
+  /* ── Une question ── */
+  .q{background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+    padding:15px 16px;margin-bottom:10px;transition:border-color .14s}
+  .q:focus-within{border-color:var(--border-hi)}
+  .q.rempli{border-left:3px solid var(--ok);padding-left:13px}
+  .q > label{display:block;font-size:.95rem;font-weight:550;margin-bottom:4px;cursor:pointer}
+  .q .oblig{color:var(--accent);font-weight:400}
+  .q .aide{font-size:.8rem;color:var(--faint);margin-bottom:10px;line-height:1.45}
+  .q .aide:last-of-type{margin-bottom:10px}
+
+  input,textarea,select{width:100%;background:var(--bg);color:var(--text);
+    border:1px solid var(--border);border-radius:var(--r-sm);
+    padding:11px 13px;font-size:.95rem;font-family:inherit;line-height:1.5}
+  textarea{resize:vertical;min-height:80px}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-soft)}
+
+  /* L'etat d'enregistrement, discret mais present : sans lui, quelqu'un qui
+     ferme l'onglet ne sait pas si son texte est parti. */
+  .etat{font-family:var(--mono);font-size:.64rem;letter-spacing:.6px;
+    margin-top:7px;min-height:14px;color:var(--faint)}
+  .etat.ok{color:var(--ok)} .etat.ko{color:var(--danger)}
+
+  /* ── Barre de progression, collee en bas ── */
+  .pied{position:fixed;left:0;right:0;bottom:0;z-index:5;
+    background:rgba(14,14,20,.94);backdrop-filter:blur(10px);
+    border-top:1px solid var(--border);padding:12px 18px;
+    padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  .pied .in{max-width:660px;margin:0 auto;display:flex;align-items:center;gap:14px}
+  .barre{flex:1;height:5px;background:var(--card-2);border-radius:99px;overflow:hidden}
+  .barre i{display:block;height:100%;width:0;background:var(--accent);
+    border-radius:99px;transition:width .3s}
+  .avance{font-family:var(--mono);font-size:.7rem;color:var(--dim);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  .btn{background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:.88rem;
+    border:none;border-radius:var(--r-sm);padding:11px 18px;cursor:pointer;
+    font-family:inherit;white-space:nowrap;transition:filter .14s}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.45;cursor:default}
+
+  .msg{border-radius:var(--r);padding:13px 15px;margin-bottom:18px;
+    font-size:.88rem;display:none;line-height:1.5}
+  .msg.err{display:block;background:var(--danger-soft);color:var(--danger);
+    border:1px solid rgba(255,92,120,.3)}
+  .msg.ok{display:block;background:var(--ok-soft);color:var(--ok);
+    border:1px solid rgba(61,220,145,.3)}
+  .centre{text-align:center;padding:70px 20px;color:var(--dim)}
+  .centre h1{margin-bottom:10px}
+
+  @media (max-width:420px){
+    .wrap{padding:22px 14px 120px}
+    h1{font-size:1.3rem}
+    .pied .in{gap:10px}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div id="tete" style="display:none">
+    <div class="eyebrow">Questionnaire confidentiel</div>
+    <h1 id="titre"></h1>
+    <div class="pour" id="pour"></div>
+    <div class="accueil" id="accueil" style="display:none"></div>
+  </div>
+
+  <div class="msg" id="msg"></div>
+  <div id="corps"><div class="centre">Chargement…</div></div>
+</div>
+
+<div class="pied" id="pied" style="display:none">
+  <div class="in">
+    <div class="barre"><i id="barre"></i></div>
+    <div class="avance" id="avance">0 / 0</div>
+    <button class="btn" id="btn-fini" onclick="terminer()">J'ai fini</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+const JETON = new URL(location.href).searchParams.get('jeton') || '';
+let QUESTIONS = [];
+
+async function appel(nom, corps){
+  const res = await fetch('/.netlify/functions/' + nom, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(corps),
+  });
+  let j = {};
+  try { j = await res.json(); } catch(e){}
+  if (!res.ok) throw new Error(j.error || 'Service indisponible, réessaie dans un instant.');
+  return j;
+}
+
+// ── Chargement ────────────────────────────────────────────────────────────
+async function charger(){
+  if (!JETON){ echec("Ce lien est incomplet. Redemande-le à la personne qui te l'a envoyé."); return; }
+  try {
+    const j = await appel('repondre-charger', { jeton: JETON });
+    QUESTIONS = j.questions || [];
+    $('titre').textContent = j.titre || 'Questionnaire';
+    $('pour').textContent = j.client ? 'Pour la surprise de ' + j.client : '';
+    if (j.mot_accueil){ $('accueil').textContent = j.mot_accueil; $('accueil').style.display = 'block'; }
+    $('tete').style.display = 'block';
+
+    if (!QUESTIONS.length){
+      $('corps').innerHTML = '<div class="centre">Ce questionnaire est encore vide.<br>'
+        + 'Reviens quand la personne qui te l\'a envoyé l\'aura rempli.</div>';
+      return;
+    }
+    rendre();
+    $('pied').style.display = 'block';
+    if (j.termine) message("Tu as déjà terminé — merci ! Tu peux encore corriger ou compléter tes réponses.", 'ok');
+  } catch(e){ echec(e.message); }
+}
+
+function echec(texte){
+  $('corps').innerHTML = '<div class="centre"><h1>Lien indisponible</h1>' + esc(texte) + '</div>';
+}
+function message(texte, type){ const m = $('msg'); m.textContent = texte; m.className = 'msg ' + type; }
+
+// ── Rendu ─────────────────────────────────────────────────────────────────
+function champ(q){
+  const id = 'q-' + q.id;
+  const v = esc(q.valeur || '');
+  if (q.type === 'texte_long' || q.type === 'liste' || q.type === 'media')
+    return '<textarea id="' + id + '" rows="3">' + v + '</textarea>';
+  if (q.type === 'choix' && Array.isArray(q.options) && q.options.length)
+    return '<select id="' + id + '"><option value="">—</option>'
+      + q.options.map(o => '<option value="' + esc(o) + '"'
+        + (String(o) === String(q.valeur) ? ' selected' : '') + '>' + esc(o) + '</option>').join('')
+      + '</select>';
+  const t = q.type === 'nombre' ? 'number' : (q.type === 'date' ? 'date' : 'text');
+  return '<input id="' + id + '" type="' + t + '" value="' + v + '">';
+}
+
+// Ce que le complice doit savoir sans qu'on le lui explique deux fois.
+const AIDE_TYPE = {
+  liste: 'Une réponse par ligne.',
+  media: 'Décris ce à quoi tu penses — l\'envoi de photos arrivera bientôt.',
+};
+
+function rendre(){
+  const parSection = {};
+  QUESTIONS.forEach(q => { (parSection[q.section] = parSection[q.section] || []).push(q); });
+
+  $('corps').innerHTML = Object.keys(parSection).map(sec =>
+    '<div class="sec"><h2>' + esc(sec) + '</h2>'
+    + parSection[sec].map(q => {
+        const aides = [q.aide, AIDE_TYPE[q.type]].filter(Boolean);
+        return '<div class="q' + (q.valeur ? ' rempli' : '') + '" id="bloc-' + esc(q.id) + '">'
+          + '<label for="q-' + esc(q.id) + '">' + esc(q.libelle)
+          + (q.obligatoire ? ' <span class="oblig">*</span>' : '') + '</label>'
+          + aides.map(a => '<div class="aide">' + esc(a) + '</div>').join('')
+          + champ(q)
+          + '<div class="etat" id="etat-' + esc(q.id) + '"></div>'
+          + '</div>';
+      }).join('')
+    + '</div>').join('');
+
+  QUESTIONS.forEach(brancher);
+  avancement();
+}
+
+// ── Enregistrement au fil de l'eau ────────────────────────────────────────
+// Le complice répond sur son téléphone, entre deux choses. Rien ne doit se
+// perdre parce qu'il a fermé l'onglet ou perdu le réseau dans le métro :
+// chaque champ s'enregistre seul, une seconde après la dernière frappe.
+const minuteurs = {};
+
+function brancher(q){
+  const el = $('q-' + q.id);
+  if (!el) return;
+  const declencher = () => {
+    clearTimeout(minuteurs[q.id]);
+    minuteurs[q.id] = setTimeout(() => enregistrer(q.id, el.value), 900);
+  };
+  el.addEventListener('input', declencher);
+  // `change` couvre les listes déroulantes et les dates, que la saisie clavier
+  // ne fait pas toujours passer par `input`.
+  el.addEventListener('change', declencher);
+  // Quitter le champ enregistre tout de suite : pas d'attente inutile.
+  el.addEventListener('blur', () => {
+    clearTimeout(minuteurs[q.id]);
+    enregistrer(q.id, el.value);
+  });
+}
+
+async function enregistrer(questionId, valeur){
+  const q = QUESTIONS.find(x => x.id === questionId);
+  if (!q) return;
+  // Une valeur inchangée ET déjà en base n'a rien à faire sur le réseau. Mais
+  // une valeur pré-remplie par l'organisateur, elle, n'est encore nulle part :
+  // `enregistre` est faux tant que le complice ne l'a pas confirmée.
+  if (q.enregistre && String(q.valeur || '') === String(valeur || '')) return;
+  // Rien en base et rien tapé : un champ simplement survolé ne crée pas de ligne.
+  if (!q.enregistre && !String(valeur || '').trim()) return;
+
+  const etat = $('etat-' + questionId);
+  if (etat){ etat.textContent = 'enregistrement…'; etat.className = 'etat'; }
+  try {
+    await appel('repondre-enregistrer', { jeton: JETON, question_id: questionId, valeur });
+    q.valeur = valeur;
+    q.enregistre = true;
+    if (etat){ etat.textContent = 'enregistré'; etat.className = 'etat ok'; }
+    const bloc = $('bloc-' + questionId);
+    if (bloc) bloc.classList.toggle('rempli', !!String(valeur || '').trim());
+    avancement();
+    // Le mot « enregistré » a fait son office au bout de deux secondes.
+    setTimeout(() => { if (etat && etat.textContent === 'enregistré') etat.textContent = ''; }, 2000);
+  } catch(e){
+    // On ne remet PAS q.valeur à jour : la prochaine frappe réessaiera, et la
+    // valeur tapée reste à l'écran en attendant.
+    if (etat){ etat.textContent = 'pas enregistré — vérifie ta connexion'; etat.className = 'etat ko'; }
+  }
+}
+
+function avancement(){
+  const remplies = QUESTIONS.filter(q => String(q.valeur || '').trim()).length;
+  $('avance').textContent = remplies + ' / ' + QUESTIONS.length;
+  $('barre').style.width = QUESTIONS.length ? (remplies / QUESTIONS.length * 100) + '%' : '0';
+}
+
+// ── Terminer ──────────────────────────────────────────────────────────────
+// Le moment où l'on enregistre ce que le complice n'a pas touché.
+//
+// Une réponse pré-remplie par l'organisateur s'affiche dans le champ mais n'est
+// pas une réponse : personne ne l'a encore confirmée. Tant que le complice ne
+// la corrige pas, aucune frappe ne se produit et rien ne part. « J'ai fini »
+// est précisément le geste par lequel il dit avoir tout relu — c'est donc là
+// que ces valeurs deviennent des réponses.
+async function toutEnvoyer(){
+  for (const q of QUESTIONS){
+    const el = $('q-' + q.id);
+    if (el) await enregistrer(q.id, el.value);
+  }
+}
+
+async function terminer(){
+  $('btn-fini').disabled = true;
+  await toutEnvoyer();
+
+  const manquantes = QUESTIONS.filter(q => q.obligatoire && !String(q.valeur || '').trim());
+  if (manquantes.length){
+    message('Il reste ' + manquantes.length + ' question(s) marquée(s) d\'une étoile à remplir.', 'err');
+    const bloc = $('bloc-' + manquantes[0].id);
+    if (bloc) bloc.scrollIntoView({ behavior:'smooth', block:'center' });
+    $('btn-fini').disabled = false;
+    return;
+  }
+  try {
+    await appel('repondre-terminer', { jeton: JETON });
+    message('Merci ! Tes réponses sont enregistrées. Tu peux revenir les compléter quand tu veux.', 'ok');
+    window.scrollTo({ top:0, behavior:'smooth' });
+  } catch(e){ message(e.message, 'err'); }
+  $('btn-fini').disabled = false;
+}
+
+// Dernier filet : un champ modifié puis fermé aussitôt part quand même.
+window.addEventListener('pagehide', () => {
+  QUESTIONS.forEach(q => {
+    const el = $('q-' + q.id);
+    if (!el || String(q.valeur || '') === String(el.value || '')) return;
+    const charge = JSON.stringify({ jeton: JETON, question_id: q.id, valeur: el.value });
+    navigator.sendBeacon('/.netlify/functions/repondre-enregistrer',
+      new Blob([charge], { type:'application/json' }));
+  });
+});
+
+charger();
+</script>
+</body>
+</html>
