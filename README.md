@@ -115,10 +115,11 @@ reste utilisable : `index.html` retombe sur la configuration embarquée.
 | `questions` | `id` (slug), `section`, `libelle`, `aide`, `type`, `ingredient`, `options`, `ordre`, `actif` — le catalogue de questions |
 | `questionnaires` | `id`, `client_id`, `nom`, `items` (jsonb : la sélection de questions et sa personnalisation), `mot_accueil` |
 | `complices` | `id`, `questionnaire_id`, `nom`, `relation`, `jeton` (unique), `ouvert_le`, `termine_le` |
-| `reponses` | `id`, `complice_id`, `question_id`, `libelle_pose`, `valeur` — unicité sur (`complice_id`, `question_id`) |
+| `reponses` | `id`, `complice_id`, `question_id`, `libelle_pose`, `valeur`, `medias` (jsonb) — unicité sur (`complice_id`, `question_id`) |
 
-`statut` vaut `brouillon`, `publie` ou `archive`. Le stockage utilise un bucket public
-`assets`, rangé par slug de jeu.
+`statut` vaut `brouillon`, `publie` ou `archive`. Le stockage utilise deux buckets :
+`assets`, **public**, rangé par slug de jeu, que lit le moteur ; et `reponses`, **privé**,
+où atterrit ce que les complices envoient (voir *Photos et sons des complices*).
 
 Supprimer un compte auth supprime en cascade son profil, sa progression, ses
 tentatives et ses événements.
@@ -350,6 +351,56 @@ supprimer définitivement une question, un questionnaire ou un complice est refu
 que des réponses y font référence.
 
 Migration : [`supabase/migration-08-questionnaires.sql`](supabase/migration-08-questionnaires.sql).
+
+## Photos et sons des complices
+
+Une question de type `media` demande une photo, pas une phrase : la photo du voyage, le
+faire-part, l'enregistrement d'une voix. `reponses.valeur` garde la description en texte,
+`reponses.medias` la liste des fichiers.
+
+### Deux buckets, et un seul geste pour passer de l'un à l'autre
+
+Ce que les complices envoient arrive dans le bucket **`reponses`, privé**. Le bucket
+`assets` est **public** : une URL devinable y suffit à tout lire. Des photos de famille
+confiées pour une surprise n'y ont rien à faire.
+
+Le passage de l'un à l'autre est un geste d'administrateur, **fichier par fichier**
+(bouton *Rendre public*, fonction `media-promouvoir`), une fois qu'on sait que la photo
+servira dans une énigme. Il n'arrive jamais tout seul : ni à l'envoi, ni à la
+consultation. La promotion est une **copie** — l'original reste dans le bucket privé,
+pour que retirer la photo du jeu plus tard ne fasse pas disparaître la matière
+collectée. `scripts/verifier.mjs` refuse toute autre fonction qui écrirait dans
+`assets`.
+
+Dans l'admin, les aperçus passent par des **URL signées d'une heure**
+(`media-lire`) : un bucket privé n'a pas d'URL permanente, et rien ne reste
+partageable ensuite par inadvertance.
+
+### Comment le fichier arrive
+
+Le navigateur du complice ne dépose pas à travers une fonction serveur — une photo de
+téléphone pèse plusieurs mégaoctets. `repondre-media-url` délivre une **URL signée**
+valable quelques minutes, le navigateur `PUT` le fichier directement dans Supabase, puis
+`repondre-media-confirmer` le rattache à la réponse.
+
+Ce que le navigateur **ne décide pas** :
+
+- **le chemin**, entièrement calculé côté serveur (`<complice>/<question>/<aléatoire>`),
+  donc aucun envoi n'écrase celui d'un autre ni ne sort du dossier du complice ;
+- **l'extension**, déduite du type MIME déclaré et non du nom de fichier — un
+  `photo.jpg.html` n'a alors aucune prise ;
+- **l'existence du fichier** : la confirmation vérifie auprès du stockage que l'objet est
+  bien là et fait bien le poids, sinon `medias` se remplirait de chemins inventés.
+
+Limites : **20 Mo** par fichier, **5 fichiers** par question, et une liste blanche
+d'images et de sons. Pas de `image/svg+xml` — un SVG est un document exécutable, et rien
+dans une photo de famille n'en a besoin. Pas de vidéo : le poids change la nature du
+problème et aucune énigme n'en demande. Les règles vivent dans
+`netlify/functions/_medias.js`, en un seul endroit parce qu'elles sont appliquées sur
+deux chemins ; `tests/medias.test.mjs` les couvre.
+
+Migration : [`supabase/migration-09-medias.sql`](supabase/migration-09-medias.sql) — elle
+crée le bucket privé et ajoute `reponses.medias`.
 
 ## Chrono
 

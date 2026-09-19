@@ -35,8 +35,11 @@ export default async (req) => {
 
   const { data: deja } = await sb.from('reponses')
     .select('*').eq('complice_id', complice.id);
-  const repondu = {};
-  (deja || []).forEach(r => { repondu[r.question_id] = r.valeur; });
+  const repondu = {}, medias = {};
+  (deja || []).forEach(r => {
+    repondu[r.question_id] = r.valeur;
+    medias[r.question_id] = Array.isArray(r.medias) ? r.medias : [];
+  });
 
   const questions = items.map(it => {
     const q = parId[it.q];
@@ -57,6 +60,10 @@ export default async (req) => {
       // n'est pas encore une reponse, et devra etre enregistre au moment ou le
       // complice declare avoir tout relu.
       enregistre: repondu[q.id] !== undefined,
+      // Les fichiers deja deposes, pour que le complice les retrouve et puisse
+      // en retirer un. `path` seul : la page n'a pas d'URL de lecture, le
+      // bucket etant prive. Elle affiche le nom, pas l'image.
+      medias: (medias[q.id] || []).map(m => ({ path: m.path, nom: m.nom, type: m.type })),
     };
   }).filter(Boolean);
 

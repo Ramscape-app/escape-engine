@@ -42,7 +42,8 @@ export default async (req) => {
   // Une question retiree du catalogue laisse ses reponses lisibles : c'est tout
   // l'interet de `libelle_pose`, copie au moment ou la question a ete posee.
   const reponses = (repR.data || [])
-    .filter(r => r.valeur && String(r.valeur).trim())
+    .filter(r => (r.valeur && String(r.valeur).trim())
+      || (Array.isArray(r.medias) && r.medias.length))
     .map(r => {
       const q = parQuestion[r.question_id];
       const c = parComplice[r.complice_id];
@@ -52,6 +53,7 @@ export default async (req) => {
         section: (q && q.section) || 'autre',
         ingredient: (q && q.ingredient) || 'recit',
         valeur: r.valeur,
+        medias: Array.isArray(r.medias) ? r.medias : [],
         complice: c ? c.nom : '?',
         complice_id: r.complice_id,
         updated_at: r.updated_at,

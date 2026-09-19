@@ -411,6 +411,19 @@
   .cpobl input{width:15px;height:15px;margin:0;accent-color:var(--accent)}
 
   /* ── Matiere collectee ── */
+  .medialist{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s2)}
+  .mediaitem{display:flex;flex-direction:column;gap:6px;width:132px;
+    background:var(--surface-2);border:1px solid var(--border);
+    border-radius:var(--r-sm);padding:var(--s2)}
+  .apercu{height:86px;border-radius:var(--r-sm);overflow:hidden;background:var(--bg);
+    display:grid;place-items:center}
+  .apercu img{width:100%;height:100%;object-fit:cover;display:block}
+  .apercu audio{width:100%;max-width:116px}
+  .mediameta{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .mediameta span:first-child{font-size:var(--t-xs);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .mediaitem .tog,.mediaitem .pill{align-self:stretch;text-align:center}
+
   .matsec{margin-bottom:var(--s4)}
   .matsec h4{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s1)}
   .matsec td{padding:7px var(--s2);vertical-align:top}
@@ -1451,12 +1464,69 @@ async function loadMatiere(clientId){
             <span class="help">${INGREDIENTS[k][1]}</span></h4>
           <table><tbody>${parIng[k].map(x=>`<tr>
             <td style="width:45%"><span class="help">${esc(x.libelle)}</span></td>
-            <td><strong>${esc(x.valeur)}</strong></td>
+            <td>${x.valeur?`<strong>${esc(x.valeur)}</strong>`:''}
+              ${(x.medias||[]).length?blocMediaAdmin(x):''}</td>
             <td style="white-space:nowrap"><span class="pill">${esc(x.complice)}</span></td>
           </tr>`).join('')}</tbody></table>
         </div>`).join('')}
     </div>`;
+    chargerApercus(reps);
   }catch(e){ box.innerHTML=''; }
+}
+
+// ── Les fichiers envoyes par les complices ────────────────────────────────
+// Le bucket est prive : il n'existe pas d'URL permanente vers ces photos, et
+// c'est voulu. L'admin demande des URL signees d'une heure, le temps de les
+// regarder, et rien ne reste partageable ensuite par inadvertance.
+function blocMediaAdmin(x){
+  return `<div class="medialist">${x.medias.map(m=>`
+    <div class="mediaitem" id="mi-${esc(m.path.replace(/[^a-zA-Z0-9]/g,''))}">
+      <div class="apercu" data-path="${esc(m.path)}"></div>
+      <div class="mediameta">
+        <span title="${esc(m.nom)}">${esc(m.nom)}</span>
+        <span class="help">${Math.round((m.taille||0)/1024)} Ko</span>
+      </div>
+      ${m.promu
+        ? `<span class="pill ok" title="${esc(m.promu)}">public</span>`
+        : `<button class="tog" onclick="promouvoir('${esc(m.path)}',this)"
+             title="Copie le fichier dans le bucket public, pour qu'une enigme puisse l'afficher">Rendre public</button>`}
+    </div>`).join('')}</div>`;
+}
+
+// Un seul appel pour tous les apercus de la page : soixante signatures valent
+// mieux que soixante allers-retours.
+async function chargerApercus(reps){
+  const paths = reps.flatMap(x=>(x.medias||[]).map(m=>m.path));
+  if(!paths.length) return;
+  try{
+    const { urls } = await callFn('media-lire',{method:'POST',body:{paths}});
+    document.querySelectorAll('#cli-matiere .apercu').forEach(el=>{
+      const u = urls[el.dataset.path];
+      if(!u) return;
+      // Une image s'affiche, un son se joue ; le reste se telecharge.
+      el.innerHTML = /\.(jpg|jpeg|png|webp|gif|heic|heif)$/i.test(el.dataset.path)
+        ? `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt=""></a>`
+        : `<audio controls preload="none" src="${esc(u)}"></audio>`;
+    });
+  }catch(e){ /* les apercus manquent, les noms restent : la page tient debout */ }
+}
+
+async function promouvoir(path, btn){
+  const c = CLIENTS.find(x=>x.id===CLI_SEL);
+  // Le dossier du bucket public suit le slug du jeu quand il y en a un, sinon
+  // le nom du client : c'est la ou l'editeur ira chercher ses images.
+  const slug = (c && c.jeux && c.jeux[0] && c.jeux[0].slug) || (c && c.nom) || 'clients';
+  if(!confirm(`Rendre ce fichier accessible publiquement ?\n\n`
+    + `Il sera copie dans le bucket public, ou une enigme pourra l'afficher. `
+    + `L'original reste dans le bucket prive.\n\nDossier : ${slug}`)) return;
+  btn.disabled = true;
+  try{
+    const r = await callFn('media-promouvoir',{method:'POST',body:{path, slug}});
+    const m=$('cli-msg');
+    m.textContent = `Fichier public. Chemin a coller dans une enigme : ${r.chemin_public}`;
+    m.className='msg ok';
+    loadMatiere(CLI_SEL);
+  }catch(e){ alerteClient(e.message); btn.disabled = false; }
 }
 
 // ════════ DEBRIEF ════════

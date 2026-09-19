@@ -67,6 +67,25 @@
   input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);
     box-shadow:0 0 0 3px var(--accent-soft)}
 
+  /* ── Photos et sons ──
+     Le champ de fichier natif est illisible et intitule par le navigateur :
+     on le cache et on habille son <label>, qui le declenche tout aussi bien. */
+  .mediabox{margin-top:10px}
+  .mediabox input[type=file]{position:absolute;width:1px;height:1px;opacity:0;
+    overflow:hidden;clip:rect(0 0 0 0)}
+  .ajout{display:inline-block;background:var(--card-2);border:1px dashed var(--border-hi);
+    border-radius:var(--r-sm);padding:10px 14px;font-size:.85rem;color:var(--dim);
+    cursor:pointer;transition:.14s}
+  .ajout:hover{border-color:var(--accent);color:var(--text)}
+  .mediabox input[type=file]:focus-visible + .ajout{outline:2px solid var(--accent);outline-offset:2px}
+  .medialist{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+  .medialist:empty{display:none}
+  .mediarow{display:flex;align-items:center;gap:10px;background:var(--card-2);
+    border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 11px;font-size:.84rem}
+  .mediarow span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .retirer{background:none;border:none;color:var(--danger);font-family:var(--mono);
+    font-size:.68rem;cursor:pointer;padding:2px 4px}
+
   /* L'etat d'enregistrement, discret mais present : sans lui, quelqu'un qui
      ferme l'onglet ne sait pas si son texte est parti. */
   .etat{font-family:var(--mono);font-size:.64rem;letter-spacing:.6px;
@@ -195,7 +214,7 @@ function champ(q){
 // Ce que le complice doit savoir sans qu'on le lui explique deux fois.
 const AIDE_TYPE = {
   liste: 'Une réponse par ligne.',
-  media: 'Décris ce à quoi tu penses — l\'envoi de photos arrivera bientôt.',
+  media: 'Ajoute une photo ou un son, et décris-le en quelques mots.',
 };
 
 function rendre(){
@@ -206,11 +225,12 @@ function rendre(){
     '<div class="sec"><h2>' + esc(sec) + '</h2>'
     + parSection[sec].map(q => {
         const aides = [q.aide, AIDE_TYPE[q.type]].filter(Boolean);
-        return '<div class="q' + (q.valeur ? ' rempli' : '') + '" id="bloc-' + esc(q.id) + '">'
+        return '<div class="q' + (repondue(q) ? ' rempli' : '') + '" id="bloc-' + esc(q.id) + '">'
           + '<label for="q-' + esc(q.id) + '">' + esc(q.libelle)
           + (q.obligatoire ? ' <span class="oblig">*</span>' : '') + '</label>'
           + aides.map(a => '<div class="aide">' + esc(a) + '</div>').join('')
           + champ(q)
+          + (q.type === 'media' ? blocMedia(q) : '')
           + '<div class="etat" id="etat-' + esc(q.id) + '"></div>'
           + '</div>';
       }).join('')
@@ -218,6 +238,99 @@ function rendre(){
 
   QUESTIONS.forEach(brancher);
   avancement();
+}
+
+// ── Photos et sons ────────────────────────────────────────────────────────
+// Le fichier ne passe pas par nos fonctions serveur : elles délivrent une URL
+// signée, valable quelques minutes, et le navigateur dépose directement dans un
+// bucket privé — sur un chemin qu'il ne choisit pas. Une photo de téléphone
+// pèse plusieurs mégaoctets, qu'aucune fonction n'a besoin de porter.
+const TAILLE_MAX = 20 * 1024 * 1024;
+const MAX_FICHIERS = 5;
+
+function blocMedia(q){
+  return '<div class="mediabox">'
+    + '<div class="medialist" id="md-' + esc(q.id) + '">' + listeMedia(q) + '</div>'
+    // L'input précède son label : le sélecteur `:focus-visible + .ajout` qui
+    // rend le focus clavier visible n'atteint qu'un frère suivant.
+    + '<input type="file" id="f-' + esc(q.id) + '" accept="image/*,audio/*" multiple '
+    + 'onchange="envoyerFichiers(\'' + esc(q.id) + '\', this)">'
+    + '<label class="ajout" for="f-' + esc(q.id) + '">+ Ajouter une photo ou un son</label>'
+    + '</div>';
+}
+
+function listeMedia(q){
+  const ms = q.medias || [];
+  if (!ms.length) return '';
+  return ms.map(m =>
+    '<div class="mediarow"><span>' + esc(m.nom) + '</span>'
+    + '<button type="button" class="retirer" onclick="retirerMedia(\'' + esc(q.id) + '\',\''
+    + esc(m.path) + '\')">retirer</button></div>').join('');
+}
+
+function majMedia(q){
+  const box = $('md-' + q.id);
+  if (box) box.innerHTML = listeMedia(q);
+  const bloc = $('bloc-' + q.id);
+  if (bloc) bloc.classList.toggle('rempli', !!(String(q.valeur||'').trim() || (q.medias||[]).length));
+  avancement();
+}
+
+async function envoyerFichiers(questionId, input){
+  const q = QUESTIONS.find(x => x.id === questionId);
+  const fichiers = Array.from(input.files || []);
+  input.value = '';                       // permet de renvoyer le même fichier
+  if (!q || !fichiers.length) return;
+
+  const etat = $('etat-' + questionId);
+  for (const f of fichiers){
+    if ((q.medias || []).length >= MAX_FICHIERS){
+      dire(etat, MAX_FICHIERS + ' fichiers maximum pour cette question', 'ko'); break;
+    }
+    if (f.size > TAILLE_MAX){
+      dire(etat, esc(f.name) + ' : trop lourd (20 Mo maximum)', 'ko'); continue;
+    }
+    try {
+      dire(etat, 'envoi de ' + f.name + '…', '');
+      const { url, path } = await appel('repondre-media-url',
+        { jeton: JETON, question_id: questionId, type: f.type, taille: f.size });
+
+      // Dépôt direct dans Supabase, sur l'URL signée. `x-upsert: false` : deux
+      // envois ne peuvent pas se marcher dessus.
+      const dep = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': f.type || 'application/octet-stream', 'x-upsert': 'false' },
+        body: f,
+      });
+      if (!dep.ok) throw new Error("L'envoi n'a pas abouti. Réessaie.");
+
+      const r = await appel('repondre-media-confirmer',
+        { jeton: JETON, question_id: questionId, path, nom: f.name, type: f.type });
+      q.medias = r.medias || [];
+      majMedia(q);
+      dire(etat, 'envoyé', 'ok');
+    } catch(e){ dire(etat, e.message, 'ko'); }
+  }
+}
+
+async function retirerMedia(questionId, path){
+  const q = QUESTIONS.find(x => x.id === questionId);
+  if (!q || !confirm('Retirer ce fichier ?')) return;
+  const etat = $('etat-' + questionId);
+  try {
+    const r = await appel('repondre-media-confirmer',
+      { jeton: JETON, question_id: questionId, path, retirer: true });
+    q.medias = r.medias || [];
+    majMedia(q);
+    dire(etat, 'retiré', 'ok');
+  } catch(e){ dire(etat, e.message, 'ko'); }
+}
+
+function dire(etat, texte, classe){
+  if (!etat) return;
+  etat.textContent = texte;
+  etat.className = 'etat ' + (classe || '');
+  if (classe === 'ok') setTimeout(() => { if (etat.textContent === texte) etat.textContent = ''; }, 2000);
 }
 
 // ── Enregistrement au fil de l'eau ────────────────────────────────────────
@@ -262,7 +375,7 @@ async function enregistrer(questionId, valeur){
     q.enregistre = true;
     if (etat){ etat.textContent = 'enregistré'; etat.className = 'etat ok'; }
     const bloc = $('bloc-' + questionId);
-    if (bloc) bloc.classList.toggle('rempli', !!String(valeur || '').trim());
+    if (bloc) bloc.classList.toggle('rempli', repondue(q));
     avancement();
     // Le mot « enregistré » a fait son office au bout de deux secondes.
     setTimeout(() => { if (etat && etat.textContent === 'enregistré') etat.textContent = ''; }, 2000);
@@ -273,8 +386,11 @@ async function enregistrer(questionId, valeur){
   }
 }
 
+// Une question média est répondue par une photo autant que par du texte.
+const repondue = q => !!(String(q.valeur || '').trim() || (q.medias || []).length);
+
 function avancement(){
-  const remplies = QUESTIONS.filter(q => String(q.valeur || '').trim()).length;
+  const remplies = QUESTIONS.filter(repondue).length;
   $('avance').textContent = remplies + ' / ' + QUESTIONS.length;
   $('barre').style.width = QUESTIONS.length ? (remplies / QUESTIONS.length * 100) + '%' : '0';
 }
@@ -298,7 +414,7 @@ async function terminer(){
   $('btn-fini').disabled = true;
   await toutEnvoyer();
 
-  const manquantes = QUESTIONS.filter(q => q.obligatoire && !String(q.valeur || '').trim());
+  const manquantes = QUESTIONS.filter(q => q.obligatoire && !repondue(q));
   if (manquantes.length){
     message('Il reste ' + manquantes.length + ' question(s) marquée(s) d\'une étoile à remplir.', 'err');
     const bloc = $('bloc-' + manquantes[0].id);

@@ -39,3 +39,16 @@ export async function resoudreJeton(sb, jeton) {
   if (error || !data || !data.questionnaire) return null;
   return data;
 }
+
+// Le libellé exact tel qu'il a été posé, copié avec la réponse.
+//
+// Une réponse est de la matière déjà collectée : elle doit rester lisible même
+// si la question change de formulation ou quitte le catalogue. Le libellé
+// personnalisé du questionnaire prime, puisque c'est celui que le complice a
+// réellement lu.
+export async function libellePose(sb, item, questionId) {
+  if (item && item.libelle) return item.libelle;
+  const { data } = await sb.from('questions')
+    .select('libelle').eq('id', questionId).maybeSingle();
+  return (data && data.libelle) || questionId;
+}

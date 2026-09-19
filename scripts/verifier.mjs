@@ -106,15 +106,15 @@ for (const p of PAGES) {
 }
 
 // ── 7. Toute fonction mutatrice passe par requireAdmin ────────────────────
-const PUBLIQUES = [
-  'manifest.js', 'code-resolve.js', 'rejoindre.js', 'jeux-publics.js',
-  // Le complice n'a pas de compte : son jeton tient lieu d'authentification,
-  // et `resoudreJeton` le cadre sur son seul questionnaire.
-  'repondre-charger.js', 'repondre-enregistrer.js', 'repondre-terminer.js',
-  '_auth.js', '_suivi.js', '_complice.js',
-];
+const PUBLIQUES = ['manifest.js', 'code-resolve.js', 'rejoindre.js', 'jeux-publics.js'];
+const PARTAGES = ['_auth.js', '_suivi.js', '_complice.js', '_medias.js'];
+// Les `repondre-*` sont publiques par construction : le complice n'a pas de
+// compte. Elles ne sont pas pour autant dispensees d'authentification — le
+// controle 8 exige `resoudreJeton` sur chacune. Une regle plutot qu'une liste,
+// pour qu'une nouvelle ne puisse pas etre publique par oubli.
+const estPubliqueComplice = (f) => f.startsWith('repondre-');
 for (const f of fonctions) {
-  if (PUBLIQUES.includes(f)) continue;
+  if (PUBLIQUES.includes(f) || PARTAGES.includes(f) || estPubliqueComplice(f)) continue;
   controles++;
   if (!lire(`netlify/functions/${f}`).includes('requireAdmin'))
     ko(`netlify/functions/${f}`, 'fonction sans requireAdmin — ajoute-la aux publiques si c\'est voulu');
@@ -154,6 +154,20 @@ for (const p of PAGES) {
   }
   const doubles = [...noms].filter(([, n]) => n > 1).map(([nom]) => nom);
   if (doubles.length) ko(p, 'fonctions declarees deux fois : ' + doubles.join(', '));
+}
+
+// ── 11. Le bucket public ne s'ecrit que depuis deux endroits ──────────────
+// Ce que les complices envoient atterrit dans le bucket PRIVE `reponses`. Le
+// bucket `assets` est public : une URL devinable y suffit a tout lire. Le
+// passage de l'un a l'autre est un geste d'administrateur, fichier par fichier
+// (`media-promouvoir`), et c'est tout l'objet de la phase 3. Une fonction de
+// confort qui ecrirait dans `assets` en contournerait la regle sans le dire.
+const ECRIVENT_ASSETS = ['asset-upload.js', 'media-promouvoir.js'];
+for (const f of fonctions) {
+  if (ECRIVENT_ASSETS.includes(f)) continue;
+  controles++;
+  if (/from\(['"]assets['"]\)\s*\.\s*(upload|copy|move)/.test(lire(`netlify/functions/${f}`)))
+    ko(`netlify/functions/${f}`, 'ecriture dans le bucket public « assets » — la promotion passe par media-promouvoir');
 }
 
 // ── Verdict ───────────────────────────────────────────────────────────────

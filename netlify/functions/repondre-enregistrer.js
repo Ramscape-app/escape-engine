@@ -1,5 +1,5 @@
 import { adminClient, json } from './_auth.js';
-import { resoudreJeton, REFUS } from './_complice.js';
+import { resoudreJeton, libellePose, REFUS } from './_complice.js';
 
 // Enregistre une reponse, au fil de la frappe.
 //   POST { jeton, question_id, valeur }
@@ -34,19 +34,10 @@ export default async (req) => {
 
   const valeur = String(body.valeur == null ? '' : body.valeur).slice(0, MAX_VALEUR);
 
-  // Le libelle exact tel qu'il a ete pose est copie avec la reponse : elle
-  // restera lisible meme si la question change ou quitte le catalogue.
-  let libellePose = item.libelle || '';
-  if (!libellePose) {
-    const { data: q } = await sb.from('questions')
-      .select('libelle').eq('id', questionId).maybeSingle();
-    libellePose = (q && q.libelle) || questionId;
-  }
-
   const { error } = await sb.from('reponses').upsert({
     complice_id: complice.id,
     question_id: questionId,
-    libelle_pose: libellePose,
+    libelle_pose: await libellePose(sb, item, questionId),
     valeur,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'complice_id,question_id' });
