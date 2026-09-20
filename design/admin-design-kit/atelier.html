@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Atelier — console d'administration</title>
+<meta name="color-scheme" content="dark light">
 <link rel="stylesheet" href="css/admin.css">
 <style>
   /* Réservé à l'atelier : rien d'ici ne part dans l'application.
@@ -20,9 +21,9 @@
   .at-jeton{display:flex;align-items:center;gap:var(--s2);background:var(--surface-2);
     border:1px solid var(--border);border-radius:var(--r-sm);padding:var(--s2);
     font-family:var(--mono);font-size:var(--t-micro)}
-  .at-jeton i{width:22px;height:22px;border-radius:5px;flex:none;border:1px solid rgba(255,255,255,.14)}
-  .at-alerte{background:var(--warn-soft);border:1px solid rgba(240,185,85,.3);
-    color:var(--warn);border-radius:var(--r);padding:var(--s3) var(--s4);
+  .at-jeton i{width:22px;height:22px;border-radius:5px;flex:none;border:1px solid var(--border-hi)}
+  .at-alerte{background:var(--accent-soft);border:1px solid var(--accent-line);
+    color:var(--text);border-radius:var(--r);padding:var(--s3) var(--s4);
     font-size:var(--t-sm);line-height:1.6;margin-bottom:var(--s5);max-width:80ch}
 </style>
 </head>
@@ -32,8 +33,11 @@
   <header class="topbar">
     <button class="burger" onclick="document.getElementById('side').classList.toggle('open');document.getElementById('side-overlay').classList.toggle('show')">☰</button>
     <div class="brand"><span class="mark">EE</span> Escape Engine</div>
-    <div class="me">atelier@exemple.fr</div>
-    <button class="tog" onclick="basculerTheme()">☀︎ / ☾</button>
+    <span class="topactions">
+      <span class="me">atelier@exemple.fr</span>
+      <button data-theme-btn onclick="basculerTheme()">Système ⌁</button>
+      <button>Déconnexion</button>
+    </span>
   </header>
 
   <!-- Le voile du tiroir de navigation, visible sous 760 px seulement. -->
@@ -70,10 +74,13 @@
       </div></div>
 
       <div class="at-alerte">
-        <b>Le bouton ☀︎/☾ en haut ne fait encore rien.</b> Il pose
-        <code>data-theme="light"</code> sur <code>&lt;html&gt;</code> et c'est tout :
-        la feuille n'a aujourd'hui aucune règle pour le mode clair. C'est précisément
-        le crochet sur lequel bâtir. Voir <code>LISEZMOI.md</code>, section « Mode clair ».
+        <b>Les deux modes sont câblés.</b> Le bouton en haut à droite passe par trois
+        états : <code>Système ⌁</code> (aucun attribut — c'est
+        <code>prefers-color-scheme</code> qui décide), <code>Clair ☀︎</code>
+        (<code>data-theme="light"</code>) et <code>Sombre ☾</code>
+        (<code>data-theme="dark"</code>, qui force le sombre même sur un système réglé
+        en clair). Les 42 jetons de rôle sont remappés dans les deux sens ; le détail
+        des décisions est dans <code>NOTE-REFONTE.md</code>.
       </div>
 
       <!-- ════════ JETONS ════════ -->
@@ -494,15 +501,30 @@
   <div class="at-note">Affichées ici à plat pour être travaillées. Dans l'application elles
     apparaissent par-dessus, sur un voile sombre.</div>
 
+  <div class="at-lbl">Le voile — <code>.modal</code></div>
+  <div class="at-note">Dans l'application, <code>.modal</code> couvre l'écran et centre son
+    <code>.modalbox</code>. Ici il est neutralisé (<code>position:static</code>) pour ne pas
+    masquer l'atelier : c'est la seule entorse de cette page à la réalité.</div>
+  <div class="modal" style="position:static;padding:var(--s4) 0;display:block;background:var(--overlay);border-radius:var(--r)">
+    <div class="modalbox" style="margin:0 auto">
+      <h3>Une fenêtre, posée sur son voile</h3>
+      <div class="sub">Le voile assombrit la page derrière ; l'ombre portée dit « au-dessus ».</div>
+      <div class="modalact"><button class="tog">Annuler</button>
+        <button class="btn inline">Confirmer</button></div>
+    </div>
+  </div>
+
   <div class="at-lbl">Refus de publication</div>
   <div class="modalbox" style="margin-bottom:var(--s5)">
     <h3>Ce jeu ne peut pas être publié</h3>
     <div class="sub">Trois problèmes bloquent la publication, deux méritent un coup d'œil.</div>
+    <div class="pbs">
     <div class="pbgrp err"><b>Bloquant</b>
       <ul><li>Énigme 4 : aucune réponse acceptée</li>
         <li>Énigme 9 : clavier numérique avec des lettres dans la solution</li></ul></div>
     <div class="pbgrp ale"><b>Alerte</b>
       <ul><li>Énigme 2 : aucun indice</li><li>Acte III : vide</li></ul></div>
+    </div>
     <div class="modalact">
       <button class="tog">Annuler</button>
       <button class="btn inline">Publier quand même</button>
@@ -568,12 +590,28 @@
 </div>
 
 <script>
-// Le crochet du mode clair. Il pose l'attribut, rien de plus : c'est à la
-// feuille de style d'en faire quelque chose.
+// Trois états : système → clair → sombre → système.
+// « système » = aucun attribut, donc prefers-color-scheme décide seul.
+// La feuille ne demande rien d'autre que cet attribut sur <html> ; le
+// stockage local est propre à l'atelier, à remplacer côté application.
+const ETATS = [
+  {v:null,    t:'Système ⌁'},
+  {v:'light', t:'Clair ☀︎'},
+  {v:'dark',  t:'Sombre ☾'}
+];
+function appliquerTheme(i){
+  const e = ETATS[i], h = document.documentElement;
+  if(e.v){ h.dataset.theme = e.v; } else { delete h.dataset.theme; }
+  const b = document.querySelector('[data-theme-btn]');
+  if(b){ b.textContent = e.t; }
+  try{ localStorage.setItem('atelier-theme', String(i)); }catch(err){}
+}
 function basculerTheme(){
   const h = document.documentElement;
-  h.dataset.theme = h.dataset.theme === 'light' ? 'dark' : 'light';
+  const i = ETATS.findIndex(e => e.v === (h.dataset.theme || null));
+  appliquerTheme((i + 1) % ETATS.length);
 }
+appliquerTheme(Number(localStorage.getItem('atelier-theme')) || 0);
 </script>
 </body>
 </html>

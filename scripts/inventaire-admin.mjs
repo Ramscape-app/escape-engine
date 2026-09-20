@@ -38,6 +38,10 @@ export function classes(src) {
   // Les classes ajoutées par le script après coup.
   for (const m of src.matchAll(/classList\.(?:add|toggle|remove)\('([a-zA-Z0-9_-]+)'/g))
     trouvees.add(m[1]);
+  // `el.className = 'modal'` : l'inventaire manquait ce chemin, et signalait
+  // donc `.modal` comme une règle morte alors que la fenêtre s'en sert.
+  for (const m of src.matchAll(/\.className\s*=\s*'([^']+)'/g))
+    for (const c of m[1].split(/\s+/)) if (c) trouvees.add(c);
   // Celles qui ne vivent que dans une expression ternaire de gabarit.
   for (const m of src.matchAll(/\?\s*'([a-z][a-z0-9-]{1,20})'\s*:\s*''/g))
     if (DYNAMIQUES.includes(m[1])) trouvees.add(m[1]);

@@ -10,24 +10,25 @@ l'ancienne.
 
 ## Ce qui peut changer librement
 
-- **Les valeurs** des 42 jetons CSS ci-dessous.
+- **Les valeurs** des 123 jetons CSS ci-dessous.
 - Les propriétés à l'intérieur de n'importe quelle règle.
 - Les règles ajoutées, les états `:hover` / `:focus-visible`, les media queries.
 - L'ajout de jetons.
 
 ## Ce qui ne doit pas disparaître
 
-- **Les 127 noms de classes** listés plus bas.
-- **Les 117 `id`** listés plus bas : le script les cherche par
+- **Les 129 noms de classes** listés plus bas.
+- **Les 118 `id`** listés plus bas : le script les cherche par
   `getElementById`. Un `id` absent ne produit pas d'erreur visible — la fonction
   s'arrête, et **le bouton ne fait plus rien**.
-- **Les 42 noms de jetons** : ils sont lus par le JavaScript pour l'aperçu
+- **Les 123 noms de jetons** : ils sont lus par le JavaScript pour l'aperçu
   de thème.
 
-## Jetons (42)
+## Jetons (123)
 
 ```
 --accent
+--accent-2
 --accent-ink
 --accent-line
 --accent-soft
@@ -35,14 +36,92 @@ l'ancienne.
 --border
 --border-hi
 --danger
+--danger-line
 --danger-soft
 --dim
+--dk-accent
+--dk-accent-2
+--dk-accent-ink
+--dk-accent-line
+--dk-accent-soft
+--dk-bg
+--dk-border
+--dk-border-hi
+--dk-danger
+--dk-danger-line
+--dk-danger-soft
+--dk-dim
+--dk-faint
+--dk-field
+--dk-field-bd
+--dk-ing-1
+--dk-ing-2
+--dk-ing-3
+--dk-ing-4
+--dk-ing-5
+--dk-ing-6
+--dk-ok
+--dk-ok-line
+--dk-ok-soft
+--dk-overlay
+--dk-shadow
+--dk-surface
+--dk-surface-2
+--dk-surface-hi
+--dk-text
+--dk-warn
+--dk-warn-line
+--dk-warn-soft
 --ease
 --faint
+--field
+--field-bd
+--ing
+--ing-1
+--ing-2
+--ing-3
+--ing-4
+--ing-5
+--ing-6
+--lt-accent
+--lt-accent-2
+--lt-accent-ink
+--lt-accent-line
+--lt-accent-soft
+--lt-bg
+--lt-border
+--lt-border-hi
+--lt-danger
+--lt-danger-line
+--lt-danger-soft
+--lt-dim
+--lt-faint
+--lt-field
+--lt-field-bd
+--lt-ing-1
+--lt-ing-2
+--lt-ing-3
+--lt-ing-4
+--lt-ing-5
+--lt-ing-6
+--lt-ok
+--lt-ok-line
+--lt-ok-soft
+--lt-overlay
+--lt-shadow
+--lt-surface
+--lt-surface-2
+--lt-surface-hi
+--lt-text
+--lt-warn
+--lt-warn-line
+--lt-warn-soft
 --mono
 --nav-w
 --ok
+--ok-line
 --ok-soft
+--overlay
 --r
 --r-full
 --r-lg
@@ -56,6 +135,7 @@ l'ancienne.
 --s6
 --s7
 --sans
+--shadow
 --surface
 --surface-2
 --surface-hi
@@ -68,10 +148,11 @@ l'ancienne.
 --t-xs
 --text
 --warn
+--warn-line
 --warn-soft
 ```
 
-## Classes (127)
+## Classes (129)
 
 ```
 actions
@@ -137,6 +218,7 @@ mediaitem
 medialist
 mediameta
 meta
+modal
 modalact
 modalbox
 msg
@@ -182,6 +264,7 @@ ti-ic
 tile
 tiles
 tog
+topactions
 topbar
 tpv
 tpv-acte
@@ -203,7 +286,7 @@ v
 vd
 ```
 
-## Identifiants (117)
+## Identifiants (118)
 
 ```
 aide-enig
@@ -307,6 +390,7 @@ t-radius
 t-titre-casse
 t-titre-espace
 t-titre-poids
+theme-btn
 theme-edit
 theme-msg
 themes-list
@@ -325,11 +409,11 @@ view-stats
 view-themes
 ```
 
-## Classes utilisées sans règle CSS (1)
+## Classes utilisées sans règle CSS (0)
 
 Purement sémantiques, ou stylées par un sélecteur de descendance. À ne pas supprimer
 pour autant.
 
 ```
-pbs
+(aucune)
 ```

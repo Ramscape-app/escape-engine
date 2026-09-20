@@ -16,7 +16,7 @@ pendant que l'organisateur suit la progression depuis une console d'administrati
 | `rejoindre.html` | Joueur | Inscription / connexion à partir d'un code d'invitation. |
 | `repondre.html` | Complice | Le questionnaire d'un proche (`?jeton=`). Aucune clé, aucun accès direct à la base. |
 | `catalogue.html` | Public | Liste des jeux publiés. Non référencé ailleurs — son avenir est en suspens. |
-| `admin.html` | Organisateur | Clients, catalogue de questions, jeux, joueurs, codes, thèmes, bibliothèque, suivi en direct, statistiques, débrief. |
+| `admin.html` | Organisateur | Clients, catalogue de questions, jeux, joueurs, codes, thèmes, bibliothèque, suivi en direct, statistiques, débrief. Deux modes, clair et sombre. |
 | `editeur.html` | Organisateur | Édition d'un jeu (`?id=<uuid>`), aperçu, export `config.json`. |
 | `module/*.html` | — | Mini-jeux embarqués en iframe (cadenas, piano, simon, mots mêlés…). |
 
@@ -55,15 +55,24 @@ Le projet n'a pas d'étape de build : ces contrôles sont le seul filet entre un
 modification et la production. Ils tournent sur chaque poussée et chaque PR
 (`.github/workflows/ci.yml`).
 
-`scripts/verifier.mjs` couvre 131 contrôles — syntaxe des fonctions et des scripts
+`scripts/verifier.mjs` couvre 275 contrôles — syntaxe des fonctions et des scripts
 inline, équilibre des blocs CSS et des balises, ids référencés par le JS mais absents
-du HTML, absence de clé de service dans une page publique, et présence de
-`requireAdmin` sur toute fonction non listée comme publique.
+du HTML, absence de clé de service dans une page publique, présence de `requireAdmin`
+sur toute fonction non listée comme publique, et de `resoudreJeton` sur chaque
+`repondre-*`.
 
-Un contrôle mérite d'être expliqué : **aucune requête ne doit énumérer les colonnes
-de `themes`**. PostgREST rejette la requête entière dès qu'une colonne demandée
-n'existe pas — c'est ce qui a fait basculer un jeu sur le thème par défaut après une
-migration non encore appliquée. `themes(*)` survit à toute colonne ajoutée.
+Chacun vient d'un défaut qui s'est réellement produit :
+
+| Contrôle | Ce qu'il a attrapé |
+|---|---|
+| Colonnes énumérées sur `themes` | PostgREST rejette la requête entière dès qu'une colonne demandée manque : un jeu était retombé sur le thème par défaut après une migration non encore appliquée. `themes(*)` survit à toute colonne ajoutée. |
+| Deux fonctions du même nom dans une page | Dans un monolithe d'un seul tenant, la seconde écrase la première et un bouton se met à faire autre chose. Arrivé avec `basculer()`. |
+| Champ de saisie sans règle qui lui donne un fond | Tous les `textarea` de la console s'affichaient **sur fond blanc** dans une interface sombre. Le critère est « une règle lui donne un fond », pas « une règle existe » : l'admin avait bien un `.projetgrid textarea{resize}`. |
+| Écriture dans le bucket public `assets` | Seules `asset-upload` et `media-promouvoir` y ont droit — tout le reste contournerait la promotion explicite des photos de complices. |
+
+`scripts/inventaire-admin.mjs` relève les classes, ids et jetons de la console. Il sert
+au kit de design (`design/`) et permet de vérifier qu'un retour de refonte n'a rien
+perdu en route.
 
 ## Dépendances externes
 
@@ -219,6 +228,51 @@ joueurs distraits : le plus souvent, l'énoncé est ambigu.
 L'onglet **Débrief** reconstitue une partie — temps total, temps par acte, énigme la plus
 coriace, indices, déroulé — pour l'équipe comme pour un joueur solo. Une feuille de style
 d'impression ne laisse que le compte rendu sur le papier.
+
+## Apparence de la console : clair et sombre
+
+`admin.html` a **deux modes**, et un bouton à trois états en haut à droite :
+
+| État | Attribut sur `<html>` | Effet |
+|---|---|---|
+| **Système** | aucun | `prefers-color-scheme` décide — la console suit le téléphone qui passe en sombre le soir |
+| **Clair** | `data-theme="light"` | force le clair |
+| **Sombre** | `data-theme="dark"` | force le sombre **même sur un système réglé en clair** |
+
+La feuille est bâtie en **deux couches** : une palette brute (`--dk-*` / `--lt-*`) décrite
+une seule fois, et les jetons de rôle (`--surface`, `--text`, `--border`…) remappés en
+bloc. Aucun composant ne lit un `--dk-*` : pour retoucher une couleur, il n'y a qu'un
+endroit.
+
+> ⚠️ **La liste de remappage clair existe deux fois** — sous
+> `@media (prefers-color-scheme:light)` et sous `[data-theme="light"]` — parce qu'une
+> media query et un sélecteur d'attribut ne peuvent pas partager une règle en CSS nu.
+> **Les deux listes doivent rester identiques.** C'est la seule duplication de la feuille,
+> et elle est signalée en commentaire à l'endroit où elle vit.
+
+**Le clair n'est pas blanc** (`#e8e5de`, un papier chaud) : la console sert aussi le soir
+dans une pièce sombre, et un `#fff` à 22 h éblouit. L'accent cyan est conservé en sombre —
+c'est l'identité — mais descend à `#00786e` en clair, où le cyan d'origine ne passe aucun
+seuil de contraste.
+
+Trois mécanismes à connaître avant d'y toucher :
+
+- **`<meta name="color-scheme">` suit le mode**, réécrit par le JavaScript. Sans lui, les
+  ascenseurs, les menus de `<select>` et le calendrier de `<input type="date">` restent
+  sombres au milieu d'une page claire : le navigateur ne les peint pas d'après le CSS.
+- **Un script dans le `<head>`** pose l'attribut avant le rendu. Appliqué plus bas, la
+  page clignoterait en sombre avant de basculer.
+- **`@media print` remappe les jetons** vers une palette papier plutôt que de repeindre
+  chaque composant : le débrief s'imprime correctement même si la console est en sombre.
+
+**Les polices sont celles du système**, et c'est un choix : `system-ui` rend SF Pro sur
+Mac, Segoe UI Variable sur Windows — la police d'interface dessinée pour la machine, avec
+son hinting, affichée instantanément. La pile monospace va chercher les modernes d'abord
+(SF Mono, Cascadia, JetBrains Mono, IBM Plex Mono si installées) puis Consolas et Menlo.
+Rien n'est téléchargé : aucune requête externe sur la page qui porte la session admin.
+
+Le détail des décisions de la refonte est dans
+[`design/admin-design-kit/NOTE-REFONTE.md`](design/admin-design-kit/NOTE-REFONTE.md).
 
 ## Themes
 

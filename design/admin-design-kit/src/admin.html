@@ -3,165 +3,341 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Sans ca, les ascenseurs, les menus de <select> et le calendrier de
+     <input type="date"> restent sombres au milieu d'une page claire : le
+     navigateur ne les peint pas d'apres le CSS mais d'apres cette declaration. -->
+<meta name="color-scheme" content="dark light">
+<script>
+  // L'apparence est posee AVANT le rendu : appliquee plus bas, la page
+  // s'afficherait une fraction de seconde en sombre avant de basculer en clair.
+  try {
+    var a = localStorage.getItem('admin-apparence');
+    if (a === 'light' || a === 'dark') document.documentElement.dataset.theme = a;
+  } catch (e) {}
+</script>
 <title>Admin — Escape Engine</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js"
         integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
-  /* ── Jetons ───────────────────────────────────────────────────────────────
-     Une seule source pour l'espacement, les rayons et la typographie. Avant,
-     la feuille comptait 24 tailles de police et 11 rayons differents : chaque
-     ajout inventait ses propres valeurs, et rien ne tenait ensemble. */
-  :root{
-    /* Fond legerement plus profond que les surfaces : les cartes se detachent
-       par elles-memes, sans ombre portee. */
-    --bg:#0b0b11;--surface:#13131c;--surface-2:#181822;--surface-hi:#1e1e2a;
-    --border:#23232f;--border-hi:#30303f;
-    --text:#ececf4;--dim:#8f8fa6;--faint:#5e5e75;
-    /* L'accent ne sert plus qu'a trois choses : action primaire, onglet actif,
-       focus. Le survol passe en neutre — du cyan partout, ca dilue. */
-    --accent:#00e0d0;--accent-ink:#04140f;
-    --accent-soft:rgba(0,224,208,.09);--accent-line:rgba(0,224,208,.28);
-    --danger:#ff5c78;--danger-soft:rgba(255,92,120,.11);
-    --ok:#3ddc91;--ok-soft:rgba(61,220,145,.11);
-    --warn:#f0b955;--warn-soft:rgba(240,185,85,.11);
-    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
-    --sans:system-ui,-apple-system,"Segoe UI Variable Text","Segoe UI",Roboto,sans-serif;
+  /* Police : celle du systeme, et c'est un choix, pas un repli.
+     `system-ui` rend SF Pro sur Mac et iOS, Segoe UI Variable sur Windows :
+     sur chaque machine, la police d'interface dessinee pour elle, avec son
+     hinting. Aucune police telechargee ne la bat a l'ecran, et aucune ne
+     s'affiche instantanement comme elle.
 
+     Le gain reel est sur la CHASSE FIXE, qui porte ici une grande part de
+     l'identite — sur-titres, en-tetes de tableau, heures du fil, compteurs.
+     La pile va chercher les monospaces modernes avant les anciennes :
+     SF Mono, puis Cascadia sur Windows (livree avec le Terminal depuis 2019),
+     puis JetBrains Mono et IBM Plex Mono si elles sont installees, et
+     Consolas / Menlo en secours. Rien n'est telecharge : ce qui est present
+     est utilise. */
+
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Console d'administration — Escape Engine
+     Feuille unique, ecrite a la main, servie telle quelle. Aucune dependance.
+
+     PLAN DU FICHIER
+       1. Palette brute (--dk-* / --lt-*)      5. Cartes, tableaux, chiffres
+       2. Jetons de role (les 42 noms figes)   6. Etats et fenetres
+       3. Base, focus, typographie             7. Ecrans : direct, clients, compositeur
+       4. Ossature et navigation               8. Petits ecrans, impression
+
+     REGLE DE MAINTENANCE : les deux listes de remappage clair (§2b et §2c)
+     doivent rester identiques. C'est la seule duplication du fichier ; elle
+     existe parce qu'une media query et un selecteur d'attribut ne peuvent pas
+     partager une meme regle en CSS nu.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* ── 1. Palette brute ──────────────────────────────────────────────────────
+     Les deux modes sont decrits ici une fois pour toutes, et nulle part
+     ailleurs. Aucun composant ne lit un --dk-* ou un --lt-* : ils passent
+     tous par les jetons de role du §2. Pour retoucher une couleur, c'est
+     ici — et ici seulement.
+
+     Sombre : encre froide, quatre paliers de surface. Le fond reste plus
+     profond que les cartes, qui se detachent donc sans ombre portee.
+     Clair : papier chaud, jamais #fff. La console sert aussi le soir dans une
+     piece sombre ; un blanc pur a 22 h brule les yeux et fait perdre l'accent.
+     L'accent cyan est conserve en sombre (c'est l'identite) mais descendu a un
+     teal profond en clair : #00e0d0 sur papier ne passe aucun seuil de
+     contraste, ni en texte ni en fond de bouton. */
+  :root{
+    /* — sombre — */
+    --dk-bg:#0b0c11; --dk-surface:#13151c; --dk-surface-2:#1a1d26; --dk-surface-hi:#222631;
+    --dk-border:#262a35; --dk-border-hi:#363b49;
+    --dk-text:#e9ebf2; --dk-dim:#9ba2b3; --dk-faint:#7a8193;
+    --dk-accent:#00e0d0; --dk-accent-2:#0090c0; --dk-accent-ink:#04171a;
+    --dk-accent-soft:rgba(0,224,208,.10); --dk-accent-line:rgba(0,224,208,.30);
+    --dk-danger:#ff6b85; --dk-danger-soft:rgba(255,107,133,.12); --dk-danger-line:rgba(255,107,133,.32);
+    --dk-ok:#45dd97; --dk-ok-soft:rgba(69,221,151,.12); --dk-ok-line:rgba(69,221,151,.30);
+    --dk-warn:#f3bf62; --dk-warn-soft:rgba(243,191,98,.12); --dk-warn-line:rgba(243,191,98,.30);
+    --dk-field:#08090d; --dk-field-bd:#2c313d;
+    --dk-overlay:rgba(3,4,7,.68); --dk-shadow:0 1px 2px rgba(0,0,0,.45);
+    --dk-ing-1:#8ab4ff; --dk-ing-2:#c49bff; --dk-ing-3:#45dd97;
+    --dk-ing-4:#ff9bc4; --dk-ing-5:#f3bf62; --dk-ing-6:#00e0d0;
+
+    /* — clair — */
+    --lt-bg:#e8e5de; --lt-surface:#f6f4ef; --lt-surface-2:#efece5; --lt-surface-hi:#e4e0d7;
+    --lt-border:#d5d1c6; --lt-border-hi:#b8b3a6;
+    --lt-text:#1c1e25; --lt-dim:#585d6c; --lt-faint:#6d7280;
+    --lt-accent:#00786e; --lt-accent-2:#005f7a; --lt-accent-ink:#f3fffd;
+    --lt-accent-soft:rgba(0,120,110,.10); --lt-accent-line:rgba(0,120,110,.34);
+    --lt-danger:#b32943; --lt-danger-soft:rgba(179,41,67,.09); --lt-danger-line:rgba(179,41,67,.30);
+    --lt-ok:#16764c; --lt-ok-soft:rgba(22,118,76,.10); --lt-ok-line:rgba(22,118,76,.28);
+    --lt-warn:#8a5a12; --lt-warn-soft:rgba(138,90,18,.10); --lt-warn-line:rgba(138,90,18,.28);
+    --lt-field:#fdfcf8; --lt-field-bd:#c8c3b6;
+    --lt-overlay:rgba(40,36,30,.44); --lt-shadow:0 1px 2px rgba(60,55,45,.09);
+    --lt-ing-1:#2b5bb5; --lt-ing-2:#6d3fb8; --lt-ing-3:#16764c;
+    --lt-ing-4:#a83a6e; --lt-ing-5:#8a5a12; --lt-ing-6:#00786e;
+  }
+
+  /* ── 2a. Jetons de role — sombre par defaut ───────────────────────────────
+     Les 42 noms d'origine sont tous la, aux memes noms : ils sont lus par le
+     JavaScript de l'apercu de theme. Les jetons ajoutes (--accent-2, --field,
+     --*-line, --overlay, --shadow, --ing-*) ne remplacent rien, ils evitent
+     les rgba() codes en dur qui rendaient un mode clair impossible. */
+  :root{
+    --bg:var(--dk-bg); --surface:var(--dk-surface); --surface-2:var(--dk-surface-2);
+    --surface-hi:var(--dk-surface-hi); --border:var(--dk-border); --border-hi:var(--dk-border-hi);
+    --text:var(--dk-text); --dim:var(--dk-dim); --faint:var(--dk-faint);
+    --accent:var(--dk-accent); --accent-2:var(--dk-accent-2); --accent-ink:var(--dk-accent-ink);
+    --accent-soft:var(--dk-accent-soft); --accent-line:var(--dk-accent-line);
+    --danger:var(--dk-danger); --danger-soft:var(--dk-danger-soft); --danger-line:var(--dk-danger-line);
+    --ok:var(--dk-ok); --ok-soft:var(--dk-ok-soft); --ok-line:var(--dk-ok-line);
+    --warn:var(--dk-warn); --warn-soft:var(--dk-warn-soft); --warn-line:var(--dk-warn-line);
+    --field:var(--dk-field); --field-bd:var(--dk-field-bd);
+    --overlay:var(--dk-overlay); --shadow:var(--dk-shadow);
+    --ing-1:var(--dk-ing-1); --ing-2:var(--dk-ing-2); --ing-3:var(--dk-ing-3);
+    --ing-4:var(--dk-ing-4); --ing-5:var(--dk-ing-5); --ing-6:var(--dk-ing-6);
+
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono","IBM Plex Mono",
+      "Cascadia Mono","Cascadia Code",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI Variable Text","Segoe UI",Inter,Roboto,
+      "Helvetica Neue",Arial,sans-serif;
+
+    /* Espacement : inchange, il tenait. */
     --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:28px; --s7:40px;
     --r-sm:6px; --r:8px; --r-lg:12px; --r-full:99px;
-    --t-micro:.66rem; --t-xs:.75rem; --t-sm:.82rem; --t-md:.88rem;
-    --t-lg:1rem; --t-xl:1.25rem; --t-2xl:1.6rem;
+
+    /* Echelle typographique resserree en bas, elargie en haut : les trois
+       niveaux de titre etaient a 1.25 / 1 / .88 rem — trois valeurs trop
+       proches pour se lire comme trois rangs. Elles sont maintenant a
+       1.375 / 1.0625 / .875 rem, et la graisse fait le reste. */
+    --t-micro:.6875rem; --t-xs:.75rem; --t-sm:.8125rem; --t-md:.875rem;
+    --t-lg:1.0625rem; --t-xl:1.375rem; --t-2xl:1.75rem;
+
     --ring:0 0 0 3px var(--accent-soft);
     --ease:.14s ease;
     --nav-w:236px;
   }
+
+  /* ── 2b. Clair par reglage systeme ────────────────────────────────────────
+     `:not([data-theme="dark"])` : le bouton manuel garde la main. Poser
+     data-theme="dark" force le sombre meme sur un systeme en clair. */
+  @media (prefers-color-scheme:light){
+    :root:not([data-theme="dark"]){
+      --bg:var(--lt-bg); --surface:var(--lt-surface); --surface-2:var(--lt-surface-2);
+      --surface-hi:var(--lt-surface-hi); --border:var(--lt-border); --border-hi:var(--lt-border-hi);
+      --text:var(--lt-text); --dim:var(--lt-dim); --faint:var(--lt-faint);
+      --accent:var(--lt-accent); --accent-2:var(--lt-accent-2); --accent-ink:var(--lt-accent-ink);
+      --accent-soft:var(--lt-accent-soft); --accent-line:var(--lt-accent-line);
+      --danger:var(--lt-danger); --danger-soft:var(--lt-danger-soft); --danger-line:var(--lt-danger-line);
+      --ok:var(--lt-ok); --ok-soft:var(--lt-ok-soft); --ok-line:var(--lt-ok-line);
+      --warn:var(--lt-warn); --warn-soft:var(--lt-warn-soft); --warn-line:var(--lt-warn-line);
+      --field:var(--lt-field); --field-bd:var(--lt-field-bd);
+      --overlay:var(--lt-overlay); --shadow:var(--lt-shadow);
+      --ing-1:var(--lt-ing-1); --ing-2:var(--lt-ing-2); --ing-3:var(--lt-ing-3);
+      --ing-4:var(--lt-ing-4); --ing-5:var(--lt-ing-5); --ing-6:var(--lt-ing-6);
+    }
+  }
+
+  /* ── 2c. Clair par bouton ── (liste identique au §2b) ── */
+  :root[data-theme="light"]{
+    --bg:var(--lt-bg); --surface:var(--lt-surface); --surface-2:var(--lt-surface-2);
+    --surface-hi:var(--lt-surface-hi); --border:var(--lt-border); --border-hi:var(--lt-border-hi);
+    --text:var(--lt-text); --dim:var(--lt-dim); --faint:var(--lt-faint);
+    --accent:var(--lt-accent); --accent-2:var(--lt-accent-2); --accent-ink:var(--lt-accent-ink);
+    --accent-soft:var(--lt-accent-soft); --accent-line:var(--lt-accent-line);
+    --danger:var(--lt-danger); --danger-soft:var(--lt-danger-soft); --danger-line:var(--lt-danger-line);
+    --ok:var(--lt-ok); --ok-soft:var(--lt-ok-soft); --ok-line:var(--lt-ok-line);
+    --warn:var(--lt-warn); --warn-soft:var(--lt-warn-soft); --warn-line:var(--lt-warn-line);
+    --field:var(--lt-field); --field-bd:var(--lt-field-bd);
+    --overlay:var(--lt-overlay); --shadow:var(--lt-shadow);
+    --ing-1:var(--lt-ing-1); --ing-2:var(--lt-ing-2); --ing-3:var(--lt-ing-3);
+    --ing-4:var(--lt-ing-4); --ing-5:var(--lt-ing-5); --ing-6:var(--lt-ing-6);
+  }
+  /* Le navigateur doit connaitre le mode : ascenseurs, champs natifs,
+     menus de <select>, calendrier de <input type=date>. Sans ca, un
+     selecteur de date reste sombre au milieu d'une page claire. */
+  :root{color-scheme:dark}
+  @media (prefers-color-scheme:light){ :root:not([data-theme="dark"]){color-scheme:light} }
+  :root[data-theme="light"]{color-scheme:light}
+
+  /* ── 3. Base ───────────────────────────────────────────────────────────── */
   *{box-sizing:border-box;margin:0;padding:0}
+  /* 14 px : le 13.5 px du projet de refonte compensait l'oeil plus grand de
+     Plex Sans. Sans Plex, il rendrait la console plus petite qu'avant. */
   body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;
-    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+    -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.55;
+    text-wrap:pretty;accent-color:var(--accent)}
 
   /* Navigation clavier : rien n'etait visible au focus avant. */
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
   @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
+  ::selection{background:var(--accent-line);color:var(--text)}
 
-  /* ── Typographie ── */
-  h1,h2,h3{font-weight:600;letter-spacing:-.012em}
-  h2{font-size:var(--t-xl)}
-  h3{font-size:var(--t-md)}
+  /* ── 3b. Typographie ──
+     Trois rangs, trois ecarts : 22 px / 17 px / 14 px, avec la graisse et
+     l'interlettrage qui suivent. Le monospace majuscule ne sert plus qu'a
+     designer une structure (sur-titres, entetes de tableau, horaires,
+     compteurs) : il etait aussi sur les 22 libelles de la fiche client, ou il
+     hurlait sans rien hierarchiser. */
+  h1,h2,h3,h4{font-weight:600;letter-spacing:-.012em;text-wrap:balance}
+  h1{font-size:var(--t-xl)}
+  h2{font-size:var(--t-xl);font-weight:650;letter-spacing:-.022em;line-height:1.2}
+  h3{font-size:var(--t-md);letter-spacing:-.006em;line-height:1.35}
   .sub{font-size:var(--t-sm);color:var(--dim);max-width:70ch;line-height:1.55}
   .help,.hint{font-size:var(--t-xs);color:var(--faint);line-height:1.5}
-  .eyebrow{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.4px;
+  .hint{color:var(--dim)}
+  .eyebrow{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:.14em;
     text-transform:uppercase;color:var(--faint)}
+  code,kbd{font-family:var(--mono);font-size:.92em}
 
-  /* ── En-tete de page ──
-     Chaque vue commencait par un <h2> nu, avec des marges inline improvisees
-     (margin-top:34px, margin-bottom:6px, margin:0...). Un seul motif desormais :
-     titre, description, et les actions alignees a droite. */
+  /* ── 3c. En-tete de page ──
+     Chaque vue commencait par un <h2> nu, avec des marges inline improvisees.
+     Un seul motif desormais : titre, description, actions a droite. */
   .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s4);
-    padding-bottom:var(--s4);margin-bottom:var(--s5);border-bottom:1px solid var(--border);
+    padding-bottom:var(--s4);margin-bottom:var(--s6);border-bottom:1px solid var(--border);
     flex-wrap:wrap}
   .page-head .txt{min-width:0}
-  .page-head h2{margin-bottom:3px}
+  .page-head h2{margin-bottom:5px}
   .page-head .sub{margin:0}
-  .page-head .actions{display:flex;gap:var(--s2);flex-wrap:wrap;flex-shrink:0}
+  .page-head .actions{display:flex;gap:var(--s2);flex-wrap:wrap;flex-shrink:0;align-items:center}
 
-  /* Sections dans une page : le tableau de bord en empilait six sans hierarchie. */
+  /* Sections : le tableau de bord en empilait six sans hierarchie. Le filet
+     sous le titre de section est ce qui fait lire le rang intermediaire. */
   .section{margin-bottom:var(--s7)}
   .section:last-child{margin-bottom:0}
   .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);
-    margin-bottom:var(--s3);flex-wrap:wrap}
-  .section-head h3{font-size:var(--t-lg)}
-  .section-head .sub{margin:0;font-size:var(--t-xs)}
-  .count{font-family:var(--mono);font-size:var(--t-micro);color:var(--faint);
+    margin-bottom:var(--s4);padding-bottom:var(--s2);border-bottom:1px solid var(--border);
+    flex-wrap:wrap}
+  .section-head h3{font-size:var(--t-lg);letter-spacing:-.016em;font-weight:600}
+  .section-head .sub{margin:0;font-size:var(--t-xs);text-align:right}
+  .section-head > *:only-child{flex:1}
+  .count{font-family:var(--mono);font-size:var(--t-micro);color:var(--dim);
     background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-full);
-    padding:2px var(--s2);font-variant-numeric:tabular-nums}
+    padding:2px var(--s2);font-variant-numeric:tabular-nums;white-space:nowrap}
 
-  /* ── Barre haute ── */
-  .topbar{display:flex;align-items:center;justify-content:space-between;height:52px;
+  /* ── 4. Barre haute ──────────────────────────────────────────────────────── */
+  .topbar{display:flex;align-items:center;gap:var(--s3);justify-content:space-between;height:52px;
     padding:0 var(--s5);border-bottom:1px solid var(--border);background:var(--surface);
     position:sticky;top:0;z-index:30}
-  .topbar .brand{display:flex;align-items:center;gap:var(--s2);
+  /* Le groupe de droite etait une suite d'elements en ligne separes par des
+     espaces insecables : il passait a la ligne des que la barre se resserrait,
+     et debordait des 52 px de hauteur sur le titre de la page. */
+  .topactions{display:flex;align-items:center;gap:var(--s3);flex:none;white-space:nowrap}
+  .topbar .brand{display:flex;align-items:center;gap:var(--s2);margin-right:auto;min-width:0;
     font-size:var(--t-sm);font-weight:600;letter-spacing:-.01em;color:var(--text)}
-  .topbar .brand .mark{width:20px;height:20px;border-radius:var(--r-sm);flex-shrink:0;
-    background:linear-gradient(135deg,var(--accent),#0090c0);
-    display:grid;place-items:center;font-family:var(--mono);font-size:11px;
-    font-weight:700;color:var(--accent-ink)}
-  .topbar .me{font-size:var(--t-xs);color:var(--dim);font-variant-numeric:tabular-nums}
+  .topbar .brand .mark{width:22px;height:22px;border-radius:var(--r-sm);flex-shrink:0;
+    background:linear-gradient(140deg,var(--accent),var(--accent-2));
+    display:grid;place-items:center;font-family:var(--mono);font-size:10px;
+    font-weight:700;letter-spacing:.02em;color:var(--accent-ink)}
+  .topbar .me{font-size:var(--t-xs);color:var(--dim);font-variant-numeric:tabular-nums;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .topbar button{background:none;border:1px solid var(--border);color:var(--dim);
-    border-radius:var(--r-sm);padding:5px 11px;font-size:var(--t-xs);cursor:pointer;transition:var(--ease)}
-  .topbar button:hover{border-color:var(--border-hi);color:var(--text)}
+    border-radius:var(--r-sm);padding:6px 11px;font-size:var(--t-xs);font-family:inherit;
+    cursor:pointer;transition:var(--ease);white-space:nowrap}
+  .topbar button:hover{border-color:var(--border-hi);color:var(--text);background:var(--surface-2)}
 
-  /* ── Ossature ── */
+  /* ── 4b. Ossature ── */
   .shell{display:flex;min-height:calc(100vh - 52px)}
   .side{width:var(--nav-w);flex-shrink:0;border-right:1px solid var(--border);
     background:var(--surface);padding:var(--s4) var(--s3);display:flex;flex-direction:column;gap:1px;
     position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto}
-  /* Neuf entrees a plat, sans hierarchie : on les groupe par moment d'usage. */
-  .navgroup{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.3px;
-    text-transform:uppercase;color:var(--faint);padding:var(--s4) var(--s3) var(--s2)}
+  /* Neuf entrees a plat, sans hierarchie : groupees par moment d'usage. */
+  .navgroup{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:.13em;
+    text-transform:uppercase;color:var(--faint);padding:var(--s4) var(--s3) var(--s1)}
   .navgroup:first-child{padding-top:0}
   .navbtn{position:relative;display:flex;align-items:center;gap:10px;width:100%;text-align:left;
-    background:none;border:none;color:var(--dim);padding:7px var(--s3);border-radius:var(--r-sm);
-    font-size:var(--t-md);font-family:inherit;cursor:pointer;transition:var(--ease)}
+    background:none;border:none;color:var(--dim);padding:8px var(--s3);border-radius:var(--r-sm);
+    font-size:var(--t-md);font-family:inherit;cursor:pointer;transition:var(--ease);min-height:34px}
   .navbtn svg{width:16px;height:16px;flex-shrink:0;opacity:.75}
   .navbtn:hover{background:var(--surface-2);color:var(--text)}
   .navbtn:hover svg{opacity:1}
-  .navbtn.active{background:var(--surface-hi);color:var(--text);font-weight:500}
+  .navbtn.active{background:var(--surface-hi);color:var(--text);font-weight:600}
   .navbtn.active svg{color:var(--accent);opacity:1}
   .navbtn.active::before{content:"";position:absolute;left:calc(var(--s3) * -1);
-    top:6px;bottom:6px;width:2px;border-radius:var(--r-full);background:var(--accent)}
+    top:5px;bottom:5px;width:2px;border-radius:var(--r-full);background:var(--accent)}
   .navdot{width:6px;height:6px;border-radius:50%;background:var(--danger);margin-left:auto;
     flex-shrink:0;box-shadow:0 0 0 3px var(--danger-soft)}
-  .main{flex:1;padding:var(--s6) var(--s7) var(--s7);max-width:1120px;min-width:0}
-  .burger{display:none;background:none;border:none;color:var(--accent);font-size:1.2rem;
-    cursor:pointer;padding:0 var(--s2) 0 0;vertical-align:middle}
+  .main{flex:1;padding:var(--s6) var(--s7) var(--s7);max-width:1160px;min-width:0}
+  .burger{display:none;background:none;border:1px solid var(--border);color:var(--text);
+    font-size:1rem;line-height:1;cursor:pointer;padding:7px 10px;border-radius:var(--r-sm)}
   .side-overlay{display:none}
 
-  /* ── Connexion ── */
-  .login{max-width:360px;margin:80px auto;background:var(--surface);border:1px solid var(--border);
-    border-radius:var(--r-lg);padding:var(--s6) var(--s5)}
-  .login h1{font-size:var(--t-xl);margin-bottom:var(--s1)}
+  /* ── 4c. Connexion ── */
+  .login{max-width:380px;margin:80px auto;background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--r-lg);padding:var(--s6);box-shadow:var(--shadow)}
+  .login h1{font-size:var(--t-xl);letter-spacing:-.022em;margin-bottom:var(--s1)}
   .login p{font-size:var(--t-sm);color:var(--dim);margin-bottom:var(--s5)}
+  .login label{margin-top:var(--s3)}
+  .login .btn{margin-top:var(--s2)}
 
-  /* ── Champs ── */
-  label{display:block;font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1px;
-    text-transform:uppercase;color:var(--dim);margin:0 0 var(--s1)}
+  /* ── 4d. Champs ──
+     Les libelles quittent le monospace majuscule : sur une fiche de 22 champs,
+     22 petites capitales espacees coutent plus de lecture qu'elles n'en
+     structurent. Ils restent discrets par la taille et la couleur. */
+  label{display:block;font-size:var(--t-xs);font-weight:500;letter-spacing:0;
+    text-transform:none;color:var(--dim);margin:0 0 5px}
   /* `textarea` manquait a cette liste depuis le debut : tous les champs longs
      de la console — notes internes, fiche projet, mot d'accueil, aide d'une
      question — s'affichaient avec le style par defaut du navigateur, fond
      blanc compris. Trouve en rendant l'atelier du kit de design. */
-  input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--border);
-    border-radius:var(--r);color:var(--text);padding:10px var(--s3);font-size:var(--t-md);
-    margin-bottom:var(--s3);transition:var(--ease);font-family:inherit;line-height:1.5}
-  select{margin-bottom:0}
-  textarea{resize:vertical;min-height:64px}
+  input,select,textarea{width:100%;background:var(--field);border:1px solid var(--field-bd);
+    border-radius:var(--r);color:var(--text);padding:9px var(--s3);font-size:var(--t-md);
+    margin-bottom:var(--s3);transition:var(--ease);font-family:inherit;line-height:1.45}
+  select{margin-bottom:0;cursor:pointer}
+  textarea{resize:vertical;min-height:64px;line-height:1.55}
+  input:hover,select:hover,textarea:hover{border-color:var(--border-hi)}
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring)}
   input::placeholder,textarea::placeholder{color:var(--faint)}
+  input[type=checkbox],input[type=radio]{width:auto;margin-bottom:0;accent-color:var(--accent)}
+  input[type=number]{font-variant-numeric:tabular-nums}
+  .field{margin-bottom:var(--s3)}
+  .field > label + .help,.field > input + .help,.field > textarea + .help{margin-top:-6px}
 
-  /* ── Boutons ──
-     .btn s'etirait sur toute la largeur, d'ou six surcharges inline
-     « width:auto » disseminees. La variante .btn.inline remplace ce bricolage. */
-  .btn{width:100%;background:var(--accent);color:#04140f;font-weight:700;font-size:var(--t-md);
-    border:none;border-radius:var(--r);padding:12px;cursor:pointer;transition:var(--ease)}
-  .btn:hover{filter:brightness(1.08)}
-  .btn:disabled{opacity:.5;cursor:default;filter:none}
-  .btn.inline{width:auto;padding:11px 18px}
-  .tog,.del,.genbtn{background:none;border:1px solid var(--border);color:var(--dim);
-    border-radius:var(--r-sm);padding:6px 12px;font-size:var(--t-xs);cursor:pointer;
-    transition:var(--ease);white-space:nowrap;font-family:inherit}
-  .tog:hover,.genbtn:hover{border-color:var(--border-hi);color:var(--text);background:var(--surface-2)}
-  .del:hover{border-color:var(--danger);color:var(--danger)}
-  .genbtn{padding:10px var(--s3)}
+  /* ── 4e. Boutons ──
+     Quatre roles, une seule geometrie. .btn s'etirait sur toute la largeur,
+     d'ou six surcharges inline « width:auto » : .btn.inline les remplace. */
+  .btn{width:100%;background:var(--accent);color:var(--accent-ink);font-weight:650;
+    font-size:var(--t-md);font-family:inherit;letter-spacing:-.005em;
+    border:1px solid transparent;border-radius:var(--r);padding:11px var(--s4);
+    cursor:pointer;transition:var(--ease);min-height:40px}
+  .btn:hover{filter:brightness(1.07)}
+  .btn:active{filter:brightness(.96)}
+  .btn:disabled{opacity:.45;cursor:default;filter:none}
+  .btn.inline{width:auto;padding:9px var(--s4);min-height:36px}
+  .tog,.del,.genbtn{background:var(--surface);border:1px solid var(--border);color:var(--dim);
+    border-radius:var(--r-sm);padding:7px 12px;font-size:var(--t-xs);cursor:pointer;
+    transition:var(--ease);white-space:nowrap;font-family:inherit;min-height:32px}
+  .tog:hover,.genbtn:hover{border-color:var(--border-hi);color:var(--text);background:var(--surface-hi)}
+  .tog:disabled,.del:disabled,.genbtn:disabled{opacity:.45;cursor:default}
+  .del:hover{border-color:var(--danger-line);color:var(--danger);background:var(--danger-soft)}
+  .genbtn{padding:9px var(--s3)}
 
-  /* ── Fiches : une seule fondation ──
+  /* ── 5. Fiches : une seule fondation ──
      Il y avait neuf composants de carte, chacun avec son rayon et son padding.
-     Ils partagent desormais la meme base et ne different que par leur contenu. */
+     Ils partagent la meme base et ne different que par leur contenu. */
   .tile,.kpi,.scard,.dbstat,.eqcard,.clicard,.filbox,.createbox,.themeedit,.tablecard{
     background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg)}
   .tile,.createbox,.themeedit{padding:var(--s5)}
   .kpi,.scard,.dbstat{padding:var(--s4)}
   .eqcard,.clicard{padding:var(--s3) var(--s4)}
   .createbox{margin-bottom:var(--s6)}
+  .createbox > .section-head:first-child{margin-top:0}
 
   /* Coquille de tableau : les tables flottaient a nu sur le fond de page. */
   .tablecard{overflow:hidden}
@@ -175,116 +351,152 @@
   .tile{display:flex;flex-direction:column;gap:var(--s1);cursor:pointer;text-decoration:none;
     color:inherit;transition:var(--ease)}
   .tile:hover{border-color:var(--border-hi);background:var(--surface-2)}
-  .tile .ti-ic{font-size:1.5rem;margin-bottom:var(--s1)}
-  .tile b{font-size:var(--t-md)}
+  .tile .ti-ic{font-size:1.4rem;line-height:1;margin-bottom:var(--s2)}
+  .tile b{font-size:var(--t-md);font-weight:600}
   .tile span{font-size:var(--t-xs);color:var(--dim)}
 
   .kpis,.cards,.dbgrid{display:grid;gap:var(--s3)}
   .kpis{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-  .cards{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+  .cards{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
   .dbgrid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:var(--s5)}
   /* Les chiffres s'alignent en colonne : chasse fixe obligatoire. */
-  .kpi .v,.dbstat b{font-variant-numeric:tabular-nums}
-  .kpi .v{font-size:var(--t-2xl);font-weight:700;line-height:1}
+  .kpi .v,.dbstat b,.scard .stat b,.ctr b{font-variant-numeric:tabular-nums}
+  .kpi .v{font-size:var(--t-2xl);font-weight:680;line-height:1;letter-spacing:-.03em}
   .kpi .l,.dbstat span{font-size:var(--t-micro);color:var(--dim);text-transform:uppercase;
-    letter-spacing:1px;margin-top:var(--s1);font-family:var(--mono)}
-  .kpi .sub2{font-size:var(--t-xs);color:var(--faint);margin-top:2px}
-  .dbstat b{display:block;font-size:var(--t-xl);margin-bottom:2px}
-  .dbstat span{display:block;margin:0}
+    letter-spacing:.11em;margin-top:var(--s2);font-family:var(--mono)}
+  .kpi .sub2{font-size:var(--t-xs);color:var(--faint);margin-top:3px}
+  .dbstat b{display:block;font-size:var(--t-xl);letter-spacing:-.02em;margin-bottom:2px}
+  .dbstat span{display:block;margin:0;margin-top:var(--s1)}
 
-  .scard h3{margin-bottom:var(--s3)}
+  .scard h3{margin-bottom:var(--s3);padding-bottom:var(--s2);border-bottom:1px solid var(--border)}
   .scard .stat{display:flex;justify-content:space-between;gap:var(--s3);font-size:var(--t-sm);
-    color:var(--dim);padding:var(--s1) 0}
-  .scard .stat b{color:var(--text);font-variant-numeric:tabular-nums}
-  .bar{height:6px;background:var(--surface-2);border-radius:var(--r-full);overflow:hidden;margin-top:var(--s2)}
+    color:var(--dim);padding:3px 0}
+  .scard .stat b{color:var(--text);font-weight:600}
+  .bar{height:6px;background:var(--surface-hi);border-radius:var(--r-full);overflow:hidden;margin-top:var(--s3)}
   .bar i{display:block;height:100%;background:var(--accent);border-radius:var(--r-full)}
-  .dbsec{margin-bottom:var(--s5)}
-  .dbsec h3{margin-bottom:var(--s2)}
+  .dbsec{margin-bottom:var(--s6)}
+  .dbsec h3{font-size:var(--t-lg);letter-spacing:-.016em;margin-bottom:var(--s3)}
 
-  /* ── Tableaux ──
-     `table{min-width:520px}` etait global : toutes les tables forcaient un
-     defilement horizontal, y compris les etroites. Reserve aux conteneurs
-     defilables, ou c'est le comportement voulu. */
+  /* ── 5b. Tableaux ──
+     Cinq ecrans en dependent. L'entete gagne un fond et un filet plus marque,
+     les lignes une hauteur reguliere, la derniere colonne ses actions a
+     droite. `table{min-width:520px}` etait global : toutes les tables
+     forcaient un defilement horizontal, y compris les etroites. Reserve aux
+     conteneurs defilables, ou c'est le comportement voulu. */
   table{width:100%;border-collapse:collapse;font-size:var(--t-sm)}
-  th{text-align:left;font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1px;
+  th{text-align:left;font-family:var(--mono);font-size:var(--t-micro);letter-spacing:.1em;
     text-transform:uppercase;color:var(--faint);padding:9px var(--s4);font-weight:400;
-    border-bottom:1px solid var(--border);background:var(--surface-2)}
-  td{padding:10px var(--s4);border-bottom:1px solid var(--border);vertical-align:middle}
+    border-bottom:1px solid var(--border-hi);background:var(--surface-2);white-space:nowrap}
+  td{padding:11px var(--s4);border-bottom:1px solid var(--border);vertical-align:middle}
   /* Les chiffres et la derniere colonne d'actions s'alignent a droite. */
   th:last-child,td:last-child{text-align:right}
+  td:last-child{white-space:nowrap}
   tbody tr{transition:var(--ease)}
   tbody tr:hover td{background:var(--surface-2)}
   tbody tr:last-child td{border-bottom:none}
-  td strong{font-weight:600}
+  td strong{font-weight:600;color:var(--text)}
+  td .tog,td .del{padding:5px 10px;min-height:28px}
+  td .tog + .del,td .tog + .tog{margin-left:var(--s1)}
 
-  /* ── Etats ── */
-  .pill{display:inline-block;font-family:var(--mono);font-size:var(--t-micro);padding:2px var(--s2);
-    border-radius:var(--r-sm);background:var(--surface-2);color:var(--dim);border:1px solid var(--border);
-    white-space:nowrap}
-  .pill.ok{color:var(--ok);border-color:rgba(57,217,138,.3);background:var(--ok-soft)}
-  .pill.off{color:var(--danger);border-color:rgba(255,77,109,.3);background:var(--danger-soft)}
+  /* ── 6. Etats ─────────────────────────────────────────────────────────────
+     Une pastille = une famille de couleur + un filet de la meme famille.
+     Les rgba() etaient codes en dur, donc invariables : ils passent par des
+     jetons --*-line pour exister dans les deux modes. */
+  .pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);
+    font-size:var(--t-micro);padding:2px var(--s2);line-height:1.6;
+    border-radius:var(--r-sm);background:var(--surface-2);color:var(--dim);
+    border:1px solid var(--border);white-space:nowrap}
+  .pill.ok{color:var(--ok);border-color:var(--ok-line);background:var(--ok-soft)}
+  .pill.off{color:var(--danger);border-color:var(--danger-line);background:var(--danger-soft)}
   .msg{font-size:var(--t-sm);border-radius:var(--r);padding:10px var(--s3);margin-bottom:var(--s3);
     display:none;border:1px solid transparent}
-  .msg.err{display:block;background:var(--danger-soft);color:var(--danger);border-color:rgba(255,77,109,.25)}
-  .msg.ok{display:block;background:var(--ok-soft);color:var(--ok);border-color:rgba(57,217,138,.25)}
-  .state{padding:var(--s7) var(--s5);text-align:center;color:var(--faint);font-size:var(--t-sm);line-height:1.6}
+  .msg.err{display:block;background:var(--danger-soft);color:var(--danger);border-color:var(--danger-line)}
+  .msg.ok{display:block;background:var(--ok-soft);color:var(--ok);border-color:var(--ok-line)}
+
+  /* L'etat vide revient sur tous les ecrans : c'est lui qui donne la
+     sensation generale. Sa premiere ligne devient un vrai titre — le gabarit
+     JS ecrit deja « Aucun client.<br>Cree le premier… », on tire parti de la
+     coupure sans toucher au markup. */
+  .state{padding:var(--s7) var(--s5);text-align:center;color:var(--dim);
+    font-size:var(--t-md);line-height:1.7;max-width:46ch;margin:0 auto;
+    text-wrap:balance}
+  /* Amelioration progressive : la premiere ligne du gabarit (« Aucun client. »)
+     passe en titre la ou le navigateur l'accepte. Le bloc reste lisible
+     sans, donc rien n'en depend. */
+  .state::first-line{color:var(--text);font-weight:600}
+  /* Le vide devient une zone identifiable — hachures tres basses et cadre
+     pointille — au lieu d'un paragraphe perdu au milieu d'une carte. */
+  .tablecard > .state,.createbox > .state,.filbox > .state{max-width:none;
+    background:repeating-linear-gradient(135deg,var(--surface-2) 0 7px,transparent 7px 14px);
+    border-radius:var(--r-lg);outline:1px dashed var(--border-hi);outline-offset:-12px}
   .created{margin-top:var(--s3);font-size:var(--t-sm);color:var(--ok);font-family:var(--mono);display:none}
-  .created.show{display:block;background:var(--ok-soft);border:1px solid rgba(57,217,138,.25);
-    border-radius:var(--r);padding:var(--s3) var(--s4)}
+  .created.show{display:block;background:var(--ok-soft);border:1px solid var(--ok-line);
+    border-radius:var(--r);padding:var(--s3) var(--s4);word-break:break-all}
 
-  /* ── Formulaires en ligne ── */
+  /* ── 6b. Formulaires en ligne ── */
   .formrow{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:flex-end}
-  .formrow > div{flex:1;min-width:140px;margin:0}
-  .formrow input,.formrow select{margin:0}
+  .formrow > div{flex:1;min-width:150px;margin:0}
+  .formrow input,.formrow select,.formrow textarea{margin:0}
 
-  /* ── Fenetre de refus de publication ── */
-  .modal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.6);
-    display:grid;place-items:center;padding:var(--s4)}
-  .modalbox{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
-    padding:var(--s5);max-width:560px;width:100%;max-height:82vh;overflow-y:auto}
-  .modalbox h3{font-size:var(--t-lg);margin-bottom:3px}
+  /* ── 6c. Fenetres ── */
+  .modal{position:fixed;inset:0;z-index:80;background:var(--overlay);
+    display:grid;place-items:center;padding:var(--s4);
+    backdrop-filter:blur(2px)}
+  .modalbox{background:var(--surface);border:1px solid var(--border-hi);border-radius:var(--r-lg);
+    padding:var(--s5);max-width:560px;width:100%;max-height:86vh;overflow-y:auto;
+    box-shadow:0 18px 50px -12px rgba(0,0,0,.45)}
+  .modalbox h3{font-size:var(--t-lg);letter-spacing:-.016em;margin-bottom:3px}
   .modalbox .sub{margin-bottom:var(--s4)}
-  .pbgrp{border:1px solid var(--border);border-radius:var(--r);padding:var(--s3);margin-bottom:var(--s2)}
-  .pbgrp b{display:block;font-size:var(--t-xs);font-family:var(--mono);letter-spacing:1px;
+  .pbs{display:flex;flex-direction:column;gap:var(--s2)}
+  .pbgrp{border:1px solid var(--border);border-radius:var(--r);padding:var(--s3) var(--s4);
+    margin-bottom:var(--s2)}
+  .pbgrp b{display:block;font-size:var(--t-micro);font-family:var(--mono);letter-spacing:.12em;
     text-transform:uppercase;margin-bottom:var(--s2)}
-  .pbgrp ul{margin:0;padding-left:var(--s4);font-size:var(--t-sm);line-height:1.7;color:var(--dim)}
-  .pbgrp.err{border-color:rgba(255,92,120,.3);background:var(--danger-soft)}
+  .pbgrp ul{margin:0;padding-left:var(--s4);font-size:var(--t-sm);line-height:1.7;color:var(--text)}
+  .pbgrp li::marker{color:var(--faint)}
+  .pbgrp.err{border-color:var(--danger-line);background:var(--danger-soft)}
   .pbgrp.err b{color:var(--danger)}
-  .pbgrp.ale{border-color:rgba(240,185,85,.3);background:var(--warn-soft)}
+  .pbgrp.ale{border-color:var(--warn-line);background:var(--warn-soft)}
   .pbgrp.ale b{color:var(--warn)}
-  .modalact{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s4);flex-wrap:wrap}
+  .modalact{display:flex;gap:var(--s2);justify-content:flex-end;align-items:center;
+    margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--border);flex-wrap:wrap}
 
-  /* ── Points de depart ── */
-  .presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s2);
-    margin-bottom:var(--s4)}
+  /* ── 6d. Points de depart (themes) ── */
+  .presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s2);
+    margin-bottom:var(--s5)}
   .preset{display:flex;flex-direction:column;gap:3px;text-align:left;cursor:pointer;
     background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);
     padding:var(--s3);color:var(--text);font-family:inherit;transition:var(--ease)}
   .preset:hover{border-color:var(--border-hi);background:var(--surface-hi)}
   .preset b{font-size:var(--t-sm);font-weight:600}
-  .preset .d{font-size:var(--t-micro);color:var(--dim)}
-  .preset .swatches{display:flex;gap:3px;margin-bottom:var(--s1)}
-  .preset .swatches i{width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.14)}
+  .preset .d{font-size:var(--t-micro);color:var(--dim);font-family:var(--mono)}
+  .preset .swatches{display:flex;gap:3px;margin-bottom:var(--s2)}
+  .preset .swatches i{width:16px;height:16px;border-radius:4px;border:1px solid var(--border-hi)}
 
-  /* ── Lisibilite ── */
-  .ctrbox{margin-top:var(--s3);border:1px solid var(--border);border-radius:var(--r);
+  /* ── 6e. Lisibilite (controle de contraste) ── */
+  .ctrbox{margin-top:var(--s4);border:1px solid var(--border);border-radius:var(--r);
     background:var(--surface-2);overflow:hidden}
   .ctrhead{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);
     padding:var(--s2) var(--s3);border-bottom:1px solid var(--border);
-    font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.2px;
+    font-family:var(--mono);font-size:var(--t-micro);letter-spacing:.12em;
     text-transform:uppercase;color:var(--faint)}
-  .ctr{display:flex;align-items:center;gap:var(--s3);padding:6px var(--s3);font-size:var(--t-xs)}
-  .ctr .p{width:26px;height:22px;border-radius:var(--r-sm);display:grid;place-items:center;
+  .ctr{display:flex;align-items:center;gap:var(--s3);padding:7px var(--s3);font-size:var(--t-xs);
+    border-bottom:1px solid var(--border)}
+  .ctr:last-child{border-bottom:none}
+  .ctr .p{width:28px;height:24px;border-radius:var(--r-sm);display:grid;place-items:center;
     font-size:11px;flex:none;border:1px solid var(--border)}
   .ctr .lb{flex:1;color:var(--dim)}
-  .ctr b{font-family:var(--mono);font-variant-numeric:tabular-nums}
-  .ctr .vd{width:16ch;text-align:right;color:var(--faint)}
+  .ctr b{font-family:var(--mono);font-weight:600}
+  .ctr .vd{width:12ch;text-align:right;color:var(--faint);font-family:var(--mono);
+    font-size:var(--t-micro);text-transform:uppercase;letter-spacing:.06em}
   .ctr.ok b{color:var(--ok)} .ctr.ko b,.ctr.ko .vd{color:var(--danger)}
 
-  /* ── Apercu du theme ──
+  /* ── 6f. Apercu du theme — NE PAS TOUCHER ──
      Rend les vrais ecrans du jeu, avec les memes derivations que applyTheme()
-     cote moteur : un apercu qui ne correspond pas au resultat ne sert a rien. */
-  .tpv{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--s3)}
+     cote moteur : un apercu qui ne correspond pas au resultat ne sert a rien.
+     Seule la grille .tpv a bouge (elle respire sur telephone) ; la structure
+     interne et les couleurs --pv-* sont reprises a l'identique. */
+  .tpv{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:var(--s3)}
   .tpv-screen{position:relative;overflow:hidden;border:1px solid var(--pv-bd);
     border-radius:var(--pv-r);background:var(--pv-bg);min-height:210px;
     font-family:var(--pv-body)}
@@ -320,47 +532,63 @@
   .tpv-fb{display:flex;gap:10px;font-size:.62rem;font-family:var(--pv-mono)}
   .tpv-fb .ok{color:var(--pv-ok)} .tpv-fb .ko{color:var(--pv-ko)}
 
-  /* ── Themes ── */
+  /* ── 6g. Editeur de themes ── */
   .themewrap{display:flex;gap:var(--s5);align-items:flex-start}
-  .themelist{width:230px;flex-shrink:0}
+  .themelist{width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:var(--s1)}
   .themeedit{flex:1;min-width:0}
   .themeitem{display:flex;align-items:center;gap:var(--s2);width:100%;text-align:left;
     background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--r);
-    padding:10px var(--s3);margin-bottom:6px;font-size:var(--t-sm);cursor:pointer;transition:var(--ease)}
+    padding:10px var(--s3);font-size:var(--t-sm);cursor:pointer;transition:var(--ease);min-height:38px}
   .themeitem:hover{border-color:var(--border-hi);background:var(--surface-2)}
-  .themeitem .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
-  .colorgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2)}
-  .colorrow{display:flex;flex-direction:column;gap:var(--s1)}
+  .themeitem .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;
+    box-shadow:0 0 0 1px var(--border-hi) inset}
+  .colorgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3)}
+  .colorrow{display:flex;flex-direction:column;gap:5px}
   .colorrow label{margin:0}
-  .colorrow input[type=color]{width:100%;height:30px;padding:0;border:1px solid var(--border);
+  .colorrow input[type=color]{width:100%;height:32px;padding:0;border:1px solid var(--field-bd);
     border-radius:var(--r-sm);background:none;cursor:pointer;margin:0}
-  .colorrow input:not([type=color]){font-family:var(--mono);font-size:var(--t-xs);padding:6px var(--s2);margin:0}
+  .colorrow input:not([type=color]){font-family:var(--mono);font-size:var(--t-xs);
+    padding:7px var(--s2);margin:0}
 
-  /* ── Suivi en direct ── */
+  /* ── 7. Suivi en direct ───────────────────────────────────────────────────
+     L'ecran consulte debout, sur telephone, dans une piece sombre, pendant
+     que des joueurs attendent. Tout y est dimensionne pour une lecture a bout
+     de bras : carte d'equipe cliquable en entier, barre de progression
+     epaisse, blocage annonce en pastille rouge et pas en petit texte. */
   .livegrid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:var(--s4);align-items:start}
-  .eqcard{margin-bottom:var(--s2);cursor:pointer;transition:var(--ease)}
+  .eqcard{margin-bottom:var(--s2);cursor:pointer;transition:var(--ease);
+    padding:var(--s3) var(--s4) var(--s4)}
   .eqcard:hover{border-color:var(--border-hi);background:var(--surface-2)}
   .eqcard.sel{border-color:var(--accent);background:var(--surface-2);box-shadow:var(--ring)}
-  .eqcard h3{font-size:var(--t-md);margin-bottom:3px;display:flex;align-items:center;gap:var(--s2)}
-  .eqcard .meta{font-size:var(--t-xs);color:var(--dim);display:flex;gap:var(--s3);flex-wrap:wrap}
-  .eqcard .bloque{color:var(--danger);font-weight:600}
-  .eqbar{height:4px;background:var(--surface-2);border-radius:var(--r-full);margin-top:var(--s2);overflow:hidden}
+  .eqcard h3{font-size:var(--t-md);margin-bottom:5px;display:flex;align-items:center;
+    gap:var(--s2);flex-wrap:wrap}
+  .eqcard .meta{font-size:var(--t-xs);color:var(--dim);display:flex;gap:var(--s3);flex-wrap:wrap;
+    font-variant-numeric:tabular-nums}
+  .eqcard .bloque{color:var(--danger);font-weight:600;
+    background:var(--danger-soft);border:1px solid var(--danger-line);
+    border-radius:var(--r-sm);padding:0 6px}
+  .eqbar{height:6px;background:var(--surface-hi);border-radius:var(--r-full);margin-top:var(--s3);overflow:hidden}
   .eqbar i{display:block;height:100%;background:var(--accent);border-radius:var(--r-full)}
   .filbox{overflow:hidden}
   .filbox header{padding:var(--s3) var(--s4);border-bottom:1px solid var(--border);display:flex;
-    justify-content:space-between;align-items:center;gap:var(--s2);flex-wrap:wrap}
+    justify-content:space-between;align-items:center;gap:var(--s2);flex-wrap:wrap;
+    background:var(--surface-2)}
+  .filbox header h3{font-size:var(--t-sm)}
   .fillist{max-height:46vh;overflow-y:auto}
-  .filrow{display:flex;gap:var(--s3);padding:var(--s2) var(--s4);
+  /* Le fil se lit de haut en bas, l'heure en gouttiere fixe : l'oeil suit une
+     seule colonne au lieu de chercher le debut de chaque ligne. */
+  .filrow{display:flex;gap:var(--s3);padding:9px var(--s4);
     border-bottom:1px solid var(--border);font-size:var(--t-sm);line-height:1.45}
   .filrow:last-child{border-bottom:none}
-  .filrow .h{font-family:var(--mono);font-size:var(--t-micro);color:var(--faint);flex:none;padding-top:2px}
+  .filrow .h{font-family:var(--mono);font-size:var(--t-micro);color:var(--faint);flex:none;
+    padding-top:2px;width:5ch;font-variant-numeric:tabular-nums}
   .filrow.ok{color:var(--ok)} .filrow.ko{color:var(--dim)} .filrow.orga{color:var(--accent)}
   .aidebox{padding:var(--s3) var(--s4);border-top:1px solid var(--border);display:flex;
     flex-direction:column;gap:var(--s2);background:var(--surface-2)}
   .aidebox .row{display:flex;gap:var(--s2);flex-wrap:wrap}
   .aidebox input,.aidebox select{flex:1;min-width:130px;margin:0}
 
-  /* ── Clients ──
+  /* ── 7b. Clients ──
      Meme partition que le suivi en direct : la liste a gauche, la fiche du
      client choisi a droite. Un seul motif de selection dans toute l'admin. */
   .clientgrid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);
@@ -368,61 +596,82 @@
   .clicard{margin-bottom:var(--s2);cursor:pointer;transition:var(--ease)}
   .clicard:hover{border-color:var(--border-hi);background:var(--surface-2)}
   .clicard.sel{border-color:var(--accent);background:var(--surface-2);box-shadow:var(--ring)}
-  .clicard h3{font-size:var(--t-md);margin-bottom:var(--s1)}
+  .clicard h3{font-size:var(--t-md);margin-bottom:5px}
   .clicard .meta{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
-    font-size:var(--t-xs);color:var(--dim)}
+    font-size:var(--t-xs);color:var(--dim);font-variant-numeric:tabular-nums}
 
   /* La fiche projet compte une vingtaine de champs courts : sur une colonne
-     elle devient un formulaire interminable. */
-  .projetgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-    gap:var(--s3) var(--s3)}
+     elle devient un formulaire interminable. Colonnes etroites (170 px) et
+     interlignes serres — la fiche entiere tient sur un ecran de bureau, et
+     les libelles allegs (voir §4d) font le reste du gain de densite. */
+  .projetgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+    gap:var(--s3) var(--s4)}
   .projetgrid .field{margin:0;min-width:0}
-  /* `resize:vertical` et `min-height` viennent maintenant de la regle de base. */
+  .projetgrid input,.projetgrid select,.projetgrid textarea{margin-bottom:0}
+  /* `resize:vertical` et `min-height` viennent de la regle de base. */
 
-  /* ── Questionnaires et complices ── */
+  /* ── 7c. Questionnaires et complices ── */
   .qnbloc{border:1px solid var(--border);border-radius:var(--r);background:var(--surface-2);
     padding:var(--s3) var(--s4);margin-bottom:var(--s3)}
   .qnhead{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
-    flex-wrap:wrap;margin-bottom:var(--s2)}
-  .qnhead strong{font-size:var(--t-md);margin-right:var(--s2)}
+    flex-wrap:wrap;margin-bottom:var(--s2);padding-bottom:var(--s2);
+    border-bottom:1px solid var(--border)}
+  .qnhead strong{font-size:var(--t-md);font-weight:600;margin-right:var(--s2)}
   .qnbloc table{margin-bottom:var(--s2)}
   .qnbloc td{padding:8px 0;border-color:var(--border)}
   .qnbloc td:first-child{padding-left:0}
+  .qnbloc tbody tr:hover td{background:none}
 
-  /* ── Le compositeur ──
-     Le catalogue entier tient dans une fenetre : il faut qu'il defile seul,
-     sinon les boutons d'action partent hors de l'ecran. */
-  .modalbox.large{max-width:860px;display:flex;flex-direction:column}
+  /* ── 7d. Le compositeur ──
+     Le pire cas de densite : 70 questions a cocher, chacune depliant trois
+     champs. Trois choses le rendent tenable — l'entete de comptage colle en
+     haut du defilement, la ligne cochee porte une gouttiere d'accent (on
+     retrouve ses 24 selections en balayant le bord gauche), et les trois
+     champs deplies restent alignes sur le libelle. */
+  .modalbox.large{max-width:880px;display:flex;flex-direction:column}
   .cphead{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
-    font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.2px;
+    font-family:var(--mono);font-size:var(--t-micro);letter-spacing:.12em;
     text-transform:uppercase;color:var(--faint);
-    padding:var(--s2) 0;border-bottom:1px solid var(--border);margin-top:var(--s3)}
-  .cplist{max-height:46vh;overflow-y:auto;margin:0 calc(var(--s2) * -1);padding:0 var(--s2)}
-  .cpsec{margin-top:var(--s3)}
-  .cpsec h4{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:1.2px;
-    text-transform:uppercase;color:var(--dim);font-weight:400;margin-bottom:var(--s2)}
+    padding:var(--s2) 0;border-bottom:1px solid var(--border-hi);margin-top:var(--s3);
+    position:sticky;top:0;background:var(--surface);z-index:2}
+  /* flex:1 + min-height : dans une fenetre bornee a 86vh, la liste se laissait
+     ecraser a une seule ligne par le flex-shrink. */
+  .cplist{flex:1 1 auto;min-height:210px;max-height:min(52vh,460px);overflow-y:auto;
+    margin:0 calc(var(--s2) * -1);padding:0 var(--s2);overscroll-behavior:contain}
+  .cpsec{margin-top:var(--s4)}
+  .cpsec:first-child{margin-top:0}
+  /* Le nom de section reste visible pendant qu'on fait defiler ses questions :
+     sur 70 lignes, c'est ce qui evite de cocher dans la mauvaise rubrique. */
+  .cpsec h4{font-family:var(--mono);font-size:var(--t-micro);letter-spacing:.12em;
+    text-transform:uppercase;color:var(--dim);font-weight:400;margin-bottom:var(--s2);
+    padding:var(--s2) 0 var(--s1);border-bottom:1px solid var(--border);
+    position:sticky;top:0;background:var(--surface);z-index:1}
   .cprow{border:1px solid var(--border);border-radius:var(--r-sm);
-    padding:var(--s2) var(--s3);margin-bottom:6px;transition:var(--ease)}
-  .cprow.on{border-color:var(--accent-line);background:var(--accent-soft)}
-  /* `.cptop` est un <label>, et la regle globale des <label> met tout en
-     monospace, majuscules et minuscule — bon pour un intitule de champ, faux
-     pour ce qu'il contient ici : le libelle d'une question doit se lire comme
-     une phrase. On rend donc la typographie courante a son contenu. */
+    padding:var(--s2) var(--s3);margin-bottom:5px;transition:var(--ease);
+    border-left:2px solid var(--border)}
+  .cprow:hover{border-color:var(--border-hi);border-left-color:var(--border-hi)}
+  .cprow.on{border-color:var(--accent-line);background:var(--accent-soft);
+    border-left-color:var(--accent)}
+  /* `.cptop` est un <label>, et la regle globale des <label> vise un intitule
+     de champ, pas une phrase : on rend la typographie courante a son contenu. */
   .cptop{display:flex;align-items:flex-start;gap:var(--s3);cursor:pointer;margin:0;
-    font-family:var(--sans);text-transform:none;letter-spacing:normal;color:var(--text)}
-  .cptop input[type=checkbox]{margin:3px 0 0;width:16px;height:16px;flex:none;accent-color:var(--accent)}
-  .cptop strong{font-size:var(--t-sm);font-weight:550;margin-right:var(--s2)}
-  .cptop .help{margin-top:2px}
-  .cpdetail{margin:var(--s2) 0 var(--s1) 28px}
+    font-family:var(--sans);font-size:var(--t-md);font-weight:400;text-transform:none;
+    letter-spacing:normal;color:var(--text)}
+  .cptop input[type=checkbox]{margin:2px 0 0;width:17px;height:17px;flex:none;accent-color:var(--accent)}
+  .cptop strong{font-size:var(--t-sm);font-weight:600;margin-right:var(--s2)}
+  .cptop .help{margin-top:3px}
+  .cpdetail{margin:var(--s3) 0 var(--s1) 29px;padding-top:var(--s3);
+    border-top:1px dashed var(--border-hi)}
   .cpdetail label{font-size:var(--t-micro)}
-  .cpdetail input{margin:0;font-size:var(--t-xs);padding:6px var(--s2)}
+  .cpdetail input{margin:0;font-size:var(--t-xs);padding:7px var(--s2)}
   .cpobl{display:flex;align-items:center;gap:6px;font-size:var(--t-xs);
-    color:var(--dim);white-space:nowrap;padding-bottom:7px;cursor:pointer}
-  .cpobl input{width:15px;height:15px;margin:0;accent-color:var(--accent)}
+    color:var(--dim);white-space:nowrap;padding-bottom:8px;cursor:pointer;
+    text-transform:none;letter-spacing:0}
+  .cpobl input{width:16px;height:16px;margin:0;accent-color:var(--accent)}
 
-  /* ── Matiere collectee ── */
+  /* ── 7e. Matiere collectee ── */
   .medialist{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s2)}
-  .mediaitem{display:flex;flex-direction:column;gap:6px;width:132px;
+  .mediaitem{display:flex;flex-direction:column;gap:6px;width:136px;
     background:var(--surface-2);border:1px solid var(--border);
     border-radius:var(--r-sm);padding:var(--s2)}
   .apercu{height:86px;border-radius:var(--r-sm);overflow:hidden;background:var(--bg);
@@ -432,41 +681,70 @@
   .mediameta{display:flex;flex-direction:column;gap:1px;min-width:0}
   .mediameta span:first-child{font-size:var(--t-xs);overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap}
-  .mediaitem .tog,.mediaitem .pill{align-self:stretch;text-align:center}
+  .mediaitem .tog,.mediaitem .pill{align-self:stretch;text-align:center;justify-content:center}
 
-  .matsec{margin-bottom:var(--s4)}
-  .matsec h4{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s1)}
-  .matsec td{padding:7px var(--s2);vertical-align:top}
+  /* Une reponse collectee se lit en paires « question / valeur ». La question
+     reste discrete, la valeur porte le poids : c'est elle qu'on cherche. */
+  .matsec{margin-bottom:var(--s5)}
+  .matsec h4{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
+    margin-bottom:var(--s2);padding-bottom:var(--s2);border-bottom:1px solid var(--border);
+    font-size:var(--t-sm)}
+  .matsec td{padding:9px var(--s3);vertical-align:top}
   .matsec td:first-child{padding-left:0}
   .matsec td:last-child{text-align:right}
+  .matsec td strong{font-size:var(--t-md)}
+  .matsec tbody tr:hover td{background:none}
 
-  /* ── Catalogue de questions ──
+  /* ── 7f. Catalogue de questions ──
      Une question desactivee reste visible — ses reponses existent encore —
      mais ne doit pas se lire comme une question active. */
   tbody tr.inactive td{opacity:.45}
   tbody tr.inactive:hover td{opacity:.75}
 
   /* La couleur de la pastille dit l'ingredient d'un coup d'oeil : c'est ce
-     qu'on cherche quand on compose un questionnaire. */
-  .pill.ing-chiffre{color:#8ab4ff;border-color:rgba(138,180,255,.3);background:rgba(138,180,255,.1)}
-  .pill.ing-mot    {color:#c49bff;border-color:rgba(196,155,255,.3);background:rgba(196,155,255,.1)}
-  .pill.ing-lieu   {color:var(--ok);border-color:rgba(61,220,145,.3);background:var(--ok-soft)}
-  .pill.ing-media  {color:#ff9bc4;border-color:rgba(255,155,196,.3);background:rgba(255,155,196,.1)}
-  .pill.ing-liste  {color:var(--warn);border-color:rgba(240,185,85,.3);background:var(--warn-soft)}
-  .pill.ing-recit  {color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+     qu'on cherche quand on compose un questionnaire. Les six teintes passent
+     par des jetons pour avoir une version lisible sur papier clair, ou les
+     pastels d'origine disparaissaient. `color-mix` derive fond et filet ; s'il
+     n'est pas compris, la pastille retombe simplement sur son style neutre. */
+  .pill.ing-chiffre{--ing:var(--ing-1)} .pill.ing-mot{--ing:var(--ing-2)}
+  .pill.ing-lieu{--ing:var(--ing-3)}   .pill.ing-media{--ing:var(--ing-4)}
+  .pill.ing-liste{--ing:var(--ing-5)}  .pill.ing-recit{--ing:var(--ing-6)}
+  .pill.ing-chiffre,.pill.ing-mot,.pill.ing-lieu,
+  .pill.ing-media,.pill.ing-liste,.pill.ing-recit{
+    color:var(--ing);
+    border-color:color-mix(in oklab,var(--ing) 34%,transparent);
+    background:color-mix(in oklab,var(--ing) 12%,transparent)}
 
-  /* ── Petits ecrans ── */
+  /* ── 8. Petits ecrans ─────────────────────────────────────────────────────
+     La console sert debout, sur telephone, pendant l'evenement : sous 760 px
+     les cibles passent a 44 px, le fil du direct occupe la hauteur utile et
+     sa zone d'envoi reste collee en bas de la boite. */
+  @media (max-width:980px){
+    .main{padding:var(--s6) var(--s5) var(--s7)}
+    .colorgrid{grid-template-columns:repeat(3,1fr)}
+  }
   @media (max-width:820px){ .livegrid,.clientgrid{grid-template-columns:1fr} }
   @media (max-width:760px){
-    .topbar{padding:var(--s3) var(--s4)}
+    /* Trois boutons a droite ne tiennent pas dans 52 px de haut a 390 px de
+       large : la barre debordait sur le titre de la page. L'email de l'admin
+       part — il sait qui il est — et les boutons se resserrent. */
+    .topbar{padding:0 var(--s3);gap:var(--s2)}
+    .topbar .me{display:none}          /* il sait qui il est */
+    .topactions{gap:var(--s2)}
+    .topbar button{padding:5px 9px;font-size:var(--t-xs)}
+    .topbar .brand span:not(.mark){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .burger{display:inline-block}
     .shell{display:block}
-    .side{position:fixed;top:0;left:0;height:100vh;width:230px;z-index:50;
+    .side{position:fixed;top:0;left:0;height:100vh;width:250px;z-index:50;
       transform:translateX(-100%);transition:transform .25s;padding-top:60px}
-    .side.open{transform:translateX(0)}
-    .side-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40}
+    .side.open{transform:translateX(0);box-shadow:0 0 40px rgba(0,0,0,.4)}
+    .side-overlay{position:fixed;inset:0;background:var(--overlay);z-index:40}
     .side-overlay.show{display:block}
-    .main{padding:var(--s5) var(--s4);max-width:100%}
+    .navbtn{padding:11px var(--s3);min-height:44px;font-size:var(--t-lg)}
+    .main{padding:var(--s5) var(--s4) var(--s7);max-width:100%}
+    .page-head{margin-bottom:var(--s5)}
+    .section{margin-bottom:var(--s6)}
+    .section-head .sub{text-align:left}
     .formrow{flex-direction:column;align-items:stretch}
     .formrow > div{min-width:0;width:100%}
     .themewrap{flex-direction:column}
@@ -474,23 +752,79 @@
     .colorgrid{grid-template-columns:repeat(2,1fr)}
     .kpis{grid-template-columns:repeat(2,1fr)}
     .tiles{grid-template-columns:1fr 1fr}
-    /* Le defilement horizontal ne concerne que ces conteneurs. */
-    #list,#jeux-list,#codes-list,#overview,#blocages,#mauvaises,#themeusage,#recap,#engagement{
-      overflow-x:auto;-webkit-overflow-scrolling:touch}
-    #list table,#jeux-list table,#codes-list table,#overview table,#blocages table,
-    #mauvaises table,#themeusage table{min-width:520px}
+    .projetgrid{grid-template-columns:1fr 1fr}
+    .projetgrid .field:has(textarea){grid-column:1/-1}
+    /* Cibles tactiles : 44 px minimum partout ou l'on appuie. */
+    .tog,.del,.genbtn{min-height:44px;padding:11px var(--s3);font-size:var(--t-sm)}
+    td .tog,td .del{min-height:36px;padding:8px 10px}
+    .btn.inline{min-height:44px;padding:12px var(--s5)}
+    .cptop input[type=checkbox]{width:22px;height:22px;margin-top:1px}
+    .cpobl input{width:20px;height:20px}
+    .cpdetail{margin-left:0}
+    /* En direct : le fil prend la place, la zone d'aide reste accessible. */
+    .fillist{max-height:none}
+    .filbox{display:flex;flex-direction:column;max-height:calc(100vh - 200px)}
+    .filbox .fillist{flex:1;overflow-y:auto}
+    .aidebox{position:sticky;bottom:0}
+    .eqcard{padding:var(--s4)}
+    .eqcard h3{font-size:var(--t-lg)}
+    .eqcard .meta{font-size:var(--t-sm)}
+    .modalbox{padding:var(--s4);max-height:92vh}
+    .modalbox.large .cplist{max-height:none}
+    .modalact{flex-direction:column-reverse;align-items:stretch}
+    .modalact .btn.inline,.modalact .tog{width:100%}
+    .login{margin:var(--s5) auto;padding:var(--s5)}
+    /* Le defilement horizontal ne concerne que les conteneurs qui le portent.
+       La regle enumerait des `id` : le catalogue, ajoute plus tard, n'y etait
+       pas, et ses tables s'ecrasaient a un mot par ligne sur un telephone au
+       lieu de defiler. `.tablescroll` est le marqueur de structure — toute
+       table qui y vit defile, y compris celles qui n'existent pas encore. */
+    .tablescroll,#recap,#engagement{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .tablescroll table{min-width:520px}
+  }
+  @media (max-width:460px){
+    .kpis,.tiles,.projetgrid,.colorgrid{grid-template-columns:1fr}
+    .mediaitem{width:calc(50% - var(--s1))}
   }
 
-  /* ── Impression du debrief ── */
+  /* ── 8b. Impression du debrief ───────────────────────────────────────────
+     Le debrief se montre au client, sur papier. Plutot que de repeindre
+     chaque composant en noir et blanc, on remappe les jetons de role : tout
+     le reste suit. C'est aussi valable si la console est en mode sombre au
+     moment de l'impression. */
   @media print{
+    :root,:root[data-theme="light"],:root[data-theme="dark"]{
+      --bg:#fff; --surface:#fff; --surface-2:#f4f3f0; --surface-hi:#ebe9e5;
+      --border:#c9c6bf; --border-hi:#9a968d;
+      --text:#000; --dim:#3a3a3a; --faint:#5c5c5c;
+      --accent:#006158; --accent-2:#004a55; --accent-ink:#fff;
+      --accent-soft:transparent; --accent-line:#9a968d;
+      --ok:#0c5c38; --danger:#8c1028; --warn:#6b4405;
+      --ok-soft:transparent; --danger-soft:transparent; --warn-soft:transparent;
+      --field:#fff; --field-bd:#c9c6bf; --shadow:none;
+      color-scheme:light}
     body{background:#fff;color:#000}
-    #side,.topbar,.navbtn,.createbox,.msg,#side-overlay,.tog,.btn,.burger{display:none!important}
+    #side,.topbar,.navbtn,.createbox,.msg,#side-overlay,.tog,.del,.genbtn,.btn,.burger,
+    .navdot,.side-overlay{display:none!important}
     #app,.main{margin:0!important;padding:0!important;max-width:none!important}
-    .dbstat,.filbox,.scard{border:1px solid #ccc;background:#fff;color:#000}
+    .shell{display:block}
+    .dbstat,.filbox,.scard,.tablecard,.eqcard,.clicard{border:1px solid #ccc;background:#fff;
+      color:#000;box-shadow:none;break-inside:avoid}
     .dbstat span,.filrow .h{color:#555}
     .fillist{max-height:none;overflow:visible}
+    .dbsec,.section{break-inside:avoid}
+    .page-head{border-bottom:2px solid #000}
     table{color:#000} th,td{border-color:#ccc;position:static}
+    th{background:#f4f3f0}
+    a{color:#000;text-decoration:underline}
   }
+
+  /* ── Liens ──
+     Aucune vue n'en contient aujourd'hui hors .tile, mais un lien ajoute plus
+     tard ne doit pas ressortir en bleu de navigateur. */
+  a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:2px}
+  a:hover{color:var(--text)}
+  a.tile,a.tile:hover{color:inherit;text-decoration:none}
 </style>
 </head>
 <body>
@@ -508,7 +842,10 @@
   <div class="topbar">
     <span class="brand"><button class="burger" onclick="toggleSide()" aria-label="Menu">&#9776;</button>
       <span class="mark">EE</span> Escape Engine</span>
-    <span><span class="me" id="me"></span> &nbsp; <button onclick="logout()">Deconnexion</button></span>
+    <span class="topactions"><span class="me" id="me"></span>
+      <button id="theme-btn" onclick="basculerApparence()"
+        title="Apparence : suit le systeme, ou forcee en clair ou en sombre">Systeme</button>
+      <button onclick="logout()">Deconnexion</button></span>
   </div>
   <div class="shell">
     <div class="side-overlay" id="side-overlay" onclick="toggleSide()"></div>
@@ -888,6 +1225,41 @@ let themesLoaded = false;
 let codesLoaded = false;
 let biblioLoaded = false;
 let BIBLIO = [];
+// ── Apparence : systeme, clair, sombre ────────────────────────────────────
+// Trois etats et non deux. « Systeme » (aucun attribut) laisse decider
+// `prefers-color-scheme` : la console suit le telephone qui passe en sombre le
+// soir. Les deux autres forcent, pour qui veut du clair sur un systeme sombre —
+// ou l'inverse, dans une piece sombre pendant un evenement.
+const APPARENCES = [
+  { v: null,    t: 'Systeme' },
+  { v: 'light', t: 'Clair'   },
+  { v: 'dark',  t: 'Sombre'  },
+];
+
+function appliquerApparence(i){
+  const e = APPARENCES[i], h = document.documentElement;
+  if(e.v) h.dataset.theme = e.v; else delete h.dataset.theme;
+  const b = $('theme-btn'); if(b) b.textContent = e.t;
+  // Le navigateur peint ses ascenseurs et ses menus natifs d'apres ceci.
+  const meta = document.querySelector('meta[name="color-scheme"]');
+  if(meta) meta.content = e.v || 'dark light';
+  try{
+    if(e.v) localStorage.setItem('admin-apparence', e.v);
+    else localStorage.removeItem('admin-apparence');
+  }catch(err){}
+}
+
+function basculerApparence(){
+  const courant = document.documentElement.dataset.theme || null;
+  const i = APPARENCES.findIndex(e => e.v === courant);
+  appliquerApparence((i + 1) % APPARENCES.length);
+}
+
+// Au chargement : l'attribut a deja ete pose par le script du <head> pour
+// eviter le clignotement ; il ne reste qu'a mettre le bouton au bon libelle.
+appliquerApparence(APPARENCES.findIndex(
+  e => e.v === (document.documentElement.dataset.theme || null)));
+
 function toggleSide(){
   document.getElementById('side').classList.toggle('open');
   document.getElementById('side-overlay').classList.toggle('show');
