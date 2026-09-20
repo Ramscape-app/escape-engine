@@ -55,7 +55,7 @@ Le projet n'a pas d'étape de build : ces contrôles sont le seul filet entre un
 modification et la production. Ils tournent sur chaque poussée et chaque PR
 (`.github/workflows/ci.yml`).
 
-`scripts/verifier.mjs` couvre 275 contrôles — syntaxe des fonctions et des scripts
+`scripts/verifier.mjs` couvre 301 contrôles — syntaxe des fonctions et des scripts
 inline, équilibre des blocs CSS et des balises, ids référencés par le JS mais absents
 du HTML, absence de clé de service dans une page publique, présence de `requireAdmin`
 sur toute fonction non listée comme publique, et de `resoudreJeton` sur chaque
@@ -68,7 +68,8 @@ Chacun vient d'un défaut qui s'est réellement produit :
 | Colonnes énumérées sur `themes` | PostgREST rejette la requête entière dès qu'une colonne demandée manque : un jeu était retombé sur le thème par défaut après une migration non encore appliquée. `themes(*)` survit à toute colonne ajoutée. |
 | Deux fonctions du même nom dans une page | Dans un monolithe d'un seul tenant, la seconde écrase la première et un bouton se met à faire autre chose. Arrivé avec `basculer()`. |
 | Champ de saisie sans règle qui lui donne un fond | Tous les `textarea` de la console s'affichaient **sur fond blanc** dans une interface sombre. Le critère est « une règle lui donne un fond », pas « une règle existe » : l'admin avait bien un `.projetgrid textarea{resize}`. |
-| Écriture dans le bucket public `assets` | Seules `asset-upload` et `media-promouvoir` y ont droit — tout le reste contournerait la promotion explicite des photos de complices. |
+| Écriture dans le bucket public `assets` | Seules `asset-upload`, `asset-url` et `media-promouvoir` y ont droit — tout le reste contournerait la promotion explicite des photos de complices. `createSignedUploadUrl` compte comme une écriture. |
+| Source de tuiles écrite en dur | CARTO s'est mis à exiger une clé et les deux cartes se sont couvertes d'un filigrane, sans erreur ni trace. Le fond se déclare dans `shared/carte.js`. |
 
 `scripts/inventaire-admin.mjs` relève les classes, ids et jetons de la console. Il sert
 au kit de design (`design/`) et permet de vérifier qu'un retour de refonte n'a rien
@@ -87,6 +88,34 @@ après toute montée de version**, sinon le navigateur refusera de charger le sc
 Leaflet n'est récupéré qu'à l'ouverture de la première énigme GPS : les jeux sans carte
 ne paient pas ses 150 Ko. Si le chargement échoue, l'énigme reste jouable sans fond de
 carte.
+
+### Le modèle « PROJET 1986 »
+
+Déclaré dans `public/shared/modele-1986.js` et lu par **trois** endroits : le moteur
+(copie de secours si la configuration du jeu est injoignable), l'éditeur (modèle de
+départ d'un jeu vide) et la console (la réserve d'énigmes à importer dans la
+bibliothèque).
+
+Il vivait en double — `EMBEDDED_CONFIG` dans le moteur, `DEFAULT_CONFIG` dans l'éditeur,
+deux littéraux de 18 Ko mot pour mot identiques. C'était le constat **M-02** de l'audit :
+modifier l'un laissait l'autre derrière sans que rien ne le signale.
+
+> ⚠️ Deux énigmes GPS (« Signal Localisé », n° 16 et 24) n'ont pas de coordonnées : elles
+> dépendent du lieu de l'événement. Le validateur les signale et la publication reste
+> bloquée tant qu'elles sont vides.
+
+### La bibliothèque
+
+`bibliotheque_enigmes` ne contient **que ce qu'on y met** : depuis l'éditeur avec
+*Sauver en biblio*, une énigme à la fois, ou via le bouton **Importer les 40 énigmes du
+modèle** de la vue Bibliothèque.
+
+Ce bouton existe parce que les deux stocks n'avaient jamais été reliés : les énigmes du
+modèle étaient inaccessibles autrement qu'en chargeant le modèle entier dans un jeu.
+L'import se fait **en un appel** — quarante allers-retours seraient interruptibles au
+milieu — et **dédoublonne sur le titre**, donc on peut le relancer sans risque. C'est
+d'ailleurs nécessaire dès le premier import : le modèle porte deux fois « Signal
+Localisé ».
 
 ### Le fond de carte
 

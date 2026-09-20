@@ -11,6 +11,9 @@
      Script classique sans `defer` : un module serait differe et la page
      clignoterait en sombre avant de passer en clair. Partage avec editeur.html. -->
 <script src="./shared/apparence.js"></script>
+<!-- Le modele « PROJET 1986 », partage avec le moteur et l'editeur. Ses
+     quarante enigmes alimentent le bouton d'import de la bibliotheque. -->
+<script src="./shared/modele-1986.js"></script>
 <title>Admin — Escape Engine</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js"
         integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz"
@@ -1086,7 +1089,11 @@
     <div id="view-biblio" style="display:none">
       <div class="page-head"><div class="txt">
         <h2>Bibliotheque</h2>
-        <div class="sub">Des enigmes generalistes reutilisables dans n'importe quel jeu.</div>
+        <div class="sub">Des enigmes generalistes reutilisables dans n'importe quel jeu.
+          Elle ne contient que ce que tu y mets : depuis l'editeur avec
+          « Sauver en biblio », ou en important le modele ci-dessous.</div>
+      </div><div class="actions">
+        <button class="btn inline" id="btn-importer-modele" onclick="importerModele()"></button>
       </div></div>
       <div class="createbox">
         <h3 style="margin-bottom:var(--s3)">Nouvelle enigme</h3>
@@ -2175,11 +2182,65 @@ async function creerJeu(){
 
 // ════════ BIBLIOTHÈQUE D'ÉNIGMES ════════
 async function loadBiblio(){
+  majBoutonModele();
   try{
     const { items } = await callFn('biblio-list');
     BIBLIO = items || [];
     renderBiblio();
+    majBoutonModele();
   }catch(e){ $('biblio-list').innerHTML = `<div class="state" style="color:var(--danger)">${esc(e.message)}</div>`; }
+}
+
+// ── Importer les enigmes du modele ────────────────────────────────────────
+// La bibliotheque ne contenait que ce qu'on y avait sauve a la main. Les
+// quarante enigmes du modele « PROJET 1986 » vivaient a cote, dans un fichier
+// de configuration : on ne pouvait pas piocher « Signal Localisé » pour un
+// nouveau jeu sans charger le modele entier dans l'editeur.
+//
+// La categorie se devine du format : une enigme GPS est de l'observation, un
+// clavier numerique des maths. C'est un point de depart, modifiable ensuite.
+const CATEGORIE_PAR_FORMAT = {
+  keypad:'maths', puzzle:'maths', rebus:'rebus', text:'culture',
+  gps:'observation', nfc:'observation', camera:'observation',
+  lightdetect:'observation', torch:'observation', audio:'observation',
+  fakebug:'autre',
+};
+
+function enigmesDuModele(){
+  const m = window.MODELE_1986;
+  if(!m || !Array.isArray(m.enigmas)) return [];
+  return m.enigmas.map(e => ({
+    titre: e.title || 'Sans titre',
+    categorie: CATEGORIE_PAR_FORMAT[e.format] || 'autre',
+    enigme: e,
+  }));
+}
+
+function majBoutonModele(){
+  const b = $('btn-importer-modele'); if(!b) return;
+  const n = enigmesDuModele().length;
+  if(!n){ b.style.display = 'none'; return; }
+  b.style.display = '';
+  b.textContent = `Importer les ${n} enigmes du modele`;
+}
+
+async function importerModele(){
+  const lot = enigmesDuModele();
+  if(!lot.length){ return; }
+  const m = $('biblio-msg'); m.className = 'msg';
+  if(!confirm(`Ajouter les ${lot.length} enigmes du modele « PROJET 1986 » a la bibliotheque ?\n\n`
+    + `Celles dont le titre s'y trouve deja seront ignorees, donc tu peux relancer sans doublonner.`)) return;
+
+  const b = $('btn-importer-modele'); b.disabled = true;
+  try{
+    const r = await callFn('biblio-importer', { method:'POST', body:{ enigmes: lot } });
+    m.textContent = r.ajoutees
+      ? `${r.ajoutees} enigme(s) ajoutee(s)${r.ignorees?`, ${r.ignorees} deja presente(s)`:''}.`
+      : (r.message || 'Rien a ajouter.');
+    m.className = 'msg ok';
+    await loadBiblio();
+  }catch(e){ m.textContent = 'Erreur : ' + e.message; m.className = 'msg err'; }
+  b.disabled = false;
 }
 function renderBiblio(){
   const f = $('bx-filtre') ? $('bx-filtre').value : '';
