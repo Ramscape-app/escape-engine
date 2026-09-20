@@ -5,11 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- Le nom sous l'icone une fois le jeu ajoute a l'ecran d'accueil : iOS ne
+     lit pas le manifeste pour ca, il lit cette balise. -->
+<meta name="apple-mobile-web-app-title" id="nom-ios" content="Escape Game">
 <meta name="theme-color" content="#0a0a0f">
 <title>PROJET 1986 : RÉACTIVATION</title>
-<link rel="manifest" href="/.netlify/functions/manifest">
-<link rel="apple-touch-icon" href="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png">
-<link rel="icon" type="image/png" sizes="192x192" href="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png">
+<link rel="manifest" id="lien-manifeste" href="/.netlify/functions/manifest">
+<link rel="apple-touch-icon" id="icone-tactile" href="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png">
+<link rel="icon" id="icone-onglet" type="image/png" sizes="192x192" href="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png">
+<script>
+  // Le manifeste doit porter le jeu AVANT que le navigateur ne le lise : c'est
+  // lui qui donne son nom et son icone a l'application installee, et deux jeux
+  // qui rendent le meme manifeste sont le meme jeu pour le telephone — il n'en
+  // propose alors pas l'installation. Ici, dans l'en-tete, et non plus dans le
+  // script du corps qui ne traitait que `?slug=` : le bouton « Tester » de la
+  // console ouvre `?previewId=`, et tous les jeux en test se confondaient.
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var p = q.get('slug') ? 'slug=' + encodeURIComponent(q.get('slug'))
+      : q.get('previewId') ? 'previewId=' + encodeURIComponent(q.get('previewId')) : '';
+    if (!p) return;
+    var l = document.getElementById('lien-manifeste');
+    if (l) l.href = '/.netlify/functions/manifest?' + p;
+  })();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600&family=Playfair+Display:wght@600;700&family=Bebas+Neue&family=Caveat:wght@600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js"
         integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz"
@@ -1257,11 +1276,30 @@ function applyConfig(cfg) {
   ACTS = cfg.acts || ACTS;
   ENIGMAS = cfg.enigmas || ENIGMAS;
   TOTAL = ENIGMAS.length;
-  applyBranding(cfg.branding || {});
+  applyBranding(cfg.branding || {}, (cfg.meta && cfg.meta.name) || '');
 }
-function applyBranding(b) {
+function applyBranding(b, nomDuJeu) {
   if (!b) return;
+  // Le titre de l'onglet : celui qu'on a choisi, sinon le nom du jeu. Sans ce
+  // repli, tous les jeux gardaient « PROJET 1986 : RÉACTIVATION », le titre
+  // écrit en dur dans l'en-tête.
   if (b.docTitle) document.title = b.docTitle;
+  else if (nomDuJeu) document.title = nomDuJeu;
+  const nomIOS = document.getElementById('nom-ios');
+  if (nomIOS && (nomDuJeu || b.docTitle)) nomIOS.content = nomDuJeu || b.docTitle;
+  // La miniature de l'onglet et l'icône posée sur l'écran d'accueil : la photo
+  // de la page d'intro, celle que l'organisateur a déjà téléversée. Elles
+  // pointaient en dur sur l'avatar du PROJET 1986, pour tous les jeux.
+  if (b.avatar) {
+    const u = assetUrl(b.avatar);
+    const ext = String(b.avatar).split(/[?#]/)[0].split('.').pop().toLowerCase();
+    const type = { jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
+      gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif' }[ext] || 'image/png';
+    const onglet = document.getElementById('icone-onglet');
+    if (onglet) { onglet.type = type; onglet.href = u; }
+    const tactile = document.getElementById('icone-tactile');
+    if (tactile) tactile.href = u;
+  }
   const set = (sel, val) => {
     if (val == null) return;
     document.querySelectorAll(sel).forEach(el => { el.textContent = val; });
@@ -1286,14 +1324,8 @@ function assetUrl(p) {
   if (/^https?:\/\//.test(p)) return p;            // déjà une URL complète
   return ASSET_BASE + String(p).replace(/^\.?\//, '');
 }
-// Manifest PWA spécifique au jeu (s'ouvre sur le bon slug une fois installé)
-(function () {
-  const slug = new URLSearchParams(location.search).get('slug');
-  if (slug) {
-    const link = document.querySelector('link[rel="manifest"]');
-    if (link) link.href = '/.netlify/functions/manifest?slug=' + encodeURIComponent(slug);
-  }
-})();
+// Le lien vers le manifeste est réécrit dans l'en-tête, avant que le
+// navigateur ne le lise (voir le script en haut de ce fichier).
 let JOUEUR_ID = null, JEU_ID = null;   // remplis par le verrou (authGuard)
 let EQUIPE_ID = null;                  // null = ce joueur joue seul
 let PSEUDO = '', GAME_NAME = '';        // pour l'écran d'accueil joueur
