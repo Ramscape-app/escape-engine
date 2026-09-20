@@ -6,6 +6,8 @@
 <title>Ramscape — Localiser sur la carte</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Le fond de carte, declare en un seul endroit : voir shared/carte.js. -->
+<script src="../shared/carte.js"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{background:transparent;color:#eceef1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -51,8 +53,21 @@ const TITLE = P.get('title'); const HINT = P.get('hint');
 if (TITLE) document.getElementById('title').textContent = TITLE;
 if (HINT) document.getElementById('hint').textContent = HINT;
 
-const map = L.map('map', { worldCopyJump:true, attributionControl:false }).setView([20,0], START_ZOOM);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom:19, crossOrigin:true }).addTo(map);
+// `attributionControl` reste actif : les tuiles derivees d'OpenStreetMap
+// demandent l'attribution, et elle etait desactivee.
+const map = L.map('map', { worldCopyJump:true }).setView([20,0], START_ZOOM);
+
+// Un fond qui ne repond pas doit se dire. Avant, la carte restait grise — ou
+// pire, couverte d'un filigrane « API KEY REQUIRED » que seul un joueur en
+// pleine partie voyait.
+FondCarte.ajouter(L, map, {
+  surEchec(f){
+    const h = document.getElementById('hint');
+    if(h) h.innerHTML = '<span style="color:#b3243f">Le fond de carte ne repond pas ('
+      + f.nom + '). Tu peux quand meme placer le repere : la reponse est jugee '
+      + 'sur les coordonnees, pas sur l\'image.</span>';
+  },
+});
 
 // Corrige l'affichage quand la carte est dans une iframe (recalcule sa taille)
 function fixSize(){ map.invalidateSize(); }

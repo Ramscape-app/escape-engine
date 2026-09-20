@@ -14,6 +14,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js"
         integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- Le fond de carte des enigmes GPS, declare en un seul endroit : voir
+     shared/carte.js. Script classique, donc disponible avant le script de la
+     page, qui l'appelle apres avoir charge Leaflet a la demande. -->
+<script src="./shared/carte.js"></script>
 <script type="module">
   // Les textes d'intro par defaut, partages avec l'editeur : une seule source,
   // sinon les deux divergent et l'organisateur edite autre chose que ce que
@@ -3407,7 +3411,8 @@ function renderGPS(container, idx) {
       center: [TARGET.lat, TARGET.lng],
       zoom: (e.gpsZoom != null ? e.gpsZoom : 15),
       zoomControl: false,
-      attributionControl: false,
+      // L'attribution etait desactivee : les tuiles derivees d'OpenStreetMap
+      // la demandent. Le controle est discret et n'entrave pas le jeu.
       dragging: false,
       touchZoom: false,
       scrollWheelZoom: false,
@@ -3417,9 +3422,25 @@ function renderGPS(container, idx) {
       tap: false,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20,
-    }).addTo(gpsMap);
+    // Le fond de carte est declare dans `shared/carte.js`, en un seul endroit.
+    // Il etait en dur ici et dans le mini-jeu guess-where ; le jour ou CARTO
+    // s'est mis a exiger une cle, les deux cartes se sont couvertes d'un
+    // filigrane « API KEY REQUIRED » sans aucune erreur, et seul un joueur en
+    // pleine partie pouvait le voir.
+    // `sombre` retourne les couleurs par un filtre : aucun fournisseur sans
+    // cle ne propose de carte sombre, et un fond clair ferait une tache dans
+    // le moteur.
+    FondCarte.ajouter(L, gpsMap, {
+      sombre: true,
+      surEchec: (f) => {
+        const el = document.getElementById('gps-map');
+        if (el) el.insertAdjacentHTML('beforeend',
+          '<div style="position:absolute;inset:0;z-index:500;display:grid;place-items:center;'
+          + 'background:var(--bg-panel);color:var(--text-dim);font-size:.75rem;text-align:center;'
+          + 'padding:16px;line-height:1.5">Le fond de carte ne repond pas.<br>'
+          + 'La position reste mesuree : approche-toi de la cible.</div>');
+      },
+    });
 
     gpsTargetZone = L.circle([TARGET.lat, TARGET.lng], {
       radius: e.gpsRadius,

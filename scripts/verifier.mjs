@@ -227,6 +227,18 @@ for (const p of PAGES) {
   }
 }
 
+// ── 13. Aucune page ne code en dur une source de tuiles ───────────────────
+// Elles etaient en dur dans deux pages. Le jour ou CARTO s'est mis a exiger
+// une cle d'API, les deux cartes se sont couvertes d'un filigrane « API KEY
+// REQUIRED » — sans erreur, sans trace, et visible seulement par un joueur en
+// pleine partie. Une seule declaration, dans `shared/carte.js`.
+const TUILES = /['"`]https?:\/\/[^'"`]*\{z\}[^'"`]*['"`]|basemaps\.cartocdn|tile\.openstreetmap/;
+for (const p of [...PAGES, ...readdirSync('public/module').filter(f => f.endsWith('.html')).map(f => `public/module/${f}`)]) {
+  controles++;
+  if (TUILES.test(lire(p)))
+    ko(p, 'source de tuiles ecrite en dur — la declarer dans public/shared/carte.js');
+}
+
 // ── Verdict ───────────────────────────────────────────────────────────────
 if (echecs.length) {
   console.error(`\n✗ ${echecs.length} probleme(s) sur ${controles} controles\n`);

@@ -88,6 +88,31 @@ Leaflet n'est récupéré qu'à l'ouverture de la première énigme GPS : les je
 ne paient pas ses 150 Ko. Si le chargement échoue, l'énigme reste jouable sans fond de
 carte.
 
+### Le fond de carte
+
+Déclaré **en un seul endroit**, `public/shared/carte.js`, et utilisé par l'énigme GPS du
+moteur comme par le mini-jeu `guess-where`.
+
+Il était auparavant écrit en dur dans les deux pages, et pointait sur CARTO. Le jour où
+CARTO s'est mis à exiger une clé d'API, les deux cartes se sont couvertes d'un filigrane
+« API KEY REQUIRED » — **sans erreur, sans trace, et visible uniquement par un joueur en
+pleine partie**. C'est le défaut que ce fichier existe pour empêcher :
+
+- **une seule source**, changeable en une ligne (`DEFAUT`) ;
+- **un échec se voit** : si aucune tuile ne charge, la page le dit à sa façon au lieu de
+  laisser un rectangle gris. Le critère est « plusieurs échecs **et** aucune tuile
+  chargée » — un seuil d'échecs seul ne se déclenchait jamais au zoom monde, où la carte
+  ne demande que quatre tuiles ;
+- **l'attribution est affichée.** Les deux cartes la désactivaient, alors que les tuiles
+  dérivées d'OpenStreetMap la demandent.
+
+Le fond vient d'OpenStreetMap, servi sans clé. Aucun fournisseur sans clé ne propose de
+carte sombre, donc le moteur retourne les couleurs par un filtre CSS (`sombre: true`) :
+un fond clair ferait une tache dans un jeu sombre.
+
+`scripts/verifier.mjs` refuse toute source de tuiles écrite en dur dans une page ou un
+module.
+
 ## Développement local
 
 ```sh
