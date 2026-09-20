@@ -265,6 +265,22 @@ Trois mécanismes à connaître avant d'y toucher :
 - **`@media print` remappe les jetons** vers une palette papier plutôt que de repeindre
   chaque composant : le débrief s'imprime correctement même si la console est en sombre.
 
+### Sur un téléphone
+
+La console sert debout pendant l'événement, donc chaque écran doit y tenir. Sous 620 px,
+les tables se **dépilent en cartes** : chaque ligne devient un bloc, chaque cellule une
+rangée, et l'en-tête disparaît — le contenu se nomme lui-même (nom en gras, pastilles
+d'état, boutons).
+
+Avant, cinq tables exigeaient un défilement latéral : la liste des jeux demandait 756 px
+pour 356 disponibles, le tableau de bord 814. Les boutons d'action vivaient hors de
+l'écran. C'était ça, la sensation de « pas responsive » — pas un débordement de la page,
+qui était nul partout.
+
+`editeur.html` suit la même règle : sa barre du haut alignait sept éléments dans une
+rangée qui ne passait jamais à la ligne et débordait de 248 px. Elle se replie
+maintenant, le nom du projet sur sa propre ligne.
+
 **Les polices sont celles du système**, et c'est un choix : `system-ui` rend SF Pro sur
 Mac, Segoe UI Variable sur Windows — la police d'interface dessinée pour la machine, avec
 son hinting, affichée instantanément. La pile monospace va chercher les modernes d'abord

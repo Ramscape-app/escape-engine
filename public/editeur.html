@@ -299,7 +299,33 @@
 .ingr-media{display:flex;flex-direction:column;gap:5px;margin-top:8px;
   padding-top:8px;border-top:1px solid var(--border)}
 .ingr-media .btn{align-self:flex-start}
-@media (max-width:760px){ .ingr-panel{left:14px;right:14px;width:auto} }
+@media (max-width:760px){
+  .ingr-panel{left:14px;right:14px;width:auto}
+
+  /* La barre du haut alignait sept elements dans une rangee qui ne passait
+     jamais a la ligne : elle debordait de 248 px sur un telephone, et le
+     bouton « Enregistrer en ligne » sortait de l'ecran. Elle se replie
+     maintenant sur deux rangees, le nom du jeu sur la sienne. */
+  header.topbar{flex-wrap:wrap;row-gap:6px;padding:8px 12px;gap:8px}
+  .topbar .spacer{display:none}          /* c'est lui qui poussait tout dehors */
+  /* Deux rangees et pas trois : le nom du projet et l'etat du brouillon en
+     haut, les actions en dessous. Le libelle de la marque disparait — le point
+     qui pulse suffit a dire que la page est vivante, et le nom du jeu est deja
+     dans le titre du panneau. */
+  .brand .name,.brand .sub{display:none}
+  .proj-pill{order:-2;flex:1 1 auto;max-width:none}
+  .savestate{order:-1;flex:0 1 auto;text-align:right}
+  .topbar .btn{padding:6px 10px;font-size:.7rem}
+
+  /* Les cibles tactiles : 44 px, comme dans la console. */
+  aside .nav button,.erow{min-height:44px}
+}
+
+/* Le clavier d'un telephone mange la moitie de l'ecran : un panneau en 78vh
+   recouvre alors le champ qu'on est en train de remplir. */
+@media (max-width:760px) and (max-height:620px){
+  .ingr-panel,.verif-panel{max-height:56vh}
+}
 </style>
 </head>
 <body>

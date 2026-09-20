@@ -778,6 +778,33 @@
     .tablescroll,#recap,#engagement{overflow-x:auto;-webkit-overflow-scrolling:touch}
     .tablescroll table{min-width:520px}
   }
+  /* ── Les tables, sur un telephone ──
+     Cinq d'entre elles exigeaient un defilement horizontal : la liste des jeux
+     demandait 756 px pour 356 disponibles, le tableau de bord 814. On lisait
+     donc un tableau en le poussant de cote, et les boutons d'action vivaient
+     hors de l'ecran — c'est ca, « pas responsive », plus que le debordement de
+     la page, qui etait nul.
+     Chaque ligne devient une carte, chaque cellule une rangee. L'en-tete
+     disparait : le contenu se nomme lui-meme (le nom en gras, les pastilles
+     d'etat, les boutons), et deux mots de titre de colonne ne valent pas un
+     defilement lateral. */
+  @media (max-width:620px){
+    .tablescroll{overflow-x:visible}
+    .tablescroll table{min-width:0}
+    .tablescroll thead{display:none}
+    .tablescroll tbody,.tablescroll tr,.tablescroll td{display:block;width:auto}
+    .tablescroll tr{border-bottom:1px solid var(--border);padding:var(--s3) 0}
+    .tablescroll tr:last-child{border-bottom:none}
+    .tablescroll td{border:none;padding:3px var(--s4);text-align:left}
+    .tablescroll td:first-child{padding-bottom:var(--s1)}
+    /* La derniere cellule porte les actions : elles passent a la ligne plutot
+       que de sortir de l'ecran, avec des cibles tactiles utilisables. */
+    .tablescroll td:last-child{display:flex;flex-wrap:wrap;gap:var(--s2);
+      margin-top:var(--s2);text-align:left}
+    .tablescroll td:last-child .tog,.tablescroll td:last-child .del{min-height:38px}
+    .tablescroll tbody tr:hover td{background:none}
+  }
+
   @media (max-width:460px){
     .kpis,.tiles,.projetgrid,.colorgrid{grid-template-columns:1fr}
     .mediaitem{width:calc(50% - var(--s1))}
