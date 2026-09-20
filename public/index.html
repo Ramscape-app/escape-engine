@@ -168,6 +168,16 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 .screen.active { opacity: 1; pointer-events: all; }
+
+/* Centrage vertical qui ne coupe pas le haut.
+   `justify-content:center` sur un conteneur defilable pousse le debordement
+   des DEUX cotes : quand le contenu depasse, le haut sort de la zone
+   defilable et devient inatteignable. Sur un telephone, l'emoji d'en-tete de
+   l'ecran d'accueil etait ainsi coupe, sans moyen d'y remonter.
+   Les marges automatiques absorbent l'espace libre quand il y en a, et
+   tombent a zero quand il n'y en a plus — le contenu reste entier. */
+.centre-sans-couper > :first-child { margin-top: auto; }
+.centre-sans-couper > :last-child  { margin-bottom: auto; }
 .screen.active::after {
   content: '';
   position: fixed; top: 0; left: 0; right: 0;
@@ -181,7 +191,7 @@ html, body {
   
 /* ═══════════ BOOT SCREEN ═══════════ */
 #boot-screen {
-  justify-content: center; align-items: center;
+  align-items: center;
   background: var(--bg-deep); padding: 30px;
 }
 #boot-screen .logo {
@@ -213,7 +223,7 @@ html, body {
 
 /* ═══════════ INTRO SCREEN ═══════════ */
 #intro-screen {
-  justify-content: center; align-items: center;
+  align-items: center;
   padding: 40px 24px; text-align: center;
   background: radial-gradient(ellipse at center, var(--bg-card) 0%, var(--bg-deep) 70%);
 }
@@ -1020,10 +1030,10 @@ html, body {
  <!-- PRE-BOOT SECURITY
       Les elements d'intro sont volontairement VIDES : leur contenu vient de
       `shared/intro-defaut.js`, fusionne avec celui du jeu, et pose par
-      applyIntroConfig(). Y reecrire un texte creerait une seconde copie qui
+      applyIntro(). Y reecrire un texte creerait une seconde copie qui
       derivera du module sans que rien ne le signale. -->
 <div id="preboot-screen" class="screen active">
-  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:30px 24px;text-align:center;">
+  <div class="centre-sans-couper" style="display:flex;flex-direction:column;align-items:center;min-height:100%;padding:30px 24px;text-align:center;">
     <div id="pb-icon" style="font-size:2.5rem;margin-bottom:16px;"></div>
     <div id="pb-banner" style="font-family:var(--font-display);font-size:.65rem;letter-spacing:6px;color:var(--warn);border:1px solid var(--warn-dim);padding:6px 18px;display:inline-block;margin-bottom:24px;"></div>
     <div id="pb-subtitle" style="font-family:var(--font-mono);font-size:.65rem;color:var(--accent);letter-spacing:2px;margin-bottom:20px;"></div>
@@ -1036,7 +1046,7 @@ html, body {
 
   
 <!-- BOOT -->
-<div id="boot-screen" class="screen">
+<div id="boot-screen" class="screen centre-sans-couper">
   <img src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png" alt="Avatar" width="192" height="192">
   <div class="logo" id="boot-logo"></div>
   <div class="subtitle" id="boot-subtitle"></div>
@@ -1056,7 +1066,7 @@ html, body {
 </div>
 
 <!-- INTRO -->
-<div id="intro-screen" class="screen">
+<div id="intro-screen" class="screen centre-sans-couper">
   <div class="classified" id="intro-classified"></div>
   <div class="brief" id="intro-brief">
     Agent, votre profil a été <strong>sélectionné</strong>.<br><br>
@@ -2148,19 +2158,29 @@ function renderEnigmaScreen(idx) {
 
   // Les énigmes embarquent des modules tiers : on les cloisonne et on évite
   // de leur transmettre l'URL du jeu (slug compris) via l'en-tête Referer.
-  const addIframe = (src, width) => {
+  const addIframe = (src, hauteur) => {
     const iframe = document.createElement("iframe");
     iframe.src = src;
-    iframe.width = width;
-    iframe.height = "100%";
     iframe.sandbox = "allow-scripts allow-same-origin allow-forms allow-popups";
     iframe.referrerPolicy = "no-referrer";
     iframe.style.border = "none";
     iframe.style.margin = "0px 0";
+    // `height:100%` ne veut rien dire ici : le parent n'a pas de hauteur
+    // definie, alors le navigateur repliait sur une valeur arbitraire trop
+    // courte. Le module se retrouvait a defiler DANS son cadre — sur
+    // guess-where, le bouton « Valider » vivait sous la ligne de flottaison
+    // de l'iframe, elle-meme dans une page qui defile.
+    // Une hauteur bornee au lieu d'un pourcentage : assez pour un module
+    // complet, jamais plus que l'ecran.
+    iframe.style.width = "100%";
+    iframe.style.maxWidth = "560px";
+    iframe.style.height = hauteur;
     body.appendChild(iframe);
   };
-  if (e.iframe)  addIframe(e.iframe,  "350px");
-  if (e.iframe2) addIframe(e.iframe2, "220px");
+  // Le module principal occupe l'essentiel de la hauteur disponible ; le
+  // second, quand il existe, n'est qu'un appoint.
+  if (e.iframe)  addIframe(e.iframe,  "clamp(340px, 58vh, 540px)");
+  if (e.iframe2) addIframe(e.iframe2, "clamp(200px, 30vh, 300px)");
 
   if (isSolved) {
     const banner = document.createElement('div');

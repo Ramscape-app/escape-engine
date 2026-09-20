@@ -117,6 +117,26 @@ milieu — et **dédoublonne sur le titre**, donc on peut le relancer sans risqu
 d'ailleurs nécessaire dès le premier import : le modèle porte deux fois « Signal
 Localisé ».
 
+### Deux pièges de mise en page, sur téléphone
+
+**Centrer verticalement dans un conteneur qui défile.** `justify-content:center` pousse le
+débordement des **deux** côtés : quand le contenu dépasse, le haut sort de la zone
+défilable et devient inatteignable. L'emoji d'en-tête de l'écran d'accueil était ainsi
+coupé, 181 px au-dessus du premier pixel accessible. Les trois écrans concernés utilisent
+désormais `.centre-sans-couper`, qui centre par marges automatiques : elles absorbent
+l'espace libre quand il y en a, et tombent à zéro quand il n'y en a plus.
+
+**`height:100%` sur une iframe sans parent de hauteur définie** ne veut rien dire ; le
+navigateur repliait sur une valeur arbitraire trop courte, et les mini-jeux défilaient
+*dans* leur cadre. Sur `guess-where`, le bouton « Valider » vivait sous la ligne de
+flottaison de l'iframe, elle-même dans une page qui défile déjà. Le moteur donne
+maintenant une hauteur bornée (`clamp(340px, 58vh, 540px)`), et chaque module remplit son
+cadre au lieu de le déborder — la carte prend l'espace restant, le titre et les actions
+restent visibles.
+
+Les neuf modules ont été mesurés dans ce cadre à 374 × 490 px : aucun ne déborde, et tous
+leurs boutons restent atteignables.
+
 ### Le fond de carte
 
 Déclaré **en un seul endroit**, `public/shared/carte.js`, et utilisé par l'énigme GPS du
