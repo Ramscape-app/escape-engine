@@ -14,6 +14,14 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js"
         integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script type="module">
+  // Les textes d'intro par defaut, partages avec l'editeur : une seule source,
+  // sinon les deux divergent et l'organisateur edite autre chose que ce que
+  // les joueurs lisent. Un module est differe, donc ceci s'execute apres le
+  // script principal — `getIntroConfig()` lit la valeur au moment de l'usage.
+  import { INTRO_DEFAUT } from './shared/intro-defaut.js';
+  window.INTRO_DEFAUT = INTRO_DEFAUT;
+</script>
 <style>
 /* Masque l'affichage tant que le thème du jeu n'est pas appliqué (évite le flash du thème par défaut) */
 /* Profondeur du fond. Une lueur radiale teintee par l'accent derriere le
@@ -1001,18 +1009,20 @@ html, body {
 </head>
 <body class="theme-booting">
 
- <!-- PRE-BOOT SECURITY -->
+ <!-- PRE-BOOT SECURITY
+      Les elements d'intro sont volontairement VIDES : leur contenu vient de
+      `shared/intro-defaut.js`, fusionne avec celui du jeu, et pose par
+      applyIntroConfig(). Y reecrire un texte creerait une seconde copie qui
+      derivera du module sans que rien ne le signale. -->
 <div id="preboot-screen" class="screen active">
   <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;padding:30px 24px;text-align:center;">
-    <div id="pb-icon" style="font-size:2.5rem;margin-bottom:16px;">🛡️</div>
-    <div id="pb-banner" style="font-family:var(--font-display);font-size:.65rem;letter-spacing:6px;color:var(--warn);border:1px solid var(--warn-dim);padding:6px 18px;display:inline-block;margin-bottom:24px;">/// PROTOCOLE DE SÉCURITÉ ///</div>
-    <div id="pb-subtitle" style="font-family:var(--font-mono);font-size:.65rem;color:var(--accent);letter-spacing:2px;margin-bottom:20px;">BRIEFING PRÉ-MISSION</div>
+    <div id="pb-icon" style="font-size:2.5rem;margin-bottom:16px;"></div>
+    <div id="pb-banner" style="font-family:var(--font-display);font-size:.65rem;letter-spacing:6px;color:var(--warn);border:1px solid var(--warn-dim);padding:6px 18px;display:inline-block;margin-bottom:24px;"></div>
+    <div id="pb-subtitle" style="font-family:var(--font-mono);font-size:.65rem;color:var(--accent);letter-spacing:2px;margin-bottom:20px;"></div>
     <div id="pb-consignes" style="text-align:left;max-width:340px;width:100%;display:flex;flex-direction:column;gap:14px;margin-bottom:30px;"></div>
-    <div id="pb-warning" style="font-family:var(--font-mono);font-size:.5rem;color:var(--warn);letter-spacing:1px;line-height:1.8;max-width:300px;margin-bottom:24px;padding:10px;border:1px solid var(--warn-dim);border-radius: var(--r-sm);background:var(--warn-dim);">
-      ⚠ AVERTISSEMENT : Toute tentative de fermeture durant une épreuve entraînera la perte définitive de votre progression. L'agence décline toute responsabilité en cas de surchauffe neuronale.
-    </div>
-    <button class="btn-primary" id="pb-button" onclick="launchBoot()">J'AI COMPRIS — INITIALISER</button>
-    <div id="pb-footer" style="font-family:var(--font-mono);font-size:.45rem;color:var(--text-dim);opacity:.5;margin-top:14px;letter-spacing:2px;">CLASSIFICATION : NIVEAU OMEGA</div>
+    <div id="pb-warning" style="font-family:var(--font-mono);font-size:.5rem;color:var(--warn);letter-spacing:1px;line-height:1.8;max-width:300px;margin-bottom:24px;padding:10px;border:1px solid var(--warn-dim);border-radius: var(--r-sm);background:var(--warn-dim);"></div>
+    <button class="btn-primary" id="pb-button" onclick="launchBoot()"></button>
+    <div id="pb-footer" style="font-family:var(--font-mono);font-size:.45rem;color:var(--text-dim);opacity:.5;margin-top:14px;letter-spacing:2px;"></div>
   </div>
 </div>
 
@@ -1020,8 +1030,8 @@ html, body {
 <!-- BOOT -->
 <div id="boot-screen" class="screen">
   <img src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/avatar.png" alt="Avatar" width="192" height="192">
-  <div class="logo" id="boot-logo">PROJET 1986</div>
-  <div class="subtitle" id="boot-subtitle">Système de réactivation</div>
+  <div class="logo" id="boot-logo"></div>
+  <div class="subtitle" id="boot-subtitle"></div>
   <div id="boot-log"></div>
   <div id="boot-buttons" style="display:none; text-align:center; animation: fadeInUp .6s ease;">
     <button class="btn-primary" id="btn-install" onclick="installPWA()" style="display:none;">
@@ -1039,7 +1049,7 @@ html, body {
 
 <!-- INTRO -->
 <div id="intro-screen" class="screen">
-  <div class="classified" id="intro-classified">/// CONFIDENTIEL ///</div>
+  <div class="classified" id="intro-classified"></div>
   <div class="brief" id="intro-brief">
     Agent, votre profil a été <strong>sélectionné</strong>.<br><br>
     En <strong>1986</strong>, un sujet exceptionnel a vu le jour. Aujourd'hui, <strong>40 ans plus tard</strong>, il est temps de prouver que les années n'ont fait que renforcer ses capacités.<br><br>
@@ -1047,7 +1057,7 @@ html, body {
     Aucun retour en arrière possible.<br>
     <span style="color:var(--warn)">Bonne chance.</span>
   </div>
-  <button class="btn-primary" id="intro-button" onclick="startGame()">ACCEPTER LA MISSION</button>
+  <button class="btn-primary" id="intro-button" onclick="startGame()"></button>
   <button class="btn-primary" id="intro-install" onclick="installPWA()" style="display:none;margin-top:12px;">📲 INSTALLER L'APP</button>
 </div>
 
@@ -2463,46 +2473,29 @@ function showScreen(id) {
 }
 
 // ═══════════════════════ BOOT ═══════════════════════
-// ── Valeurs par défaut des pages d'intro (= 1986 si rien de personnalisé) ──
-const INTRO_DEFAULTS = {
-  preboot: {
-    icon: "🛡️",
-    banner: "/// PROTOCOLE DE SÉCURITÉ ///",
-    subtitle: "BRIEFING PRÉ-MISSION",
-    consignes: [
-      { icon:"📍", titre:"GÉOLOCALISATION", texte:"Certaines épreuves nécessitent votre position GPS. Autorisez l'accès quand demandé." },
-      { icon:"📡", titre:"MODULE NFC", texte:"Un scan NFC sera requis. Assurez-vous que le NFC est activé dans vos paramètres." },
-      { icon:"📷", titre:"CAMÉRA & FLASH", texte:"L'accès à la caméra sera sollicité pour des modules de détection optique." },
-      { icon:"🔊", titre:"AUDIO", texte:"Activez le son. Des transmissions audio cryptées devront être analysées." },
-    ],
-    warning: "⚠ AVERTISSEMENT : Toute tentative de fermeture durant une épreuve entraînera la perte définitive de votre progression. L'agence décline toute responsabilité en cas de surchauffe neuronale.",
-    button: "J'AI COMPRIS — INITIALISER",
-    footer: "CLASSIFICATION : NIVEAU OMEGA",
-  },
-  boot: {
-    logo: "PROJET 1986",
-    subtitle: "Système de réactivation",
-    lines: [
-      "Initialisation du système...", "Chargement module PROJET_1986", "Vérification profil agent",
-      "Connexion base de données", "Scan biométrique", "Calibration énigmes",
-      "Chargement module GUADELOUPE", "Activation protocole ANNIVERSAIRE", "Système prêt",
-    ],
-    music: "",
-  },
-  intro: {
-    classified: "/// CONFIDENTIEL ///",
-    brief: "Agent, votre profil a été <strong>sélectionné</strong>.<br><br>En <strong>1986</strong>, un sujet exceptionnel a vu le jour. Aujourd'hui, <strong>40 ans plus tard</strong>, il est temps de prouver que les années n'ont fait que renforcer ses capacités.<br><br><strong>{total} épreuves</strong> vous attendent. Logique, mémoire, agilité, culture… chaque réponse correcte vous rapproche de la <strong>récompense finale</strong>.<br><br>Aucun retour en arrière possible.<br><span style=\"color:var(--warn)\">Bonne chance.</span>",
-    button: "ACCEPTER LA MISSION",
-  },
-};
-
-// Fusionne la config intro du jeu avec les valeurs par défaut
+// Fusionne la config intro du jeu avec les valeurs par defaut.
+//
+// Les defauts vivent dans `shared/intro-defaut.js`, lu aussi par l'editeur :
+// celui-ci affichait des champs vides pour des textes que le moteur
+// appliquait, et l'organisateur les editait a l'aveugle.
+//
+// Lu ICI et non dans un `const` de haut niveau : un script de type module est
+// differe, donc il s'execute apres ce script classique. Au moment ou cette
+// fonction est appelee — au rendu de l'intro — il a fini.
 function getIntroConfig() {
+  const d = window.INTRO_DEFAUT;
+  if (!d) {
+    // Le module n'a pas charge. Mieux vaut l'intro du jeu seule qu'une page
+    // blanche, et la console dit pourquoi.
+    console.error("shared/intro-defaut.js n'a pas charge : textes d'intro par defaut indisponibles.");
+    const c = (GAME_CONFIG && GAME_CONFIG.intro) || {};
+    return { preboot: c.preboot || {}, boot: c.boot || {}, intro: c.intro || {} };
+  }
   const c = (GAME_CONFIG && GAME_CONFIG.intro) || {};
   return {
-    preboot: { ...INTRO_DEFAULTS.preboot, ...(c.preboot || {}) },
-    boot:    { ...INTRO_DEFAULTS.boot,    ...(c.boot || {}) },
-    intro:   { ...INTRO_DEFAULTS.intro,   ...(c.intro || {}) },
+    preboot: { ...d.preboot, ...(c.preboot || {}) },
+    boot:    { ...d.boot,    ...(c.boot || {}) },
+    intro:   { ...d.intro,   ...(c.intro || {}) },
   };
 }
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }

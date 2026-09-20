@@ -7,14 +7,10 @@
      <input type="date"> restent sombres au milieu d'une page claire : le
      navigateur ne les peint pas d'apres le CSS mais d'apres cette declaration. -->
 <meta name="color-scheme" content="dark light">
-<script>
-  // L'apparence est posee AVANT le rendu : appliquee plus bas, la page
-  // s'afficherait une fraction de seconde en sombre avant de basculer en clair.
-  try {
-    var a = localStorage.getItem('admin-apparence');
-    if (a === 'light' || a === 'dark') document.documentElement.dataset.theme = a;
-  } catch (e) {}
-</script>
+<!-- Pose l'apparence memorisee avant le rendu, et expose basculerApparence().
+     Script classique sans `defer` : un module serait differe et la page
+     clignoterait en sombre avant de passer en clair. Partage avec editeur.html. -->
+<script src="./shared/apparence.js"></script>
 <title>Admin — Escape Engine</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js"
         integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz"
@@ -1225,41 +1221,6 @@ let themesLoaded = false;
 let codesLoaded = false;
 let biblioLoaded = false;
 let BIBLIO = [];
-// ── Apparence : systeme, clair, sombre ────────────────────────────────────
-// Trois etats et non deux. « Systeme » (aucun attribut) laisse decider
-// `prefers-color-scheme` : la console suit le telephone qui passe en sombre le
-// soir. Les deux autres forcent, pour qui veut du clair sur un systeme sombre —
-// ou l'inverse, dans une piece sombre pendant un evenement.
-const APPARENCES = [
-  { v: null,    t: 'Systeme' },
-  { v: 'light', t: 'Clair'   },
-  { v: 'dark',  t: 'Sombre'  },
-];
-
-function appliquerApparence(i){
-  const e = APPARENCES[i], h = document.documentElement;
-  if(e.v) h.dataset.theme = e.v; else delete h.dataset.theme;
-  const b = $('theme-btn'); if(b) b.textContent = e.t;
-  // Le navigateur peint ses ascenseurs et ses menus natifs d'apres ceci.
-  const meta = document.querySelector('meta[name="color-scheme"]');
-  if(meta) meta.content = e.v || 'dark light';
-  try{
-    if(e.v) localStorage.setItem('admin-apparence', e.v);
-    else localStorage.removeItem('admin-apparence');
-  }catch(err){}
-}
-
-function basculerApparence(){
-  const courant = document.documentElement.dataset.theme || null;
-  const i = APPARENCES.findIndex(e => e.v === courant);
-  appliquerApparence((i + 1) % APPARENCES.length);
-}
-
-// Au chargement : l'attribut a deja ete pose par le script du <head> pour
-// eviter le clignotement ; il ne reste qu'a mettre le bouton au bon libelle.
-appliquerApparence(APPARENCES.findIndex(
-  e => e.v === (document.documentElement.dataset.theme || null)));
-
 function toggleSide(){
   document.getElementById('side').classList.toggle('open');
   document.getElementById('side-overlay').classList.toggle('show');

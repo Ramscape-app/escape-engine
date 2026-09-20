@@ -7,16 +7,99 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Console d'édition — Projet 1986</title>
+<!-- Le navigateur peint ses ascenseurs et ses menus natifs d'apres ceci, pas
+     d'apres le CSS. Reecrit par shared/apparence.js selon le mode. -->
+<meta name="color-scheme" content="dark light">
+<!-- Pose l'apparence memorisee avant le rendu, et expose basculerApparence().
+     Le meme fichier sert a admin.html : les deux pages doivent s'accorder sur
+     la cle de stockage, sinon regler l'apparence d'un cote ne la regle pas de
+     l'autre. -->
+<script src="./shared/apparence.js"></script>
 <style>
+  /* ── Jetons, en deux couches ───────────────────────────────────────────────
+     Meme structure que la console d'administration : une palette brute decrite
+     une fois, puis les jetons de role remappes en bloc pour le mode clair.
+     Aucune regle ne lit un --dk-* ou un --lt-* : pour retoucher une couleur,
+     c'est ici et ici seulement.
+
+     ⚠️ La liste de remappage clair existe DEUX FOIS — sous
+        `prefers-color-scheme` et sous `[data-theme="light"]` — parce qu'une
+        media query et un selecteur d'attribut ne peuvent pas partager une
+        regle en CSS nu. Les deux doivent rester identiques. */
   :root{
-    --bg:#0a0a0f; --bg2:#101019; --card:#15151f; --card2:#1b1b27;
-    --border:#262635; --border-bright:#33334a;
-    --text:#e9e9f2; --dim:#8a8aa0; --faint:#5a5a70;
-    --accent:#00e0d0; --accent-dim:rgba(0,224,208,.14); --accent-glow:rgba(0,224,208,.35);
-    --danger:#ff4d6d; --danger-dim:rgba(255,77,109,.14);
-    --warn:#ffb020; --ok:#39d98a; --ok-dim:rgba(57,217,138,.14);
-    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
-    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    /* Sombre */
+    --dk-bg:#0a0a0f; --dk-bg2:#101019; --dk-card:#15151f; --dk-card2:#1b1b27;
+    --dk-panel:#191923; --dk-code-bg:#0c0c12; --dk-code-tx:#b8c4d0;
+    --dk-border:#262635; --dk-border-bright:#33334a;
+    --dk-text:#e9e9f2; --dk-dim:#8a8aa0; --dk-faint:#5a5a70;
+    --dk-accent:#00e0d0; --dk-accent-ink:#04140f;
+    --dk-accent-dim:rgba(0,224,208,.14); --dk-accent-glow:rgba(0,224,208,.35);
+    --dk-danger:#ff4d6d; --dk-danger-dim:rgba(255,77,109,.14); --dk-danger-line:rgba(255,77,109,.35);
+    --dk-warn:#ffb020; --dk-warn-dim:rgba(255,176,32,.14); --dk-warn-line:rgba(255,176,32,.35);
+    --dk-ok:#39d98a; --dk-ok-dim:rgba(57,217,138,.14); --dk-ok-line:rgba(57,217,138,.35);
+    --dk-ombre:rgba(0,0,0,.45); --dk-voile:rgba(0,0,0,.6);
+    --dk-barre:rgba(10,10,15,.82);
+
+    /* Clair — un papier chaud, jamais #fff : l'editeur sert aussi le soir.
+       Les memes valeurs que la console, pour que les deux pages s'accordent. */
+    --lt-bg:#e8e5de; --lt-bg2:#efece5; --lt-card:#f6f4ef; --lt-card2:#efece5;
+    --lt-panel:#fbfaf7; --lt-code-bg:#f1eee8; --lt-code-tx:#39414d;
+    --lt-border:#d5d1c6; --lt-border-bright:#b8b3a6;
+    --lt-text:#1c1e25; --lt-dim:#585d6c; --lt-faint:#6d7280;
+    --lt-accent:#00786e; --lt-accent-ink:#f3fffd;
+    --lt-accent-dim:rgba(0,120,110,.10); --lt-accent-glow:rgba(0,120,110,.28);
+    --lt-danger:#b32943; --lt-danger-dim:rgba(179,41,67,.09); --lt-danger-line:rgba(179,41,67,.30);
+    --lt-warn:#8a5a12; --lt-warn-dim:rgba(138,90,18,.10); --lt-warn-line:rgba(138,90,18,.28);
+    --lt-ok:#16764c; --lt-ok-dim:rgba(22,118,76,.10); --lt-ok-line:rgba(22,118,76,.28);
+    --lt-ombre:rgba(40,35,25,.14); --lt-voile:rgba(40,35,25,.35);
+    --lt-barre:rgba(246,244,239,.86);
+
+    /* Les roles. Sombre par defaut. */
+    --bg:var(--dk-bg); --bg2:var(--dk-bg2); --card:var(--dk-card); --card2:var(--dk-card2);
+    --panel:var(--dk-panel); --code-bg:var(--dk-code-bg); --code-tx:var(--dk-code-tx);
+    --border:var(--dk-border); --border-bright:var(--dk-border-bright);
+    --text:var(--dk-text); --dim:var(--dk-dim); --faint:var(--dk-faint);
+    --accent:var(--dk-accent); --accent-ink:var(--dk-accent-ink);
+    --accent-dim:var(--dk-accent-dim); --accent-glow:var(--dk-accent-glow);
+    --danger:var(--dk-danger); --danger-dim:var(--dk-danger-dim); --danger-line:var(--dk-danger-line);
+    --warn:var(--dk-warn); --warn-dim:var(--dk-warn-dim); --warn-line:var(--dk-warn-line);
+    --ok:var(--dk-ok); --ok-dim:var(--dk-ok-dim); --ok-line:var(--dk-ok-line);
+    --ombre:var(--dk-ombre); --voile:var(--dk-voile); --barre:var(--dk-barre);
+
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,"JetBrains Mono","IBM Plex Mono",
+      "Cascadia Mono","Cascadia Code",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI Variable Text","Segoe UI",Inter,Roboto,
+      "Helvetica Neue",Arial,sans-serif;
+  }
+
+  /* Mode clair suivant le systeme — sauf si le sombre est force. */
+  @media (prefers-color-scheme:light){
+    :root:not([data-theme="dark"]){
+      --bg:var(--lt-bg); --bg2:var(--lt-bg2); --card:var(--lt-card); --card2:var(--lt-card2);
+      --panel:var(--lt-panel); --code-bg:var(--lt-code-bg); --code-tx:var(--lt-code-tx);
+      --border:var(--lt-border); --border-bright:var(--lt-border-bright);
+      --text:var(--lt-text); --dim:var(--lt-dim); --faint:var(--lt-faint);
+      --accent:var(--lt-accent); --accent-ink:var(--lt-accent-ink);
+      --accent-dim:var(--lt-accent-dim); --accent-glow:var(--lt-accent-glow);
+      --danger:var(--lt-danger); --danger-dim:var(--lt-danger-dim); --danger-line:var(--lt-danger-line);
+      --warn:var(--lt-warn); --warn-dim:var(--lt-warn-dim); --warn-line:var(--lt-warn-line);
+      --ok:var(--lt-ok); --ok-dim:var(--lt-ok-dim); --ok-line:var(--lt-ok-line);
+      --ombre:var(--lt-ombre); --voile:var(--lt-voile); --barre:var(--lt-barre);
+    }
+  }
+
+  /* Mode clair force par le bouton. Liste identique a celle ci-dessus. */
+  :root[data-theme="light"]{
+    --bg:var(--lt-bg); --bg2:var(--lt-bg2); --card:var(--lt-card); --card2:var(--lt-card2);
+    --panel:var(--lt-panel); --code-bg:var(--lt-code-bg); --code-tx:var(--lt-code-tx);
+    --border:var(--lt-border); --border-bright:var(--lt-border-bright);
+    --text:var(--lt-text); --dim:var(--lt-dim); --faint:var(--lt-faint);
+    --accent:var(--lt-accent); --accent-ink:var(--lt-accent-ink);
+    --accent-dim:var(--lt-accent-dim); --accent-glow:var(--lt-accent-glow);
+    --danger:var(--lt-danger); --danger-dim:var(--lt-danger-dim); --danger-line:var(--lt-danger-line);
+    --warn:var(--lt-warn); --warn-dim:var(--lt-warn-dim); --warn-line:var(--lt-warn-line);
+    --ok:var(--lt-ok); --ok-dim:var(--lt-ok-dim); --ok-line:var(--lt-ok-line);
+    --ombre:var(--lt-ombre); --voile:var(--lt-voile); --barre:var(--lt-barre);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
@@ -35,7 +118,7 @@
   /* ── Top bar ── */
   header.topbar{
     position:sticky; top:0; z-index:20; display:flex; align-items:center; gap:14px;
-    padding:11px 18px; background:rgba(10,10,15,.82); backdrop-filter:blur(12px);
+    padding:11px 18px; background:var(--barre); backdrop-filter:blur(12px);
     border-bottom:1px solid var(--border);
   }
   .brand{display:flex; align-items:center; gap:10px; min-width:0}
@@ -52,9 +135,11 @@
 
   .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:7px;font-size:.74rem;font-weight:600;letter-spacing:.3px;border:1px solid var(--border-bright);background:var(--card);color:var(--text);transition:.15s}
   .btn:hover{border-color:var(--accent);color:var(--accent)}
-  .btn.primary{background:var(--accent);color:#04140f;border-color:var(--accent)}
-  .btn.primary:hover{filter:brightness(1.1);color:#04140f}
-  .btn.ghost{background:transparent}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .btn.primary:hover{filter:brightness(1.1);color:var(--accent-ink)}
+  /* `transparent` sur la barre translucide donnait un bouton illisible en
+     mode clair : une surface legere le detache dans les deux modes. */
+  .btn.ghost{background:var(--card2)}
   .btn.danger:hover{border-color:var(--danger);color:var(--danger)}
   .btn.sm{padding:5px 9px;font-size:.68rem}
 
@@ -114,7 +199,7 @@
   .check input{width:16px;height:16px;accent-color:var(--accent)}
   .check span{font-size:.78rem}
 
-  fieldset.box{border:1px solid var(--border);border-radius:10px;padding:15px 15px 4px;margin-bottom:16px;background:rgba(255,255,255,.012)}
+  fieldset.box{border:1px solid var(--border);border-radius:10px;padding:15px 15px 4px;margin-bottom:16px;background:var(--card2)}
   fieldset.box>legend{font-family:var(--mono);font-size:.6rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);padding:0 8px}
 
   /* live preview */
@@ -125,7 +210,7 @@
   .preview .pv-img{display:block;max-width:100%;border-top:1px solid var(--border)}
 
   /* json view */
-  pre.json{background:#0c0c12;border:1px solid var(--border);border-radius:10px;padding:16px;overflow:auto;font-family:var(--mono);font-size:11.5px;line-height:1.55;color:#b8c4d0;max-height:62vh}
+  pre.json{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:16px;overflow:auto;font-family:var(--mono);font-size:11.5px;line-height:1.55;color:var(--code-tx);max-height:62vh}
 
   /* acts */
   .act-edit{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;background:var(--card)}
@@ -138,7 +223,7 @@
   .banner .x{margin-left:auto;display:flex;gap:7px}
 
   .empty{padding:60px 20px;text-align:center;color:var(--faint)}
-  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card2);border:1px solid var(--accent);color:var(--text);padding:11px 18px;border-radius:9px;font-size:.78rem;font-weight:600;opacity:0;transition:.25s;z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card2);border:1px solid var(--accent);color:var(--text);padding:11px 18px;border-radius:9px;font-size:.78rem;font-weight:600;opacity:0;transition:.25s;z-index:50;box-shadow:0 8px 30px var(--ombre)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   input[type=file]{display:none}
   .reorder{display:flex;flex-direction:column;gap:1px}
@@ -147,7 +232,7 @@
   /* repo settings modal */
   .scrim{position:fixed;inset:0;background:rgba(5,5,9,.7);backdrop-filter:blur(3px);z-index:80;display:none;align-items:center;justify-content:center;padding:20px}
   .scrim.show{display:flex}
-  .repo-modal{background:var(--card);border:1px solid var(--border-bright);border-radius:16px;padding:24px;max-width:480px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .repo-modal{background:var(--card);border:1px solid var(--border-bright);border-radius:16px;padding:24px;max-width:480px;width:100%;box-shadow:0 24px 70px var(--ombre)}
   .repo-modal h3{font-size:1.05rem;margin-bottom:5px}
   .repo-modal p{color:var(--dim);font-size:.76rem;line-height:1.5;margin-bottom:18px}
   .repo-modal label{display:block;font-family:var(--mono);font-size:.58rem;letter-spacing:1px;text-transform:uppercase;color:var(--dim);margin:0 0 6px}
@@ -160,32 +245,36 @@
   .reorder button:hover{color:var(--accent)}
 
 /* ── Panneau de verification ── */
-#btn-verif.err{border-color:#c0392b;color:#e74c3c}
-#btn-verif.ok{border-color:#2e7d52;color:#39d98a}
+#btn-verif.err{border-color:var(--danger-line);color:var(--danger)}
+#btn-verif.ok{border-color:var(--ok-line);color:var(--ok)}
 .verif-panel{position:fixed;right:14px;top:64px;z-index:60;width:min(92vw,420px);
-  max-height:70vh;overflow-y:auto;background:var(--panel,#fff);
-  border:1px solid var(--border,#d5d5dd);border-radius:12px;
-  box-shadow:0 12px 34px rgba(0,0,0,.22);padding:14px}
+  max-height:70vh;overflow-y:auto;background:var(--panel);
+  border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 12px 34px var(--ombre);padding:14px}
 .verif-head{display:flex;align-items:center;justify-content:space-between;
   gap:10px;margin-bottom:10px}
-.vgrp{border:1px solid var(--border,#d5d5dd);border-radius:9px;padding:10px 12px;margin-bottom:9px}
+.vgrp{border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:9px}
 .vgrp b{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px}
 .vgrp ul{margin:0;padding-left:17px;font-size:.85rem;line-height:1.65}
 .vgrp li.cliquable{cursor:pointer;text-decoration:underline dotted}
-.vgrp li.cliquable:hover{color:#1f6feb}
-.vgrp.err{border-color:rgba(231,76,60,.35);background:rgba(231,76,60,.07)}
-.vgrp.err b{color:#c0392b}
-.vgrp.ale{border-color:rgba(216,158,44,.35);background:rgba(216,158,44,.08)}
-.vgrp.ale b{color:#9a7016}
-.verif-ok{font-size:.86rem;color:#2e7d52;padding:6px 2px}
+.vgrp li.cliquable:hover{color:var(--accent)}
+.vgrp.err{border-color:var(--danger-line);background:var(--danger-dim)}
+.vgrp.err b{color:var(--danger)}
+.vgrp.ale{border-color:var(--warn-line);background:var(--warn-dim)}
+.vgrp.ale b{color:var(--warn)}
+.verif-ok{font-size:.86rem;color:var(--ok);padding:6px 2px}
 
 /* ── Ingredients du client ──
    Meme place que le panneau de verification, mais il reste ouvert pendant
    qu'on ecrit : c'est un plan de travail, pas un diagnostic. */
+/* `display:flex` ecrasait l'attribut `hidden` — la regle de l'agent utilisateur
+   qui masque un element `hidden` a une specificite plus faible qu'une classe.
+   Le panneau ne se fermait donc jamais. `[hidden]` le remet d'aplomb. */
 .ingr-panel{position:fixed;right:14px;top:64px;z-index:59;width:min(92vw,380px);
   max-height:78vh;display:flex;flex-direction:column;
   background:var(--card);border:1px solid var(--border);border-radius:12px;
-  box-shadow:0 12px 34px rgba(0,0,0,.45)}
+  box-shadow:0 12px 34px var(--ombre)}
+.ingr-panel[hidden]{display:none}
 .ingr-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:12px 14px;border-bottom:1px solid var(--border)}
 /* La cible de l'insertion, toujours visible : sans elle on ne sait pas ou le
@@ -228,6 +317,8 @@
   <button class="btn ghost sm" id="btn-verif" onclick="basculerVerif()" title="Verifications">✓ <span id="verif-badge">—</span></button>
   <button class="btn ghost sm" id="btn-ingr" onclick="basculerIngredients()"
           title="Ce que les proches ont repondu pour ce client">🧩 <span id="ingr-badge">—</span></button>
+  <button class="btn ghost sm" id="theme-btn" onclick="basculerApparence()"
+          title="Apparence : suit le systeme, ou forcee en clair ou en sombre">Systeme</button>
   <span class="savestate" id="savestate">brouillon non sauvegardé</span>
   <button class="btn primary sm" onclick="saveOnline()">💾 Enregistrer en ligne</button>
   <a class="btn ghost sm" href="admin.html" style="text-decoration:none">↩ Admin</a>
@@ -256,6 +347,9 @@
   // expose au script classique de la page. Une seule source de verite.
   import { validerJeu, compte } from './shared/valider-jeu.js';
   window.validerJeu = validerJeu; window.compteProblemes = compte;
+  // Les textes d'intro par defaut, exactement ceux que le moteur applique.
+  import { INTRO_DEFAUT } from './shared/intro-defaut.js';
+  window.INTRO_DEFAUT = INTRO_DEFAUT;
   window.dispatchEvent(new Event('validateur-pret'));
 </script>
 
@@ -1139,6 +1233,61 @@ function restoreDraft(){
 function dismissBanner(){ document.getElementById('restore-banner').innerHTML=''; }
 
 // ════════════ NORMALISATION / UTILS ════════════
+// ── Partir d'une base plutot que d'une page blanche ───────────────────────
+// `jeu-create` insere un jeu reellement vide : l'editeur s'ouvrait donc sur
+// rien, alors qu'un modele complet dort dans ce fichier depuis le debut. Il
+// n'etait utilise que pour un editeur ouvert SANS `?id=`, c'est-a-dire jamais
+// dans le parcours normal (on cree le jeu depuis l'admin, puis on l'edite).
+//
+// Le modele ne s'applique pas tout seul : il remplit le formulaire et marque
+// le brouillon comme non enregistre. Rien ne part en base avant « Enregistrer
+// en ligne », et le nom, le slug et la note du jeu cree sont conserves.
+function tplVide(){
+  const n = (DEFAULT_CONFIG.enigmas || []).length;
+  const a = (DEFAULT_CONFIG.acts || []).length;
+  return `<div class="panel-head"><div><div class="eyebrow">Nouveau jeu</div>
+    <h2>${esc(CFG.meta.name || 'Sans nom')}</h2></div></div>
+    <div class="empty" style="text-align:left">
+      <p style="margin-bottom:14px">Ce jeu est vide. Tu peux partir d'une base
+        existante et l'adapter, plutot que de tout ecrire.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="btn primary sm" onclick="appliquerModele('leger')">
+          Base legere — 3 actes, 3 enigmes</button>
+        <button class="btn sm" onclick="appliquerModele('complet')">
+          Modele complet — ${a} actes, ${n} enigmes</button>
+        <button class="btn sm" onclick="addEnigma()">Partir de zero</button>
+      </div>
+      <div class="help">Le modele remplit l'editeur sans rien enregistrer : tu
+        adaptes, puis tu cliques « Enregistrer en ligne ». Le nom et le slug de
+        ce jeu sont conserves dans tous les cas.<br><br>
+        Les textes d'introduction et de briefing se reprennent a part, dans
+        l'onglet <b>Intro</b> : ils s'appliquent deja aux joueurs meme sur un
+        jeu vide, et le bouton « Reprendre les textes par defaut » les rend
+        modifiables.<br><br>
+        Le modele complet porte deux enigmes GPS sans coordonnees — elles
+        dependent du lieu de ton evenement. Le panneau ✓ les signalera, et la
+        publication restera bloquee jusqu'a ce qu'elles soient renseignees.</div>
+    </div>`;
+}
+
+function appliquerModele(taille){
+  const modele = clone(DEFAULT_CONFIG);
+  if(taille === 'leger'){
+    modele.enigmas = modele.enigmas.slice(0, 3);
+    modele.acts = modele.acts.slice(0, 3);
+    // Une borne par acte, plus la borne de fin : trois actes d'une enigme.
+    modele.actBoundaries = [0, 1, 2, 3];
+  }
+  // Le meta appartient au jeu cree, pas au modele : ecraser le slug le ferait
+  // pointer sur « projet-1986 » et casserait son URL.
+  CFG = { ...modele, meta: { ...CFG.meta } };
+  normalize(CFG);
+  sel = 0;
+  markDirty();
+  render();
+  toast(`Modele applique — ${CFG.enigmas.length} enigmes. Rien n'est encore enregistre.`);
+}
+
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function normalize(c){
@@ -1251,7 +1400,12 @@ async function compterIngredients(){
 function basculerIngredients(){
   ingrOuvert = !ingrOuvert;
   document.getElementById('ingr-panel').hidden = !ingrOuvert;
-  if(ingrOuvert){ majCible(); if(!ingrCharge) chargerIngredients(); }
+  if(!ingrOuvert) return;
+  majCible();
+  // A l'ouverture on affiche TOUJOURS. Le compte au demarrage avait deja
+  // charge les donnees et pose `ingrCharge`, mais sans rien rendre puisque le
+  // panneau etait ferme : il restait donc sur « Chargement... » indefiniment.
+  if(ingrCharge) renderIngredients(); else chargerIngredients();
 }
 
 async function chargerIngredients(){
@@ -1410,7 +1564,7 @@ function renderEditor(){
   if(view==='acts')    return ed.innerHTML=tplActs();
   if(view==='intro')   return ed.innerHTML=tplIntro();
   // enigmas
-  if(!CFG.enigmas.length){ ed.innerHTML=`<div class="empty">Aucune énigme. <button class="btn primary sm" onclick="addEnigma()">+ Ajouter la première</button></div>`; return; }
+  if(!CFG.enigmas.length) return ed.innerHTML = tplVide();
   if(sel>=CFG.enigmas.length) sel=CFG.enigmas.length-1;
   ed.innerHTML=tplEnigma(CFG.enigmas[sel], sel);
 }
@@ -1480,6 +1634,19 @@ function removeConsigne(i){ ensureIntro(); CFG.intro.preboot.consignes.splice(i,
 function tplIntro(){
   const I = CFG.intro||{}; const pb=I.preboot||{}, bt=I.boot||{}, it=I.intro||{};
   const consignes = pb.consignes||[];
+  // Ce que le moteur affichera si le champ reste vide. Le montrer en
+  // marque-place plutot que de laisser deviner : ces textes existaient et
+  // s'appliquaient sans jamais apparaitre dans l'editeur.
+  const D = window.INTRO_DEFAUT || { preboot:{}, boot:{}, intro:{} };
+  const vide = !I.preboot && !I.boot && !I.intro;
+  const bandeau = `
+    <div class="banner${vide?' warn':''}" style="margin-bottom:16px">
+      <span>${vide
+        ? "Aucun texte personnalise : les joueurs verront les textes par defaut, affiches ci-dessous en gris."
+        : "Un champ laisse vide retombe sur le texte par defaut, affiche en gris."}</span>
+      <span class="x"><button class="btn sm" onclick="reprendreIntroDefaut()">
+        Reprendre les textes par defaut</button></span>
+    </div>`;
   const consHtml = consignes.map((c,i)=>`
     <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--bg-card)">
       <div style="display:flex;gap:8px">
@@ -1491,31 +1658,49 @@ function tplIntro(){
     </div>`).join('');
   return `
     <div class="panel-head"><div><div class="eyebrow">Pages d'introduction</div><h2>Ambiance & textes du début</h2></div></div>
-
+    ${bandeau}
     <h3 style="margin:6px 0 12px">Page 1 — Sécurité / Accueil</h3>
-    ${inp('Icône (emoji)','intro.preboot.icon',pb.icon||'')}
-    ${inp('Bandeau','intro.preboot.banner',pb.banner||'')}
-    ${inp('Sous-titre','intro.preboot.subtitle',pb.subtitle||'')}
+    ${inp('Icône (emoji)','intro.preboot.icon',pb.icon||'','',null,D.preboot.icon)}
+    ${inp('Bandeau','intro.preboot.banner',pb.banner||'','',null,D.preboot.banner)}
+    ${inp('Sous-titre','intro.preboot.subtitle',pb.subtitle||'','',null,D.preboot.subtitle)}
     <div class="field"><label>Consignes affichées</label>${consHtml||'<div class="help">Aucune consigne pour le moment.</div>'}
       <button class="btn sm" onclick="addConsigne()">+ Ajouter une consigne</button></div>
-    ${ta('Encadré d\'avertissement','intro.preboot.warning',pb.warning||'','',true)}
-    ${inp('Libellé du bouton','intro.preboot.button',pb.button||'')}
-    ${inp('Pied de page','intro.preboot.footer',pb.footer||'')}
+    ${ta('Encadré d\'avertissement','intro.preboot.warning',pb.warning||'','',true,D.preboot.warning)}
+    ${inp('Libellé du bouton','intro.preboot.button',pb.button||'','',null,D.preboot.button)}
+    ${inp('Pied de page','intro.preboot.footer',pb.footer||'','',null,D.preboot.footer)}
 
     <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
     <h3 style="margin:6px 0 12px">Page 2 — Réactivation (boot)</h3>
-    ${inp('Logo / titre','intro.boot.logo',bt.logo||'')}
-    ${inp('Sous-titre','intro.boot.subtitle',bt.subtitle||'')}
-    ${ta('Lignes qui défilent (une par ligne, {total} = nb d\'énigmes)','intro.boot.lines',(bt.lines||[]).join('\n'),'list')}
+    ${inp('Logo / titre','intro.boot.logo',bt.logo||'','',null,D.boot.logo)}
+    ${inp('Sous-titre','intro.boot.subtitle',bt.subtitle||'','',null,D.boot.subtitle)}
+    ${ta('Lignes qui défilent (une par ligne, {total} = nb d\'énigmes)','intro.boot.lines',(bt.lines||[]).join('\n'),'list',false,(D.boot.lines||[]).join('\n'))}
     ${inp('Musique d\'intro (chemin Storage, vide = défaut)','intro.boot.music',bt.music||'','Uploade ton audio dans le bucket Storage, puis colle son chemin. Ex : mariage-dupont/musique.m4a')}
 
     <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
     <h3 style="margin:6px 0 12px">Page 3 — Briefing (intro)</h3>
-    ${inp('Bandeau confidentiel','intro.intro.classified',it.classified||'')}
-    ${ta('Texte de briefing (HTML autorisé : <strong>, <br>… — {total} = nb d\'énigmes)','intro.intro.brief',it.brief||'','')}
-    ${inp('Libellé du bouton','intro.intro.button',it.button||'')}
+    ${inp('Bandeau confidentiel','intro.intro.classified',it.classified||'','',null,D.intro.classified)}
+    ${ta('Texte de briefing (HTML autorisé : <strong>, <br>… — {total} = nb d\'énigmes)','intro.intro.brief',it.brief||'','',false,D.intro.brief)}
+    ${inp('Libellé du bouton','intro.intro.button',it.button||'','',null,D.intro.button)}
   `;
 }
+// Materialise les textes par defaut dans le jeu, pour les modifier au lieu de
+// les retaper. Rien n'est enregistre avant « Enregistrer en ligne ».
+//
+// Le resultat est identique a ce que voyaient les joueurs jusque-la : on ne
+// change pas le rendu, on rend seulement modifiable ce qui etait implicite.
+function reprendreIntroDefaut(){
+  const D = window.INTRO_DEFAUT;
+  if(!D){ toast("Les textes par defaut ne sont pas charges."); return; }
+
+  const rempli = CFG.intro && Object.keys(CFG.intro).length;
+  if(rempli && !confirm("Remplacer les textes d'intro de ce jeu par les textes par defaut ?\n\nCe qui a ete ecrit ici sera perdu.")) return;
+
+  CFG.intro = clone(D);
+  markDirty();
+  render();
+  toast("Textes par defaut repris — a toi de les adapter.");
+}
+
 function addAct(){
   if(!CFG.acts) CFG.acts=[];
   if(!CFG.actBoundaries) CFG.actBoundaries=[];
@@ -1725,19 +1910,20 @@ function onModuleParam(i, cle, val){
   renderPreviewMaybe(path);
 }
 
-function inp(label,path,val,help,type){
+function inp(label,path,val,help,type,ph){
   const t=type==='number'?'number':'text';
   const onin = type==='bounds'
     ? `onBoundsInput(this.value)`
     : `onInput('${path}',this.value,${type==='number'})`;
+  // `ph` montre ce que le moteur utilisera si le champ reste vide.
   return `<div class="field"><label>${label}</label>
-    <input class="inp" type="${t}" value="${esc(val)}" oninput="${onin}">
+    <input class="inp" type="${t}" value="${esc(val)}" oninput="${onin}"${ph?` placeholder="${esc(ph)}"`:''}>
     ${help?`<div class="help">${help}</div>`:''}</div>`;
 }
-function ta(label,path,val,mode,short){
+function ta(label,path,val,mode,short,ph){
   const cls='ta'+(short?' short':'');
   return `<div class="field"><label>${label}</label>
-    <textarea class="${cls}" oninput="onTextarea('${path}',this.value,'${mode||''}')">${esc(val)}</textarea></div>`;
+    <textarea class="${cls}" oninput="onTextarea('${path}',this.value,'${mode||''}')"${ph?` placeholder="${esc(ph)}"`:''}>${esc(val)}</textarea></div>`;
 }
 function chk(label,path,checked){
   return `<label class="check"><input type="checkbox" ${checked?'checked':''} onchange="onInput('${path}',this.checked,false)"><span>${label}</span></label>`;
@@ -1815,8 +2001,8 @@ async function openBiblioPicker(){
   if(!modal){
     modal = document.createElement('div');
     modal.id = 'biblio-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    modal.innerHTML = `<div style="background:var(--panel,#fff);color:inherit;max-width:640px;width:100%;max-height:80vh;overflow:auto;border-radius:14px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+    modal.style.cssText = 'position:fixed;inset:0;background:var(--voile);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    modal.innerHTML = `<div style="background:var(--panel);color:inherit;max-width:640px;width:100%;max-height:80vh;overflow:auto;border-radius:14px;padding:20px;box-shadow:0 20px 60px var(--ombre)">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <h2 style="margin:0;font-size:1.1rem">Bibliothèque d'énigmes</h2>
         <select class="sel" id="bp-filtre" style="margin-left:auto;width:auto"></select>
@@ -1835,7 +2021,7 @@ async function openBiblioPicker(){
     document.getElementById('bp-filtre').innerHTML = cats.map(c=>`<option value="${esc(c)}">${esc(c||'Toutes catégories')}</option>`).join('');
     document.getElementById('bp-filtre').onchange = renderBiblioPicker;
     renderBiblioPicker();
-  }catch(e){ document.getElementById('bp-list').innerHTML = `<div class="help" style="color:#c00">${esc(e.message)}</div>`; }
+  }catch(e){ document.getElementById('bp-list').innerHTML = `<div class="help" style="color:var(--danger)">${esc(e.message)}</div>`; }
 }
 function renderBiblioPicker(){
   const f = document.getElementById('bp-filtre').value;
@@ -1844,7 +2030,7 @@ function renderBiblioPicker(){
   document.getElementById('bp-list').innerHTML = list.map(it=>{
     const fmt = it.enigme&&it.enigme.format||'?';
     const q = (it.enigme&&it.enigme.question||'').slice(0,70);
-    return `<div style="border:1px solid var(--border,#ddd);border-radius:10px;padding:12px;margin-bottom:8px">
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px">
         <strong>${esc(it.titre)}</strong>
         <span class="help" style="margin-left:auto">${esc(it.categorie||'')} · ${esc(fmt)}</span>
