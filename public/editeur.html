@@ -1164,6 +1164,51 @@ async function handleImageUpload(inputEl, path){
   }catch(e){ alert('Upload impossible : '+e.message); }
   inputEl.value='';
 }
+// ── Un son : meme geste qu'une image, autre chemin technique ──────────────
+// `asset-upload` fait transiter le fichier en base64 dans le corps de la
+// fonction, ce qui plafonne a quelques megaoctets — une musique d'intro de
+// trois minutes n'y entre pas. `asset-url` delivre donc une URL signee et le
+// navigateur depose directement dans Supabase.
+function inpAudio(label,path,val,help){
+  const id='up-'+path.replace(/[^a-z0-9]/gi,'-');
+  return `<div class="field"><label>${label}</label>
+    <div style="display:flex;gap:8px">
+      <input class="inp" type="text" value="${esc(val)}" oninput="onInput('${path}',this.value,false)" placeholder="vide = musique par defaut" style="flex:1">
+      <button class="btn sm" type="button" onclick="document.getElementById('${id}').click()">⇪ Envoyer un son</button>
+    </div>
+    <input type="file" id="${id}" accept="audio/*" style="display:none" onchange="handleAudioUpload(this,'${path}')">
+    ${val?`<audio controls preload="none" src="${assetUrlEditor(val)}" style="width:100%;margin-top:8px"></audio>`:''}
+    ${help?`<div class="help">${help}</div>`:''}</div>`;
+}
+
+async function handleAudioUpload(inputEl, path){
+  const file = inputEl.files && inputEl.files[0];
+  inputEl.value = '';
+  if(!file) return;
+  if(!/^audio\//.test(file.type)){ toast('Fichier audio requis'); return; }
+
+  const slug = CFG.meta && CFG.meta.id;
+  if(!slug){ alert("Le jeu doit avoir un identifiant (slug) avant d'envoyer un fichier."); return; }
+
+  try{
+    toast('Preparation…');
+    const { url, path: chemin } = await callFn('asset-url', { method:'POST',
+      body:{ slug, filename:file.name, type:file.type, taille:file.size } });
+
+    toast('Envoi…');
+    // Depot direct sur l'URL signee. `x-upsert: false` : deux envois ne
+    // peuvent pas se marcher dessus, le serveur ayant deja horodate le chemin.
+    const dep = await fetch(url, { method:'PUT',
+      headers:{ 'Content-Type': file.type || 'application/octet-stream', 'x-upsert':'false' },
+      body: file });
+    if(!dep.ok) throw new Error("L'envoi n'a pas abouti. Reessaie.");
+
+    onInput(path, chemin, false);
+    render();
+    toast('Son ajoute ✓');
+  }catch(e){ alert('Envoi impossible : '+e.message); }
+}
+
 function inpImage(label,path,val,help){
   const id='up-'+path.replace(/[^a-z0-9]/gi,'-');
   return `<div class="field"><label>${label}</label>
@@ -1700,7 +1745,8 @@ function tplIntro(){
     ${inp('Logo / titre','intro.boot.logo',bt.logo||'','',null,D.boot.logo)}
     ${inp('Sous-titre','intro.boot.subtitle',bt.subtitle||'','',null,D.boot.subtitle)}
     ${ta('Lignes qui défilent (une par ligne, {total} = nb d\'énigmes)','intro.boot.lines',(bt.lines||[]).join('\n'),'list',false,(D.boot.lines||[]).join('\n'))}
-    ${inp('Musique d\'intro (chemin Storage, vide = défaut)','intro.boot.music',bt.music||'','Uploade ton audio dans le bucket Storage, puis colle son chemin. Ex : mariage-dupont/musique.m4a')}
+    ${inpAudio('Musique d\'intro','intro.boot.music',bt.music||'',
+      'MP3, M4A, OGG ou WAV, 25 Mo maximum. Le fichier part dans le dossier du jeu et se joue pendant l\'ecran de reactivation. Laisse vide pour garder la musique par defaut.')}
 
     <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
     <h3 style="margin:6px 0 12px">Page 3 — Briefing (intro)</h3>

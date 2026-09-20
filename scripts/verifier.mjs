@@ -162,11 +162,15 @@ for (const p of PAGES) {
 // passage de l'un a l'autre est un geste d'administrateur, fichier par fichier
 // (`media-promouvoir`), et c'est tout l'objet de la phase 3. Une fonction de
 // confort qui ecrirait dans `assets` en contournerait la regle sans le dire.
-const ECRIVENT_ASSETS = ['asset-upload.js', 'media-promouvoir.js'];
+// `createSignedUploadUrl` compte comme une ecriture : elle delegue le depot au
+// navigateur, mais c'est bien le serveur qui l'autorise. La regle ne la
+// couvrait pas, et une fonction pouvait donc ouvrir le bucket public sans
+// declencher le controle.
+const ECRIVENT_ASSETS = ['asset-upload.js', 'asset-url.js', 'media-promouvoir.js'];
 for (const f of fonctions) {
   if (ECRIVENT_ASSETS.includes(f)) continue;
   controles++;
-  if (/from\(['"]assets['"]\)\s*\.\s*(upload|copy|move)/.test(lire(`netlify/functions/${f}`)))
+  if (/from\(['"]assets['"]\)\s*\.\s*(upload|copy|move|createSignedUploadUrl)/.test(lire(`netlify/functions/${f}`)))
     ko(`netlify/functions/${f}`, 'ecriture dans le bucket public « assets » — la promotion passe par media-promouvoir');
 }
 

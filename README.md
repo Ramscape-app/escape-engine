@@ -126,9 +126,26 @@ reste utilisable : `index.html` retombe sur la configuration embarquée.
 | `complices` | `id`, `questionnaire_id`, `nom`, `relation`, `jeton` (unique), `ouvert_le`, `termine_le` |
 | `reponses` | `id`, `complice_id`, `question_id`, `libelle_pose`, `valeur`, `medias` (jsonb) — unicité sur (`complice_id`, `question_id`) |
 
-`statut` vaut `brouillon`, `publie` ou `archive`. Le stockage utilise deux buckets :
-`assets`, **public**, rangé par slug de jeu, que lit le moteur ; et `reponses`, **privé**,
-où atterrit ce que les complices envoient (voir *Photos et sons des complices*).
+### Les deux buckets de stockage
+
+Un *bucket* est un espace de fichiers dans Supabase, l'équivalent d'un dossier servi par
+une URL. Le projet en utilise deux, et la différence entre les deux est le point à
+retenir :
+
+| Bucket | Accès | Ce qu'on y met | Comment |
+|---|---|---|---|
+| `assets` | **public** — une URL devinable suffit à le lire | L'habillage d'un jeu : images d'énigmes, icônes, musique d'intro | Boutons ⇪ de l'éditeur, rangé par slug de jeu |
+| `reponses` | **privé** — aucune URL permanente | Ce que les complices envoient | Leur lien de questionnaire ; n'en sort que par *Rendre public* |
+
+Dans l'éditeur, tout s'envoie depuis la page — il n'y a jamais à passer par la console
+Supabase. Les images utilisent `asset-upload` (compression côté navigateur, transit en
+base64, quelques mégaoctets au plus) ; **les sons utilisent `asset-url`**, qui délivre une
+URL signée pour un dépôt direct, parce qu'une musique d'intro de trois minutes ne tient
+pas dans le corps d'une fonction serveur. Les deux calculent le chemin côté serveur :
+l'extension vient du type MIME et non du nom envoyé, et un horodatage empêche tout
+écrasement.
+
+`statut` vaut `brouillon`, `publie` ou `archive`.
 
 Supprimer un compte auth supprime en cascade son profil, sa progression, ses
 tentatives et ses événements.
