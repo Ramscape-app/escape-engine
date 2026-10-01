@@ -1,53 +1,60 @@
-// La sequence d'ouverture : ce que le joueur voit avant toute chose.
+// La signature RAMSCAPE : ce que le joueur voit avant toute chose.
 //
 // Un fichier video aurait pese 4 a 10 Mo — soit un ecran noir de plusieurs
-// secondes en 4G, juste avant le moment ou l'effet doit porter — et aurait fige
-// le nom, les couleurs et la photo pour tous les jeux. Ici tout est dessine par
-// le navigateur : ~20 Ko, demarrage immediat, et chaque jeu recoit SA sequence
-// puisqu'elle lit son nom, l'accent de son theme et sa photo d'intro.
+// secondes en 4G, juste avant le moment ou l'effet doit porter. Ici tout est
+// dessine par le navigateur : ~20 Ko et un demarrage immediat.
+//
+// Elle ne montre plus le jeu : elle montre la marque. Les cadres qui portaient
+// la photo d'intro ont saute, et le nom revele est RAMSCAPE, le meme pour tous
+// les jeux. Seule la couleur suit le theme, pour que l'enchainement sur le
+// briefing ne fasse pas une rupture.
 //
 // Quatre actes, enchaines par une seule horloge :
-//   1. TUNNEL      des cadres embointes qui se precipitent vers l'oeil, chacun
-//                  portant la photo du jeu : une image dans une image dans une
-//                  image.
-//   2. DECOMPOSITION  un objet geometrique s'ouvre en couches dans la
-//                  profondeur, se maintient, puis se reassemble d'un coup.
-//   3. MOTIF       l'objet tourne et se repete en rosace pendant que les trois
-//                  mots frappent l'un apres l'autre.
-//   4. REVELATION  tout s'effondre en un point de lumiere qui s'ouvre sur le
-//                  nom du jeu.
+//   1. ASSEMBLAGE    douze dalles pleines arrivent du lointain, floues et
+//                    dispersees, et convergent en un bloc.
+//   2. ECLATEMENT    le bloc s'ouvre en couches dans la profondeur, se
+//                    maintient, puis se referme d'un coup.
+//   3. LES MOTS      le bloc tourne sur lui-meme pendant que PATIENCE,
+//                    REFLEXION et MEMOIRE frappent l'un apres l'autre.
+//   4. REVELATION    le bloc s'effondre en un souffle de lumiere qui s'ouvre
+//                    sur RAMSCAPE.
 //
-// Regle tenue d'un bout a l'autre : on n'anime que `transform`, `opacity` et
-// `filter`. Jamais une largeur, une hauteur ni une position — ce sont elles qui
-// font saccader un telephone, parce qu'elles forcent le navigateur a recalculer
-// la mise en page a chaque image.
+// De la matiere, pas du trait. Chaque dalle est une surface pleine, degradee
+// du clair au sombre comme une face qui prend la lumiere, et assombrie selon
+// son rang pour que l'empilement se lise comme une epaisseur. La version
+// precedente etait faite de contours de 1 px : juste, mais c'etait un dessin
+// technique, pas un objet.
+//
+// Regle tenue d'un bout a l'autre : on n'anime que transform, opacity et
+// filter. Jamais une largeur ni une position — ce sont elles qui font saccader
+// un telephone, parce qu'elles forcent le navigateur a refaire sa mise en page
+// a chaque image.
 
 // ─────────────────────────── Ce qui se decide ───────────────────────────
 // Separe du dessin pour etre verifiable sans navigateur.
 
-// Nombre d'elements animes. Chaque couche est un calque composite sur le GPU :
-// genereux sur l'effet, mais un telephone d'entree de gamme en a assez de ca.
-export const CADRES = 18;    // acte 1, les cadres du tunnel
-export const TRANCHES = 16;  // acte 2, les couches de l'objet
-export const PETALES = 12;   // acte 3, les branches de la rosace
+// Les dalles du bloc. Chacune est un calque composite sur le GPU : assez pour
+// que l'empilement ait de l'epaisseur, pas au point de faire decrocher un
+// telephone d'entree de gamme.
+export const DALLES = 12;
 
 // Les reperes de la sequence, en millisecondes depuis le premier geste.
 // Ecrits ici et nulle part ailleurs : un acte qui glisse ne doit pas obliger a
-// retrouver des `setTimeout` disperses.
+// retrouver des setTimeout disperses.
 export const REPERES = {
-  tunnel: 0,
-  eclatement: 2400,
-  reassemblage: 4700,
-  motif: 5200,
-  mot1: 5500,
-  mot2: 6600,
-  mot3: 7700,
-  implosion: 8900,
-  flash: 9150,
-  nom: 9450,
-  signature: 10500,
-  sortie: 11600,
-  fin: 12300,
+  assemblage: 0,
+  bloc: 2400,
+  eclatement: 3000,
+  reassemblage: 4600,
+  mot1: 5200,
+  mot2: 6300,
+  mot3: 7400,
+  implosion: 8600,
+  flash: 8900,
+  nom: 9200,
+  signature: 10300,
+  sortie: 11300,
+  fin: 12000,
 };
 
 // Le bouton « passer » n'apparait pas tout de suite : propose a la premiere
@@ -66,8 +73,8 @@ export function planSequence(actes) {
 }
 
 // La sequence ne se joue qu'une fois par appareil et par jeu : la revoir a
-// chaque rechargement la transformerait en peage. `?cine=1` la force (pour la
-// montrer), `?cine=0` la coupe.
+// chaque rechargement la transformerait en peage. ?cine=1 la force (pour la
+// montrer), ?cine=0 la coupe.
 export function doitJouer({ actif = true, recherche = '', vue = false, mouvementReduit = false } = {}) {
   const q = new URLSearchParams(recherche);
   const force = q.get('cine');
@@ -76,7 +83,7 @@ export function doitJouer({ actif = true, recherche = '', vue = false, mouvement
   if (!actif) return 'non';
   if (vue) return 'non';
   // Un joueur qui a demande moins d'animations dans son systeme ne veut pas
-  // treize secondes de mouvement. Il a droit au nom du jeu, en fondu.
+  // douze secondes de mouvement. Il a droit a la marque, en fondu.
   return mouvementReduit ? 'sobre' : 'complete';
 }
 
@@ -86,7 +93,7 @@ export function cleMemoire(identifiantJeu) {
 
 // Le nom se compose lettre a lettre. Decoupe en mots d'abord : une lettre est
 // un bloc en ligne, et sans ce regroupement un mot se couperait en fin de ligne
-// au milieu — « LES NO / CES ». Chaque mot rend la liste de ses lettres.
+// au milieu. Chaque mot rend la liste de ses lettres.
 export function decouperNom(nom) {
   return String(nom || '').trim().split(/\s+/).filter(Boolean).map(mot => [...mot]);
 }
@@ -95,6 +102,23 @@ export function decouperNom(nom) {
 // mots sans repartir de zero a chacun.
 export function nombreDeLettres(nom) {
   return decouperNom(nom).reduce((n, mot) => n + mot.length, 0);
+}
+
+// La position de depart de chaque dalle : dispersee dans toutes les
+// directions, pour que la convergence se lise comme un rassemblement et non
+// comme un simple fondu. Deterministe — une sequence qui change a chaque
+// lecture ne se regle pas.
+export function dispersion(i, total) {
+  // Un tour d'or : les angles ne se repetent jamais et se repartissent bien,
+  // la ou un pas regulier ferait apparaitre des alignements.
+  const a = i * 2.39996;
+  const loin = 1 - (i / total) * 0.45;
+  return {
+    x: Math.round(Math.cos(a) * 150 * loin),
+    y: Math.round(Math.sin(a) * 190 * loin),
+    z: -900 - i * 130,
+    rot: Math.round(Math.cos(a * 1.7) * 70),
+  };
 }
 
 // ─────────────────────────── Le dessin ───────────────────────────
@@ -107,127 +131,105 @@ function feuille() {
   s.id = STYLE_ID;
   s.textContent = `
 .cine {
-  position: fixed; inset: 0; z-index: 9000; background: #000;
+  position: fixed; inset: 0; z-index: 9000;
+  background: #05050a;
   overflow: hidden; touch-action: manipulation;
   display: grid; place-items: center;
-  /* L'accent du theme traverse toute la sequence ; la variable de repli
-     permet de s'en passer si la page n'en definit pas. */
   --cine-accent: var(--accent, #00f0ff);
-  --cine-objet: 60vmin;
+  --cine-bloc: 46vmin;
 }
 .cine, .cine * { -webkit-tap-highlight-color: transparent; }
 .cine.sort { opacity: 0; transition: opacity .8s ease; }
 
-/* Toutes les couches 3D partagent la meme profondeur de champ. 900px : au-dela
-   la perspective s'aplatit, en-dessous les bords se deforment trop. */
+/* Le fond n'est pas un noir plat : une nappe de couleur respire derriere le
+   bloc et lui donne un espace ou exister. */
+.cine::before {
+  content: ""; position: absolute; inset: -20%;
+  background: radial-gradient(42% 32% at 50% 48%,
+    color-mix(in srgb, var(--cine-accent) 16%, transparent) 0%,
+    color-mix(in srgb, var(--cine-accent) 5%, transparent) 42%,
+    transparent 72%);
+  animation: cine-nappe 9s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes cine-nappe {
+  0%, 100% { transform: scale(1);    opacity: .75; }
+  50%      { transform: scale(1.18); opacity: 1; }
+}
+
+/* 1100 px de profondeur de champ : au-dela la perspective s'aplatit, en-deca
+   les bords se deforment. */
 .cine-scene {
-  position: absolute; inset: 0; perspective: 900px;
+  position: absolute; inset: 0; perspective: 1100px;
   display: grid; place-items: center; pointer-events: none;
 }
 .cine-scene > * { position: absolute; transform-style: preserve-3d; }
 
-/* ── Acte 1 : le tunnel ─────────────────────────────────────────────── */
-.cine-cadre {
-  width: var(--cine-objet); height: var(--cine-objet);
-  border: 1px solid var(--cine-accent);
-  border-radius: 2px; opacity: 0;
-  background-size: cover; background-position: center;
-  box-shadow: 0 0 30px -10px var(--cine-accent);
-  /* Une seule traversee par cadre : decales, ils font un flux continu qui
-     s'eteint de lui-meme quand l'objet prend le relais. Boucler a l'infini
-     obligerait a les arreter a la main et les laisserait courir derriere. */
-  animation: cine-tunnel var(--d) linear 1;
-  animation-delay: var(--t);
-  will-change: transform, opacity;
+/* ── Le bloc ────────────────────────────────────────────────────────── */
+.cine-bloc {
+  width: var(--cine-bloc); height: var(--cine-bloc);
+  transform: rotateX(58deg) rotateZ(-22deg);
+  transition: transform 1.6s cubic-bezier(.3,.7,.2,1);
 }
-/* Tant que la porte n'est pas ouverte, rien ne bouge : le tunnel derriere le
-   nom et l'invitation brouillait la lecture des deux. */
-.cine.attente .cine-cadre { animation-play-state: paused; }
-.cine-cadre::after {
-  /* La photo, posee dans chaque cadre : c'est elle qui fait « une image dans
-     l'image » plutot qu'un simple couloir de rectangles. */
-  content: ""; position: absolute; inset: 6%;
-  background: inherit; background-size: cover; background-position: center;
-  opacity: .5;
-}
-@keyframes cine-tunnel {
-  /* Le cadre ne s'arrete pas devant l'oeil : il le traverse. A Z = 780 et une
-     profondeur de champ de 900, il fait plus de six fois sa taille et sort de
-     l'ecran par les bords — c'est ce depassement qui donne la chute en avant
-     plutot qu'un couloir qu'on regarde de loin. */
-  0%   { opacity: 0;   transform: translateZ(-2600px) rotate(var(--r)); }
-  10%  { opacity: .95; }
-  80%  { opacity: .8; }
-  100% { opacity: 0;   transform: translateZ(780px) rotate(0deg); }
-}
+.cine-bloc.droit  { transform: rotateX(16deg) rotateZ(0deg); }
+.cine-bloc.ouvert { transform: rotateX(66deg) rotateZ(-26deg); }
+.cine-bloc.tourne { animation: cine-rotation 13s linear infinite; }
 
-/* ── Actes 2 et 3 : l'objet en couches ──────────────────────────────── */
-.cine-objet {
-  width: var(--cine-objet); height: var(--cine-objet);
-  opacity: 0;
-  transform: rotateX(0deg) rotateZ(0deg);
-  transition: opacity .7s ease, transform 1.5s cubic-bezier(.3,.7,.2,1);
-}
-.cine-objet.visible { opacity: 1; }
-/* Ouvert : on bascule l'objet pour voir la tranche de ses couches. */
-.cine-objet.eclate { transform: rotateX(64deg) rotateZ(-18deg); }
-.cine-objet.tourne { animation: cine-rotation 14s linear infinite; }
-
-.cine-tranche {
+.cine-dalle {
   position: absolute; inset: 0;
-  border: 1px solid var(--cine-accent);
-  border-radius: 1px;
-  opacity: calc(.35 + var(--i) * .04);
-  /* Assemble : les couches sont superposees et vrillees — un seul contour
-     dense, dont on ne devine pas encore qu'il est fait de seize pieces. */
-  transform: translateZ(0) rotateZ(calc(var(--i) * 11deg)) scale(calc(1 - var(--i) * .028));
-  transition: transform 1.4s cubic-bezier(.3,.7,.2,1);
-  will-change: transform;
-}
-/* Ouvert : chaque couche s'ecarte dans la profondeur, proportionnellement a son
-   rang. C'est la vue eclatee. */
-.cine-objet.eclate .cine-tranche {
-  transform: translateZ(calc((var(--i) - 7.5) * 30px))
-             rotateZ(calc(var(--i) * 11deg))
-             scale(calc(1 - var(--i) * .028));
-}
-/* Referme : plus court, et une courbe qui depasse puis revient — c'est ce
-   depassement qui donne le claquement. */
-.cine-objet.reassemble .cine-tranche {
-  transition-duration: .42s;
-  transition-timing-function: cubic-bezier(.2,1.6,.35,1);
-}
-.cine-objet.implose .cine-tranche {
-  transition-duration: .5s; transition-timing-function: cubic-bezier(.6,0,.9,.3);
-  transform: translateZ(0) rotateZ(calc(var(--i) * 40deg)) scale(0);
-}
-@keyframes cine-rotation { to { transform: rotateZ(360deg); } }
-
-/* ── Acte 3 : la rosace ─────────────────────────────────────────────── */
-.cine-rosace { width: var(--cine-objet); height: var(--cine-objet); opacity: 0; transition: opacity 1s ease; }
-.cine-rosace.visible { opacity: .55; }
-.cine-petale {
-  position: absolute; inset: 0; border: 1px solid var(--cine-accent);
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(var(--a)) scale(.42);
-  animation: cine-respire 3.4s ease-in-out infinite;
-  animation-delay: var(--t);
+  border-radius: 4px;
+  /* De la matiere : une face pleine qui prend la lumiere d'un bord et la
+     perd a l'autre. C'est ce degrade, et non un contour, qui fait qu'on lit
+     un volume plutot qu'un schema. */
+  background: linear-gradient(142deg,
+    color-mix(in srgb, var(--cine-accent) 96%, #fff) 0%,
+    var(--cine-accent) 30%,
+    color-mix(in srgb, var(--cine-accent) 64%, #000) 62%,
+    color-mix(in srgb, var(--cine-accent) 34%, #000) 100%);
+  box-shadow: 0 0 46px -16px var(--cine-accent);
+  /* Plus la dalle est loin dans la pile, plus elle est sombre : c'est ce
+     degrade d'ensemble qui donne son epaisseur a l'empilement. La pente reste
+     douce — trop marquee, les dalles du milieu tombaient dans le noir et
+     coupaient l'objet en deux. */
+  filter: brightness(var(--lum));
+  /* Dispersees au depart, invisibles et floues : elles viennent de loin. */
+  opacity: 0;
+  transform: translate3d(var(--x), var(--y), var(--z)) rotateZ(var(--rot)) scale(.6);
+  transition: transform 1.9s cubic-bezier(.22,.9,.24,1),
+              opacity 1.1s ease, filter .6s ease;
   will-change: transform, opacity;
 }
-@keyframes cine-respire {
-  0%, 100% { opacity: .18; }
-  50%      { opacity: .7; }
+/* Rassemblees : la pile, chaque dalle a son etage. */
+.cine-bloc.assemble .cine-dalle {
+  opacity: 1;
+  transform: translate3d(0, 0, calc((var(--i) - 5.5) * 4px)) rotateZ(0deg) scale(1);
 }
+/* Ouvertes : la vue eclatee, chaque dalle ecartee selon son rang. */
+.cine-bloc.eclate .cine-dalle {
+  opacity: 1;
+  transform: translate3d(0, 0, calc((var(--i) - 5.5) * 30px)) rotateZ(calc(var(--i) * 2deg)) scale(1);
+  transition-duration: 1.25s;
+}
+/* Refermees : plus court, avec une courbe qui depasse puis revient — c'est ce
+   depassement qui donne le claquement. */
+.cine-bloc.referme .cine-dalle {
+  transition-duration: .42s;
+  transition-timing-function: cubic-bezier(.2,1.7,.35,1);
+}
+.cine-bloc.implose .cine-dalle {
+  opacity: 0;
+  transform: translate3d(0, 0, 0) rotateZ(calc(var(--i) * 26deg)) scale(.04);
+  transition-duration: .55s;
+  transition-timing-function: cubic-bezier(.65,0,.9,.25);
+}
+@keyframes cine-rotation { to { transform: rotateX(16deg) rotateZ(360deg); } }
 
-/* ── Acte 4 : le point de lumiere ───────────────────────────────────── */
+/* ── Le souffle ─────────────────────────────────────────────────────── */
 .cine-coeur {
-  /* Un disque degrade, et non une pastille a grosse ombre portee : agrandie,
-     l'ombre couvrait l'ecran d'un aplat uni qui noyait le nom. Le degrade,
-     lui, se dilue en s'etendant. */
-  width: 180px; height: 180px; border-radius: 50%;
+  width: 190px; height: 190px; border-radius: 50%;
   background: radial-gradient(circle,
-    #fff 0%, var(--cine-accent) 18%,
-    color-mix(in srgb, var(--cine-accent) 35%, transparent) 42%,
+    #fff 0%, var(--cine-accent) 17%,
+    color-mix(in srgb, var(--cine-accent) 34%, transparent) 40%,
     transparent 70%);
   opacity: 0; transform: scale(0);
 }
@@ -237,7 +239,7 @@ function feuille() {
   16%  { opacity: 1;   transform: scale(1.1); }
   /* Le souffle s'efface avant que le nom finisse de se composer : il doit le
      reveler, pas rester derriere lui. */
-  55%  { opacity: .35; transform: scale(4.5); }
+  55%  { opacity: .32; transform: scale(4.5); }
   100% { opacity: 0;   transform: scale(9); }
 }
 
@@ -246,14 +248,13 @@ function feuille() {
   position: relative; z-index: 2; text-align: center;
   padding: 0 24px; pointer-events: none; width: 100%;
 }
-/* Un voile sombre sous le texte seulement. Sans lui, les mots tombaient au
-   plus dense de la rosace et devenaient illisibles : du blanc sur un
-   enchevetrement de traits clairs. Le motif reste visible tout autour. */
+/* Un voile sombre sous le texte seulement, sinon les mots tombent sur la
+   matiere du bloc et deviennent illisibles. Le bloc reste visible autour. */
 .cine-texte::before {
   content: ""; position: absolute; z-index: -1;
   left: -10%; right: -10%; top: -120%; bottom: -120%;
-  background: radial-gradient(58% 32% at 50% 50%,
-    rgba(0,0,0,.88) 0%, rgba(0,0,0,.72) 45%, transparent 78%);
+  background: radial-gradient(58% 30% at 50% 50%,
+    rgba(0,0,0,.9) 0%, rgba(0,0,0,.74) 45%, transparent 78%);
 }
 .cine-mot {
   position: absolute; left: 0; right: 0;
@@ -273,9 +274,9 @@ function feuille() {
 }
 .cine-nom {
   font-family: var(--font-display, system-ui), sans-serif;
-  font-weight: 900; font-size: clamp(1.25rem, 6.6vw, 2.5rem);
-  color: #fff; letter-spacing: .1em; line-height: 1.25;
-  text-shadow: 0 0 50px var(--cine-accent);
+  font-weight: 900; font-size: clamp(1.7rem, 11vw, 3.4rem);
+  color: #fff; letter-spacing: .14em; line-height: 1.2;
+  text-shadow: 0 0 46px var(--cine-accent);
 }
 /* Un mot ne se coupe pas : ses lettres sont des blocs en ligne, et sans ce
    regroupement la fin de ligne tomberait au milieu d'un mot. */
@@ -287,10 +288,10 @@ function feuille() {
   to   { opacity: 1; transform: translateY(0) scale(1);        filter: blur(0); }
 }
 .cine-signature {
-  margin-top: 26px;
+  margin-top: 22px;
   font-family: var(--font-mono, ui-monospace), monospace;
-  font-size: clamp(.55rem, 2.6vw, .7rem);
-  letter-spacing: .32em; color: var(--cine-accent);
+  font-size: clamp(.52rem, 2.6vw, .68rem);
+  letter-spacing: .34em; color: var(--cine-accent);
   opacity: 0; transition: opacity 1.1s ease;
 }
 .cine-signature.entre { opacity: .85; }
@@ -300,29 +301,27 @@ function feuille() {
   position: absolute; inset: 0; z-index: 3;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 26px; padding: 24px; text-align: center; cursor: pointer;
-  background: radial-gradient(60% 60% at 50% 50%, color-mix(in srgb, var(--cine-accent) 7%, transparent), transparent 70%);
   animation: cine-apparait 1.2s ease both;
 }
 .cine-porte.part { opacity: 0; transition: opacity .5s ease; pointer-events: none; }
 @keyframes cine-apparait { from { opacity: 0; } to { opacity: 1; } }
 .cine-porte-nom {
   font-family: var(--font-display, system-ui), sans-serif;
-  font-weight: 700; font-size: clamp(1rem, 5vw, 1.6rem);
-  letter-spacing: .3em; color: #fff; opacity: .5;
+  font-weight: 900; font-size: clamp(1rem, 5.5vw, 1.7rem);
+  letter-spacing: .34em; color: #fff; opacity: .42;
 }
 .cine-anneau {
-  width: 92px; height: 92px; border-radius: 50%;
-  border: 1px solid var(--cine-accent);
-  display: grid; place-items: center;
+  width: 96px; height: 96px; border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--cine-accent) 60%, #fff) 0%,
+    var(--cine-accent) 26%,
+    color-mix(in srgb, var(--cine-accent) 22%, transparent) 54%,
+    transparent 72%);
   animation: cine-battement 2.6s ease-in-out infinite;
 }
-.cine-anneau::before {
-  content: ""; width: 10px; height: 10px; border-radius: 50%;
-  background: var(--cine-accent); box-shadow: 0 0 24px 6px var(--cine-accent);
-}
 @keyframes cine-battement {
-  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 color-mix(in srgb, var(--cine-accent) 40%, transparent); }
-  50%      { transform: scale(1.09); box-shadow: 0 0 0 22px transparent; }
+  0%, 100% { transform: scale(.82); opacity: .75; }
+  50%      { transform: scale(1);   opacity: 1; }
 }
 .cine-porte-invite {
   font-family: var(--font-mono, ui-monospace), monospace;
@@ -345,10 +344,10 @@ function feuille() {
 }
 .cine-passer.entre { opacity: 1; }
 
-/* Un joueur qui a demande moins de mouvement recoit le nom, sans le reste. */
+/* Un joueur qui a demande moins de mouvement recoit la marque, sans le reste. */
 @media (prefers-reduced-motion: reduce) {
-  .cine-cadre, .cine-petale, .cine-anneau, .cine-porte-invite { animation: none; }
-  .cine-objet, .cine-tranche { transition: none; }
+  .cine::before, .cine-anneau, .cine-porte-invite { animation: none; }
+  .cine-bloc, .cine-dalle { transition: none; }
 }
 `;
   document.head.appendChild(s);
@@ -365,11 +364,10 @@ const elt = (classe, parent, style) => {
 // Joue la sequence. Rend une promesse resolue quand elle est finie, passee ou
 // refusee — l'appelant enchaine sur le briefing sans avoir a savoir laquelle.
 //
-//   nom        le nom du jeu
+//   nom        la marque revelee a la fin (RAMSCAPE)
 //   mots       les trois qualites annoncees
-//   signature  la ligne sous le nom ({total} deja remplace)
+//   signature  la ligne sous la marque
 //   invite     le texte de la porte
-//   photo      URL de la photo d'intro, portee par les cadres du tunnel
 //   ton        (freq, duree, forme) → joue un son ; optionnel
 //   mode       'complete' | 'sobre'
 export function jouer(options = {}) {
@@ -377,30 +375,21 @@ export function jouer(options = {}) {
   const ton = typeof o.ton === 'function' ? o.ton : () => {};
   feuille();
 
-  const racine = elt('cine attente');
+  const racine = elt('cine');
   racine.setAttribute('role', 'dialog');
   racine.setAttribute('aria-label', "Séquence d'ouverture");
   document.body.appendChild(racine);
 
   const scene = elt('cine-scene', racine);
-  const rosace = elt('cine-rosace', scene);
-  const objet = elt('cine-objet', scene);
+  const bloc = elt('cine-bloc', scene);
   const coeur = elt('cine-coeur', scene);
   const texte = elt('cine-texte', racine);
 
-  const fondPhoto = o.photo ? `background-image:url("${String(o.photo).replace(/"/g, '%22')}")` : '';
-  // Les cadres sont poses directement dans la scene : seuls ses enfants directs
-  // recoivent la perspective et le positionnement absolu. Glisses dans un
-  // conteneur intermediaire, ils retombaient en colonne, a plat.
-  const DUREE_CADRE = 2.2;
-  for (let i = 0; i < CADRES; i++) {
-    elt('cine-cadre', scene,
-      `--t:${(i * (DUREE_CADRE / CADRES)).toFixed(2)}s;--d:${DUREE_CADRE}s;`
-      + `--r:${(i % 2 ? 1 : -1) * (8 + i * 2)}deg;${fondPhoto}`);
-  }
-  for (let i = 0; i < TRANCHES; i++) elt('cine-tranche', objet, `--i:${i}`);
-  for (let i = 0; i < PETALES; i++) {
-    elt('cine-petale', rosace, `--a:${(i * 360 / PETALES).toFixed(1)}deg;--t:${(i * 0.17).toFixed(2)}s`);
+  for (let i = 0; i < DALLES; i++) {
+    const d = dispersion(i, DALLES);
+    elt('cine-dalle', bloc,
+      `--i:${i};--lum:${(1.02 - i * 0.034).toFixed(3)};`
+      + `--x:${d.x}px;--y:${d.y}px;--z:${d.z}px;--rot:${d.rot}deg;`);
   }
 
   const mots = (Array.isArray(o.mots) ? o.mots : []).slice(0, 3);
@@ -410,8 +399,8 @@ export function jouer(options = {}) {
     return e;
   });
 
-  const bloc = elt('cine-nom-bloc', texte);
-  const nom = elt('cine-nom', bloc);
+  const enTete = elt('cine-nom-bloc', texte);
+  const nom = elt('cine-nom', enTete);
   const lettres = [];
   decouperNom(o.nom).forEach((mot, iMot) => {
     if (iMot) nom.appendChild(document.createTextNode(' '));
@@ -423,7 +412,7 @@ export function jouer(options = {}) {
       lettres.push(s);
     }
   });
-  const signature = elt('cine-signature', bloc);
+  const signature = elt('cine-signature', enTete);
   signature.textContent = o.signature || '';
 
   // La porte. Elle existe pour une raison technique autant que dramatique :
@@ -461,13 +450,11 @@ export function jouer(options = {}) {
 
     const demarrer = () => {
       porte.classList.add('part');
-      // Le tunnel attendait, en pause : il part avec le geste, pas avant.
-      racine.classList.remove('attente');
       plus(500, () => porte.remove());
       if (typeof o.surDepart === 'function') o.surDepart();
 
       if (o.mode === 'sobre') {
-        // Pas de mouvement : le nom, et c'est tout.
+        // Pas de mouvement : la marque, et c'est tout.
         lettres.forEach(s => s.classList.add('entre'));
         signature.classList.add('entre');
         plus(2600, terminer);
@@ -475,34 +462,43 @@ export function jouer(options = {}) {
       }
 
       const actes = {
-        tunnel: () => ton(110, .9, 'sine'),
+        assemblage: () => {
+          // Deux images d'ecart : le navigateur doit avoir pose l'etat
+          // disperse avant qu'on bascule, sinon il n'y a pas de transition,
+          // seulement un saut.
+          requestAnimationFrame(() => requestAnimationFrame(() =>
+            bloc.classList.add('assemble')));
+          ton(96, 1.1, 'sine');
+        },
+        bloc: () => { bloc.classList.add('droit'); ton(180, .45, 'triangle'); },
         eclatement: () => {
-          objet.classList.add('visible', 'eclate');
-          ton(180, .5, 'triangle');
+          bloc.classList.remove('droit');
+          bloc.classList.add('ouvert', 'eclate');
+          ton(220, .5, 'triangle');
         },
         reassemblage: () => {
           // L'ordre compte : la classe de retour doit etre posee AVANT que
           // celle de l'ouverture ne saute, sinon le retour emprunte la
           // transition lente de l'aller et le claquement disparait.
-          objet.classList.add('reassemble');
-          objet.classList.remove('eclate');
+          bloc.classList.add('referme');
+          bloc.classList.remove('eclate', 'ouvert');
+          bloc.classList.add('droit');
           ton(70, .35, 'square');
-          plus(420, () => ton(520, .18));
+          plus(420, () => { ton(520, .18); bloc.classList.add('tourne'); });
         },
-        motif: () => { rosace.classList.add('visible'); objet.classList.add('tourne'); },
         mot1: () => { nodesMots[0] && nodesMots[0].classList.add('entre'); ton(392, .22); },
         mot2: () => { nodesMots[1] && nodesMots[1].classList.add('entre'); ton(494, .22); },
         mot3: () => { nodesMots[2] && nodesMots[2].classList.add('entre'); ton(587, .22); },
         implosion: () => {
-          objet.classList.add('implose');
-          rosace.classList.remove('visible');
+          bloc.classList.remove('tourne');
+          bloc.classList.add('implose');
           ton(90, .6, 'sawtooth');
         },
         flash: () => { coeur.classList.add('eclot'); ton(784, .5); },
         nom: () => {
           // Les lettres arrivent en cascade : 45 ms suffisent a lire une
           // composition plutot qu'un bloc qui surgit. Le souffle est deja en
-          // train de se dissiper, il revele le nom au lieu de le couvrir.
+          // train de se dissiper, il revele la marque au lieu de la couvrir.
           lettres.forEach((s, i) => plus(i * 45, () => s.classList.add('entre')));
         },
         signature: () => signature.classList.add('entre'),

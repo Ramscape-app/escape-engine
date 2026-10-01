@@ -3636,16 +3636,14 @@ async function lancerCinematique() {
   });
   if (mode === 'non') return;
 
-  const b = (GAME_CONFIG && GAME_CONFIG.branding) || {};
-  const nom = GAME_NAME
-    || (GAME_CONFIG && GAME_CONFIG.meta && GAME_CONFIG.meta.name)
-    || I.boot.logo || '';
+  // La séquence signe la marque, pas le jeu : le nom révélé est le même
+  // partout. Le nom du jeu arrive juste après, sur l'écran de réactivation.
+  const nom = cine.marque || 'RAMSCAPE';
   await C.jouer({
     mode, nom,
     mots: cine.mots,
     signature: String(cine.signature || '').replace('{total}', TOTAL),
     invite: cine.invite,
-    photo: b.avatar ? assetUrl(b.avatar) : '',
     ton: playTone,
     surDepart() {
       // Le geste qui ouvre la sequence est le seul moment ou un navigateur

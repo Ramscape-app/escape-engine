@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  REPERES, DELAI_PASSER, CADRES, TRANCHES, PETALES,
+  REPERES, DELAI_PASSER, DALLES, dispersion,
   planSequence, doitJouer, cleMemoire, decouperNom, nombreDeLettres, dureeTotale,
 } from '../public/shared/cinematique.js';
 
@@ -67,20 +67,36 @@ test('les actes sont poses dans l ordre', () => {
 test('un acte sans action n est pas programme', () => {
   // Sinon un `setTimeout` appellerait `undefined` et la sequence s arreterait
   // au milieu, sans rien dire.
+  const plan = planSequence({ assemblage: () => {}, nom: () => {} });
+  assert.deepEqual(plan.map(r => r.nom), ['assemblage', 'nom']);
+});
+
+test('un acte inconnu est ignore', () => {
+  // Un nom d acte mal orthographie ne doit pas creer un rendez-vous fantome
+  // a l instant zero.
   const plan = planSequence({ tunnel: () => {}, nom: () => {} });
-  assert.deepEqual(plan.map(r => r.nom), ['tunnel', 'nom']);
+  assert.deepEqual(plan.map(r => r.nom), ['nom']);
 });
 
 test('chaque acte a la place qu il doit avoir', () => {
-  // Le reassemblage apres l eclatement, les mots pendant le motif, le nom
-  // apres l implosion : l inverse n aurait aucun sens a l ecran.
-  assert.ok(REPERES.eclatement > REPERES.tunnel);
+  // Le bloc se forme avant de s ouvrir, se referme avant que les mots
+  // passent devant, et la marque arrive apres le souffle : l inverse
+  // n aurait aucun sens a l ecran.
+  assert.ok(REPERES.bloc > REPERES.assemblage);
+  assert.ok(REPERES.eclatement > REPERES.bloc);
   assert.ok(REPERES.reassemblage > REPERES.eclatement);
-  assert.ok(REPERES.mot1 > REPERES.motif);
+  assert.ok(REPERES.mot1 > REPERES.reassemblage);
   assert.ok(REPERES.mot3 > REPERES.mot2 && REPERES.mot2 > REPERES.mot1);
+  assert.ok(REPERES.implosion > REPERES.mot3);
   assert.ok(REPERES.flash > REPERES.implosion);
   assert.ok(REPERES.nom > REPERES.flash);
   assert.ok(REPERES.fin >= REPERES.sortie);
+});
+
+test('les dalles ont le temps d arriver avant que le bloc ne s ouvre', () => {
+  // Leur convergence dure 1,9 s. S ouvrir avant la fin donnerait un bloc qui
+  // se defait sans s etre jamais forme.
+  assert.ok(REPERES.eclatement - REPERES.assemblage >= 1900);
 });
 
 test('l objet a le temps de se montrer ouvert avant de se refermer', () => {
@@ -170,10 +186,66 @@ test('on n anime que ce qui ne fait pas recalculer la mise en page', () => {
 });
 
 test('le nombre de calques reste raisonnable', () => {
-  // Chaque couche est un calque composite sur le GPU. Un telephone d entree
-  // de gamme decroche bien avant la centaine.
-  assert.ok(CADRES + TRANCHES + PETALES <= 48,
-    `${CADRES + TRANCHES + PETALES} calques animes, c est trop`);
+  // Chaque dalle est un calque composite sur le GPU, et elle porte un degrade
+  // et une ombre portee — plus lourde a composer qu un simple contour.
+  assert.ok(DALLES <= 16, `${DALLES} dalles animees, c est trop`);
+  assert.ok(DALLES >= 8, `${DALLES} dalles, l empilement n aura pas d epaisseur`);
+});
+
+// ── Le bloc est fait de matiere, pas de traits ────────────────────────
+
+test('les dalles sont des surfaces pleines', () => {
+  // La demande etait explicite : moins de dessin au trait, des objets
+  // consistants. Un contour de 1 px sur fond transparent ne lit pas comme un
+  // volume.
+  const i = SOURCE.indexOf('.cine-dalle {');
+  const corps = SOURCE.slice(i, SOURCE.indexOf('}', i));
+  assert.match(corps, /background:\s*linear-gradient/,
+    'la dalle n a pas de remplissage');
+  assert.doesNotMatch(corps, /(^|[;\s])border:\s*\d/,
+    'la dalle est encore dessinee au trait');
+});
+
+test('chaque dalle est plus sombre que la precedente', () => {
+  // C est ce degrade d ensemble qui donne son epaisseur a l empilement :
+  // douze faces de la meme clarte se liraient comme une seule.
+  assert.match(SOURCE, /filter:\s*brightness\(var\(--lum\)\)/);
+});
+
+test('la sequence ne montre plus la photo du jeu', () => {
+  // Elle signe la marque, pas le jeu.
+  assert.doesNotMatch(SOURCE, /background-image/);
+  assert.doesNotMatch(MOTEUR, /photo:\s*b\.avatar/);
+});
+
+test('le moteur revele la marque et non le nom du jeu', () => {
+  const fn = MOTEUR.match(/async function lancerCinematique\(\)[\s\S]*?\n\}/)[0];
+  assert.match(fn, /cine\.marque/);
+  assert.doesNotMatch(fn, /GAME_NAME/);
+});
+
+// ── La dispersion de depart ───────────────────────────────────────────
+
+test('les dalles partent de douze endroits differents', () => {
+  const vus = new Set();
+  for (let i = 0; i < DALLES; i++) {
+    const d = dispersion(i, DALLES);
+    vus.add(`${d.x},${d.y},${d.z}`);
+  }
+  assert.equal(vus.size, DALLES, 'deux dalles partent du meme point');
+});
+
+test('la dispersion ne change pas d une lecture a l autre', () => {
+  // Une sequence qui varie a chaque ouverture ne se regle pas : on ne saurait
+  // jamais si une retouche a servi a quelque chose.
+  assert.deepEqual(dispersion(3, DALLES), dispersion(3, DALLES));
+});
+
+test('les dalles viennent toutes de l arriere-plan', () => {
+  // Une dalle qui partirait devant la camera traverserait l ecran au lieu d y
+  // entrer.
+  for (let i = 0; i < DALLES; i++)
+    assert.ok(dispersion(i, DALLES).z < -500, `la dalle ${i} part trop pres`);
 });
 
 test('le module ne touche pas au document a l import', async () => {
