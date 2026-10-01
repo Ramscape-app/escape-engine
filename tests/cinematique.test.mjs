@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  REPERES, DELAI_PASSER, DALLES, dispersion,
+  REPERES, DELAI_PASSER, FACES, dispersion, composer,
   planSequence, doitJouer, cleMemoire, decouperNom, nombreDeLettres, dureeTotale,
 } from '../public/shared/cinematique.js';
 
@@ -79,30 +79,34 @@ test('un acte inconnu est ignore', () => {
 });
 
 test('chaque acte a la place qu il doit avoir', () => {
-  // Le bloc se forme avant de s ouvrir, se referme avant que les mots
-  // passent devant, et la marque arrive apres le souffle : l inverse
-  // n aurait aucun sens a l ecran.
-  assert.ok(REPERES.bloc > REPERES.assemblage);
-  assert.ok(REPERES.eclatement > REPERES.bloc);
-  assert.ok(REPERES.reassemblage > REPERES.eclatement);
-  assert.ok(REPERES.mot1 > REPERES.reassemblage);
+  // La boite se scelle avant de s ouvrir, se referme avant de s effondrer, et
+  // la marque arrive apres le souffle : l inverse n aurait aucun sens.
+  assert.ok(REPERES.scellee > REPERES.assemblage);
+  assert.ok(REPERES.ouverture > REPERES.scellee);
+  assert.ok(REPERES.mot1 > REPERES.ouverture);
   assert.ok(REPERES.mot3 > REPERES.mot2 && REPERES.mot2 > REPERES.mot1);
-  assert.ok(REPERES.implosion > REPERES.mot3);
+  assert.ok(REPERES.fermeture > REPERES.mot3);
+  assert.ok(REPERES.implosion > REPERES.fermeture);
   assert.ok(REPERES.flash > REPERES.implosion);
   assert.ok(REPERES.nom > REPERES.flash);
   assert.ok(REPERES.fin >= REPERES.sortie);
 });
 
-test('les dalles ont le temps d arriver avant que le bloc ne s ouvre', () => {
-  // Leur convergence dure 1,9 s. S ouvrir avant la fin donnerait un bloc qui
-  // se defait sans s etre jamais forme.
-  assert.ok(REPERES.eclatement - REPERES.assemblage >= 1900);
+test('les faces ont le temps d arriver avant que la boite ne s ouvre', () => {
+  // Leur convergence dure 1,9 s. S ouvrir avant la fin donnerait une boite qui
+  // se defait sans s etre jamais fermee.
+  assert.ok(REPERES.ouverture - REPERES.assemblage >= 1900);
 });
 
-test('l objet a le temps de se montrer ouvert avant de se refermer', () => {
-  // Moins d une seconde et la vue eclatee ne se lit pas : on verrait un
-  // tremblement, pas une decomposition.
-  assert.ok(REPERES.reassemblage - REPERES.eclatement >= 1000);
+test('la boite reste ouverte pendant les trois mots', () => {
+  assert.ok(REPERES.fermeture > REPERES.mot3 + 1000,
+    'elle se referme avant que le dernier mot ait fini de passer');
+});
+
+test('la boite a le temps de se montrer ouverte', () => {
+  // Moins d une seconde et l ouverture ne se lit pas : on verrait un
+  // tremblement, pas une boite qui s ouvre.
+  assert.ok(REPERES.fermeture - REPERES.ouverture >= 1000);
 });
 
 test('le bouton passer arrive apres le debut, mais pas trop tard', () => {
@@ -185,31 +189,60 @@ test('on n anime que ce qui ne fait pas recalculer la mise en page', () => {
     assert.doesNotMatch(b, interdites, `une animation touche a la mise en page :\n${b}`);
 });
 
-test('le nombre de calques reste raisonnable', () => {
-  // Chaque dalle est un calque composite sur le GPU, et elle porte un degrade
-  // et une ombre portee — plus lourde a composer qu un simple contour.
-  assert.ok(DALLES <= 16, `${DALLES} dalles animees, c est trop`);
-  assert.ok(DALLES >= 8, `${DALLES} dalles, l empilement n aura pas d epaisseur`);
+test('la boite a ses six faces', () => {
+  assert.deepEqual([...FACES].sort(),
+    ['arriere', 'avant', 'bas', 'droite', 'gauche', 'haut']);
+});
+
+test('chaque face a sa place sur le cube', () => {
+  // Une face oubliee laisserait un trou par lequel on verrait l interieur
+  // depuis l exterieur.
+  for (const f of FACES)
+    assert.match(SOURCE, new RegExp(`\\.cine-boite\\.scellee \\.cine-face\\.${f}\\b`),
+      `la face ${f} n a pas de position fermee`);
+});
+
+test('les quatre cotes basculent sur leur arete basse', () => {
+  // Sans point de pivot sur le bas, ils tourneraient autour de leur centre et
+  // traverseraient la boite au lieu de s ouvrir.
+  assert.match(SOURCE, /\.cine-face\.avant, \.cine-face\.arriere,[\s\S]{0,120}transform-origin: 50% 100%/);
+  for (const f of ['avant', 'arriere', 'droite', 'gauche'])
+    assert.match(SOURCE, new RegExp(`\\.ouverte \\.cine-face\\.${f}[^;]*rotateX\\(104deg\\)`),
+      `le cote ${f} ne s ouvre pas`);
 });
 
 // ── Le bloc est fait de matiere, pas de traits ────────────────────────
 
-test('les dalles sont des surfaces pleines', () => {
+test('les faces sont des surfaces pleines', () => {
   // La demande etait explicite : moins de dessin au trait, des objets
   // consistants. Un contour de 1 px sur fond transparent ne lit pas comme un
   // volume.
-  const i = SOURCE.indexOf('.cine-dalle {');
+  const i = SOURCE.indexOf('.cine-face {');
   const corps = SOURCE.slice(i, SOURCE.indexOf('}', i));
-  assert.match(corps, /background:\s*linear-gradient/,
-    'la dalle n a pas de remplissage');
+  assert.match(corps, /background:\s*\n?\s*linear-gradient/,
+    'la face n a pas de remplissage');
   assert.doesNotMatch(corps, /(^|[;\s])border:\s*\d/,
-    'la dalle est encore dessinee au trait');
+    'la face est encore dessinee au trait');
 });
 
-test('chaque dalle est plus sombre que la precedente', () => {
-  // C est ce degrade d ensemble qui donne son epaisseur a l empilement :
-  // douze faces de la meme clarte se liraient comme une seule.
+test('les faces n ont pas toutes la meme clarte', () => {
+  // Un cube dont les six faces seraient jumelles n aurait aucun volume : ce
+  // sont les ecarts de lumiere qui disent ou est le haut.
   assert.match(SOURCE, /filter:\s*brightness\(var\(--lum\)\)/);
+  const clartes = SOURCE.match(/\{ haut: [\d.]+, avant: [\d.]+, droite: [\d.]+, gauche: [\d.]+, arriere: [\d.]+, bas: [\d.]+ \}/);
+  assert.ok(clartes, 'aucune table de clarte par face');
+  const vals = clartes[0].match(/[\d.]+/g).map(Number);
+  assert.equal(new Set(vals).size, 6, 'deux faces ont la meme clarte');
+  assert.ok(vals[0] > vals[5], 'le haut n est pas plus clair que le bas');
+});
+
+test('l ombre du texte ne reste pas pendant l animation', () => {
+  // Le voile sombre sous les mots etait affiche en permanence : il posait une
+  // tache immobile au milieu de l image pendant toute la sequence.
+  const i = SOURCE.indexOf('.cine-texte::before {');
+  const corps = SOURCE.slice(i, SOURCE.indexOf('}', i));
+  assert.match(corps, /opacity:\s*0/, 'le voile est visible par defaut');
+  assert.match(SOURCE, /\.cine\.avec-texte \.cine-texte::before \{ opacity: 1; \}/);
 });
 
 test('la sequence ne montre plus la photo du jeu', () => {
@@ -226,26 +259,26 @@ test('le moteur revele la marque et non le nom du jeu', () => {
 
 // ── La dispersion de depart ───────────────────────────────────────────
 
-test('les dalles partent de douze endroits differents', () => {
+test('les six faces partent de six endroits differents', () => {
   const vus = new Set();
-  for (let i = 0; i < DALLES; i++) {
-    const d = dispersion(i, DALLES);
+  for (let i = 0; i < FACES.length; i++) {
+    const d = dispersion(i, FACES.length);
     vus.add(`${d.x},${d.y},${d.z}`);
   }
-  assert.equal(vus.size, DALLES, 'deux dalles partent du meme point');
+  assert.equal(vus.size, FACES.length, 'deux faces partent du meme point');
 });
 
 test('la dispersion ne change pas d une lecture a l autre', () => {
   // Une sequence qui varie a chaque ouverture ne se regle pas : on ne saurait
   // jamais si une retouche a servi a quelque chose.
-  assert.deepEqual(dispersion(3, DALLES), dispersion(3, DALLES));
+  assert.deepEqual(dispersion(3, FACES.length), dispersion(3, FACES.length));
 });
 
-test('les dalles viennent toutes de l arriere-plan', () => {
-  // Une dalle qui partirait devant la camera traverserait l ecran au lieu d y
+test('les faces viennent toutes de l arriere-plan', () => {
+  // Une face qui partirait devant la camera traverserait l ecran au lieu d y
   // entrer.
-  for (let i = 0; i < DALLES; i++)
-    assert.ok(dispersion(i, DALLES).z < -500, `la dalle ${i} part trop pres`);
+  for (let i = 0; i < FACES.length; i++)
+    assert.ok(dispersion(i, FACES.length).z < -500, `la face ${i} part trop pres`);
 });
 
 test('le module ne touche pas au document a l import', async () => {
@@ -286,4 +319,89 @@ test('aucun accent grave dans la feuille de style', () => {
   const style = SOURCE.match(/s\.textContent = `([\s\S]*?)\n`;/);
   assert.ok(style, 'bloc de style introuvable');
   assert.doesNotMatch(style[1], /`/);
+});
+
+// ── La musique ────────────────────────────────────────────────────────
+// Generique et non celle du jeu. Programmee d'un bloc sur l'horloge audio :
+// un `setTimeout` aurait derive des qu'un telephone ralentit.
+
+// Un contexte audio de papier, qui note ce qu'on lui demande.
+function fauxContexte() {
+  const journal = { oscillateurs: [], demarrages: [], arrets: [], rampes: [] };
+  const parametre = (nom) => ({
+    value: 0,
+    setValueAtTime(v, t) { journal.rampes.push([nom, 'pose', v, t]); return this; },
+    linearRampToValueAtTime(v, t) { journal.rampes.push([nom, 'lineaire', v, t]); return this; },
+    exponentialRampToValueAtTime(v, t) { journal.rampes.push([nom, 'expo', v, t]); return this; },
+    cancelScheduledValues() { return this; },
+  });
+  const noeud = () => ({ connect() {}, disconnect() {} });
+  const ctx = {
+    currentTime: 100,
+    destination: noeud(),
+    createGain: () => ({ ...noeud(), gain: parametre('gain') }),
+    createBiquadFilter: () => ({ ...noeud(), type: '', Q: { value: 0 }, frequency: parametre('filtre') }),
+    createOscillator: () => {
+      const o = {
+        ...noeud(), type: '', frequency: parametre('freq'),
+        start(t) { journal.demarrages.push(t); },
+        stop(t) { journal.arrets.push(t); },
+      };
+      journal.oscillateurs.push(o);
+      return o;
+    },
+    close() { journal.ferme = true; },
+  };
+  return { ctx, journal };
+}
+
+test('la musique est programmee a l avance, pas jouee au fil de l eau', () => {
+  const { ctx, journal } = fauxContexte();
+  composer(ctx, ctx.currentTime);
+  // Tout est pose d'un coup : les oscillateurs des douze secondes existent
+  // deja a la premiere milliseconde.
+  assert.ok(journal.oscillateurs.length >= 15,
+    `seulement ${journal.oscillateurs.length} sons programmes`);
+  // Et chacun est cale sur un instant futur precis.
+  assert.ok(journal.demarrages.every(t => t >= ctx.currentTime));
+  assert.ok(Math.max(...journal.demarrages) > ctx.currentTime + 9,
+    'rien n est programme pour la fin de la sequence');
+});
+
+test('chaque son s arrete apres avoir commence', () => {
+  // Un oscillateur qu on oublie d arreter tient jusqu a la fermeture de la
+  // page : un bourdonnement sous le jeu entier.
+  const { ctx, journal } = fauxContexte();
+  composer(ctx, ctx.currentTime);
+  assert.equal(journal.arrets.length, journal.demarrages.length,
+    'un son demarre sans jamais s arreter');
+});
+
+test('la musique se cale sur les actes de l image', () => {
+  // Les impacts sont ecrits a partir de REPERES : ils ne peuvent pas se
+  // desynchroniser d un acte qu on deplacerait.
+  const { ctx, journal } = fauxContexte();
+  const t0 = ctx.currentTime;
+  composer(ctx, t0);
+  for (const acte of ['scellee', 'ouverture', 'mot1', 'fermeture', 'nom'])
+    assert.ok(journal.demarrages.some(t => Math.abs(t - (t0 + REPERES[acte] / 1000)) < 0.25),
+      `aucun son a l acte « ${acte} »`);
+});
+
+test('passer la sequence coupe la musique', () => {
+  const { ctx, journal } = fauxContexte();
+  const m = composer(ctx, ctx.currentTime);
+  const avant = journal.arrets.length;
+  m.couper();
+  assert.ok(journal.arrets.length > avant, 'la nappe continue apres la coupure');
+  assert.ok(journal.rampes.some(([, forme, v]) => forme === 'expo' && v <= 0.001),
+    'le volume ne redescend pas');
+});
+
+test('le moteur ne lance plus la musique du jeu avec la sequence', () => {
+  // Elle doit demarrer sur le bouton du briefing, comme avant, et non se
+  // superposer a la musique generique de la signature.
+  const fn = MOTEUR.match(/async function lancerCinematique\(\)[\s\S]*?\n\}/)[0];
+  assert.doesNotMatch(fn, /intro-music/);
+  assert.doesNotMatch(fn, /\bton:/);
 });

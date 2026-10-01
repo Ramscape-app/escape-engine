@@ -3644,15 +3644,13 @@ async function lancerCinematique() {
     mots: cine.mots,
     signature: String(cine.signature || '').replace('{total}', TOTAL),
     invite: cine.invite,
-    ton: playTone,
     surDepart() {
-      // Le geste qui ouvre la sequence est le seul moment ou un navigateur
-      // mobile accepte de demarrer un son. On en profite pour les deux : les
-      // notes de la sequence, et la musique qu'on laisse courir jusqu'au
-      // briefing — `launchBoot()` la retrouvera deja en train de jouer.
+      // Le geste qui ouvre la séquence est le seul moment où un navigateur
+      // mobile accepte de démarrer un son. La séquence joue sa propre musique
+      // — générique, pas celle du jeu, qui démarrera sur le bouton du
+      // briefing. On en profite seulement pour débloquer l'audio du moteur,
+      // de sorte que ses sons ne demandent plus d'autorisation ensuite.
       try { getAudio(); } catch (e) {}
-      const m = document.getElementById('intro-music');
-      if (m) { m.volume = 0.5; m.play().catch(() => {}); }
     },
   });
   try { localStorage.setItem(cle, '1'); } catch (e) {}
