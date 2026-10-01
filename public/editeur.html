@@ -1115,13 +1115,13 @@ function ensureIntro(){
 function addConsigne(){ ensureIntro(); CFG.intro.preboot.consignes.push({icon:'•',titre:'TITRE',texte:''}); markDirty(); render(); }
 function removeConsigne(i){ ensureIntro(); CFG.intro.preboot.consignes.splice(i,1); markDirty(); render(); }
 function tplIntro(){
-  const I = CFG.intro||{}; const pb=I.preboot||{}, bt=I.boot||{}, it=I.intro||{};
+  const I = CFG.intro||{}; const pb=I.preboot||{}, bt=I.boot||{}, it=I.intro||{}, ci=I.cine||{};
   const consignes = pb.consignes||[];
   // Ce que le moteur affichera si le champ reste vide. Le montrer en
   // marque-place plutot que de laisser deviner : ces textes existaient et
   // s'appliquaient sans jamais apparaitre dans l'editeur.
-  const D = window.INTRO_DEFAUT || { preboot:{}, boot:{}, intro:{} };
-  const vide = !I.preboot && !I.boot && !I.intro;
+  const D = window.INTRO_DEFAUT || { cine:{}, preboot:{}, boot:{}, intro:{} };
+  const vide = !I.preboot && !I.boot && !I.intro && !I.cine;
   const bandeau = `
     <div class="banner${vide?' warn':''}" style="margin-bottom:16px">
       <span>${vide
@@ -1142,6 +1142,20 @@ function tplIntro(){
   return `
     <div class="panel-head"><div><div class="eyebrow">Pages d'introduction</div><h2>Ambiance & textes du début</h2></div></div>
     ${bandeau}
+    <h3 style="margin:6px 0 12px">Page 0 — Séquence d'ouverture</h3>
+    <div class="help" style="margin-bottom:12px">
+      Treize secondes avant le briefing : un tunnel d'images, un objet qui se
+      décompose puis se réassemble, trois mots, et le nom du jeu. Elle reprend
+      automatiquement le nom, les couleurs du thème et la photo d'intro du jeu.
+      Elle ne se joue qu'une fois par téléphone.
+      <strong>Pour la revoir : ajoutez <code>?cine=1</code> à la fin de l'adresse du jeu.</strong>
+    </div>
+    ${chk('Jouer la séquence d\'ouverture', 'intro.cine.actif', ci.actif !== false)}
+    ${inp('Invitation à toucher l\'écran','intro.cine.invite',ci.invite||'','Le geste du joueur est le seul moment où un téléphone accepte de démarrer un son.',null,D.cine.invite)}
+    ${ta('Les trois mots (un par ligne)','intro.cine.mots',(ci.mots||[]).join('\n'),'list',true,(D.cine.mots||[]).join('\n'))}
+    ${inp('Ligne sous le nom ({total} = nb d\'énigmes)','intro.cine.signature',ci.signature||'','',null,D.cine.signature)}
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
     <h3 style="margin:6px 0 12px">Page 1 — Sécurité / Accueil</h3>
     ${inp('Icône (emoji)','intro.preboot.icon',pb.icon||'','',null,D.preboot.icon)}
     ${inp('Bandeau','intro.preboot.banner',pb.banner||'','',null,D.preboot.banner)}

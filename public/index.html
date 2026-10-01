@@ -48,6 +48,10 @@
   // script principal — `getIntroConfig()` lit la valeur au moment de l'usage.
   import { INTRO_DEFAUT } from './shared/intro-defaut.js';
   window.INTRO_DEFAUT = INTRO_DEFAUT;
+  // La sequence d'ouverture. Lue a l'appel, comme les textes ci-dessus : le
+  // moteur l'attend explicitement avant d'afficher le briefing.
+  import * as Cinematique from './shared/cinematique.js';
+  window.Cinematique = Cinematique;
 </script>
 <style>
 /* Masque l'affichage tant que le thème du jeu n'est pas appliqué (évite le flash du thème par défaut) */
@@ -1976,10 +1980,11 @@ function getIntroConfig() {
     // blanche, et la console dit pourquoi.
     console.error("shared/intro-defaut.js n'a pas charge : textes d'intro par defaut indisponibles.");
     const c = (GAME_CONFIG && GAME_CONFIG.intro) || {};
-    return { preboot: c.preboot || {}, boot: c.boot || {}, intro: c.intro || {} };
+    return { cine: c.cine || {}, preboot: c.preboot || {}, boot: c.boot || {}, intro: c.intro || {} };
   }
   const c = (GAME_CONFIG && GAME_CONFIG.intro) || {};
   return {
+    cine:    { ...d.cine,    ...(c.cine || {}) },
     preboot: { ...d.preboot, ...(c.preboot || {}) },
     boot:    { ...d.boot,    ...(c.boot || {}) },
     intro:   { ...d.intro,   ...(c.intro || {}) },
@@ -3607,6 +3612,54 @@ function skipInstall() {
 }
 
 // ═══════════════════════ INIT ═══════════════════════
+// La sequence d'ouverture, avant le briefing. Elle ne se joue qu'une fois par
+// appareil et par jeu : la revoir a chaque rechargement en ferait un peage.
+// `?cine=1` la rejoue (pour la montrer), `?cine=0` la coupe.
+async function lancerCinematique() {
+  const C = window.Cinematique;
+  if (!C) {
+    console.error("shared/cinematique.js n'a pas charge : pas de séquence d'ouverture.");
+    return;
+  }
+  const I = getIntroConfig();
+  const cine = I.cine || {};
+  const cle = C.cleMemoire(gameSlugFromURL() || previewIdFromURL() || 'defaut');
+  let vue = false;
+  try { vue = !!localStorage.getItem(cle); } catch (e) {}
+  // Un joueur qui reprend une partie en cours n'a pas a revoir l'ouverture.
+  const enCours = !!(STATE && STATE.started && STATE.solved && STATE.solved.length);
+  const mode = C.doitJouer({
+    actif: cine.actif !== false,
+    recherche: location.search,
+    vue: vue || enCours,
+    mouvementReduit: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches),
+  });
+  if (mode === 'non') return;
+
+  const b = (GAME_CONFIG && GAME_CONFIG.branding) || {};
+  const nom = GAME_NAME
+    || (GAME_CONFIG && GAME_CONFIG.meta && GAME_CONFIG.meta.name)
+    || I.boot.logo || '';
+  await C.jouer({
+    mode, nom,
+    mots: cine.mots,
+    signature: String(cine.signature || '').replace('{total}', TOTAL),
+    invite: cine.invite,
+    photo: b.avatar ? assetUrl(b.avatar) : '',
+    ton: playTone,
+    surDepart() {
+      // Le geste qui ouvre la sequence est le seul moment ou un navigateur
+      // mobile accepte de demarrer un son. On en profite pour les deux : les
+      // notes de la sequence, et la musique qu'on laisse courir jusqu'au
+      // briefing — `launchBoot()` la retrouvera deja en train de jouer.
+      try { getAudio(); } catch (e) {}
+      const m = document.getElementById('intro-music');
+      if (m) { m.volume = 0.5; m.play().catch(() => {}); }
+    },
+  });
+  try { localStorage.setItem(cle, '1'); } catch (e) {}
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Économie d'énergie : on coupe les animations quand l'onglet/écran n'est pas visible
   document.addEventListener('visibilitychange', () => {
@@ -3629,7 +3682,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyIntro();                         // applique les textes/visuels d'intro personnalisés
   clearTimeout(revealTimer);
   document.body.classList.remove('theme-booting');  // thème appliqué : on révèle
-  document.getElementById('total-display').textContent = TOTAL + ' épreuves';
+  // Le nombre d'épreuves est déjà posé par `applyIntro()`, qui remplace
+  // `{total}` dans le texte du briefing — et, ce faisant, réécrit le HTML de
+  // `#intro-brief` et emporte `#total-display` avec lui. Sans ce garde-fou,
+  // la ligne levait une exception qui interrompait TOUT ce qui suit :
+  // l'enregistrement du service worker n'avait donc jamais lieu.
+  const compteur = document.getElementById('total-display');
+  if (compteur) compteur.textContent = TOTAL + ' épreuves';
+  // La sequence d'ouverture passe avant le briefing — et apres la revelation du
+  // theme, sinon elle se jouerait sous un `body` encore a `opacity: 0`.
+  await lancerCinematique();
   // Joueur authentifié : on laisse l'intro de présentation se dérouler (écran preboot par défaut),
   // puis startGame() débouchera sur l'accueil profil. Hors authentification : comportement d'origine.
   if (!(SB_READY && gameSlugFromURL()) && STATE.started && STATE.solved.length > 0) {

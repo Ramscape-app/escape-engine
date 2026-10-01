@@ -13,15 +13,15 @@ const PAGES = {
   editeur: readFileSync('public/editeur.html', 'utf8'),
 };
 
-test('les trois pages d introduction sont decrites', () => {
-  assert.deepEqual(Object.keys(INTRO_DEFAUT).sort(), ['boot', 'intro', 'preboot']);
+test('les quatre pages d introduction sont decrites', () => {
+  assert.deepEqual(Object.keys(INTRO_DEFAUT).sort(), ['boot', 'cine', 'intro', 'preboot']);
 });
 
 test('chaque cle que l editeur propose existe dans le defaut', () => {
   // L'editeur pose un marque-place par champ, en lisant `D.<page>.<cle>`.
   // Une cle renommee dans le module laisserait le marque-place vide sans
   // qu'aucune erreur ne se produise.
-  const attendus = [...PAGES.editeur.matchAll(/\bD\.(preboot|boot|intro)\.([a-zA-Z]+)/g)]
+  const attendus = [...PAGES.editeur.matchAll(/\bD\.(cine|preboot|boot|intro)\.([a-zA-Z]+)/g)]
     .map(m => [m[1], m[2]]);
   assert.ok(attendus.length >= 10, `l'editeur ne lit que ${attendus.length} defauts`);
   for (const [page, cle] of attendus)

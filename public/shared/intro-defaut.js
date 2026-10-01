@@ -11,6 +11,14 @@
 //    Modifier une valeur change donc le rendu de tous les jeux qui ne l'ont
 //    pas surchargee.
 export const INTRO_DEFAUT = {
+  // Page 0 — la sequence d'ouverture, avant toute autre chose. Elle ne se joue
+  // qu'une fois par appareil : voir `shared/cinematique.js`.
+  cine: {
+    invite: "TOUCHEZ POUR COMMENCER",
+    mots: ["PATIENCE", "RÉFLEXION", "MÉMOIRE"],
+    // `{total}` est remplace par le nombre d'enigmes du jeu.
+    signature: "UN JEU EN {total} ÉPREUVES",
+  },
   preboot: {
     icon: "🛡️",
     banner: "/// PROTOCOLE DE SÉCURITÉ ///",
