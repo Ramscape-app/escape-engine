@@ -190,7 +190,31 @@ html, body {
   overflow-y: auto; overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
-.screen.active { opacity: 1; pointer-events: all; }
+.screen.active {
+  opacity: 1; pointer-events: all;
+  /* L'écran qui arrive monte légèrement en se révélant, au lieu d'un fondu
+     plat. `backwards` et non `both` : la règle d'animation ne doit pas
+     survivre à sa propre fin, sinon le `transform` qu'elle laisse écrase
+     celui de `:active` et les cartes ne s'enfoncent plus sous le doigt. */
+  animation: ecran-entre .44s cubic-bezier(.22,1,.36,1) backwards;
+}
+@keyframes ecran-entre {
+  from { opacity: 0; transform: translateY(16px) scale(.988); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Le contenu d'une énigme se pose par morceaux : le récit, puis l'énoncé,
+   puis le champ. L'œil suit au lieu de tout recevoir d'un coup. */
+.enigma-body > * { animation: contenu-entre .5s cubic-bezier(.22,1,.36,1) backwards; }
+.enigma-body > :nth-child(1) { animation-delay: .10s; }
+.enigma-body > :nth-child(2) { animation-delay: .17s; }
+.enigma-body > :nth-child(3) { animation-delay: .24s; }
+.enigma-body > :nth-child(4) { animation-delay: .31s; }
+.enigma-body > :nth-child(n+5) { animation-delay: .38s; }
+@keyframes contenu-entre {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
 
 /* Les écrans d'introduction commencent EN HAUT de l'écran.
    Ils étaient centrés verticalement, et ça ratait des deux côtés : un contenu
@@ -414,6 +438,21 @@ html, body {
   display: flex; align-items: center; gap: 5px;
   cursor: pointer; transition: all .3s ease;
   position: relative; overflow: hidden;
+  /* Les cartes se posent en cascade plutôt que d'apparaître en bloc.
+     `--rang` est le numéro de la carte dans le hub, pose par `renderHub()`. */
+  animation: carte-entre .46s cubic-bezier(.22,1,.36,1) backwards;
+  animation-delay: calc(var(--rang, 0) * 34ms);
+}
+/* Une carte verrouillee finit a .35 d'opacite : lui donner la meme animation
+   que les autres la ferait apparaitre en pleine lumiere avant de retomber. */
+.enigma-card.locked { animation-name: carte-entre-verrouillee; }
+@keyframes carte-entre {
+  from { opacity: 0; transform: translateY(14px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes carte-entre-verrouillee {
+  from { opacity: 0;   transform: translateY(14px) scale(.97); }
+  to   { opacity: .35; transform: none; }
 }
 .enigma-card::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0;
@@ -560,6 +599,28 @@ html, body {
 }
 .feedback-msg.error { display: block; color: var(--warn); background: var(--warn-dim); animation: shake .4s ease; }
 .feedback-msg.success { display: block; color: var(--success); background: var(--success-dim); animation: successPulse .6s ease; }
+
+/* La bonne réponse, c'est le moment fort du jeu : une onde verte traverse
+   l'écran. Une seule couche, retirée aussitôt — elle ne coûte rien et c'est
+   elle qu'on retient. */
+.eclat-reussite {
+  position: fixed; inset: 0; z-index: 60; pointer-events: none;
+  background: radial-gradient(circle at 50% 44%,
+    var(--success-dim) 0%, color-mix(in srgb, var(--success) 8%, transparent) 34%, transparent 62%);
+  animation: eclat-reussite .95s cubic-bezier(.2,.8,.3,1) forwards;
+}
+@keyframes eclat-reussite {
+  0%   { opacity: 0; transform: scale(.55); }
+  20%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+
+/* Qui a demandé moins d'animations dans son système garde l'information et
+   perd le mouvement — pas l'inverse. */
+@media (prefers-reduced-motion: reduce) {
+  .screen.active, .enigma-body > *, .enigma-card { animation: none; }
+  .eclat-reussite { display: none; }
+}
 
 /* ═══════════ KEYPAD ═══════════ */
 .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 280px; margin: 0 auto; }
@@ -2105,6 +2166,9 @@ function renderHub() {
   const solved = STATE.solved.length;
   document.getElementById('progress-text').textContent = `${solved}/${TOTAL}`;
   document.getElementById('progress-bar').style.width = `${(solved/TOTAL)*100}%`;
+  // Le rang de chaque carte dans la cascade, tous actes confondus. Borné :
+  // au-delà d'une vingtaine, l'attente devient une attente et non un effet.
+  let rang = 0;
 
   ACTS.forEach((act, ai) => {
     const startIdx = ACT_BOUNDARIES[ai];
@@ -2142,6 +2206,9 @@ function renderHub() {
         <div class="enigma-arrow">${isSolved ? '✓' : isCurrent ? '›' : isLocked ? '🔒' : '›'}</div>
       `;
       if (!isLocked) card.onclick = () => openEnigma(idx);
+      // Le rang dans tout le hub, pas dans l'acte : la cascade doit traverser
+      // les groupes sans repartir de zéro à chacun.
+      card.style.setProperty('--rang', String(Math.min(rang++, 24)));
       cards.appendChild(card);
     });
     container.appendChild(group);
@@ -3463,7 +3530,19 @@ function triggerFakeBug(idx) {
 }
 
 // ═══════════════════════ SOLVE ═══════════════════════
+// L'onde verte de la bonne réponse. Une seule couche à la fois : deux énigmes
+// résolues coup sur coup ne doivent pas empiler des calques qui survivraient
+// à la partie.
+function eclatDeReussite() {
+  document.querySelectorAll('.eclat-reussite').forEach(e => e.remove());
+  const e = document.createElement('div');
+  e.className = 'eclat-reussite';
+  document.body.appendChild(e);
+  setTimeout(() => e.remove(), 1000);
+}
+
 function solveEnigma(idx) {
+  eclatDeReussite();
   if (!STATE.solved.includes(idx)) {
     STATE.solved.push(idx);
     STATE.currentEnigma = Math.max(STATE.currentEnigma, idx + 1);

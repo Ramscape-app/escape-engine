@@ -86,3 +86,51 @@ test('le nom du jeu s adapte a la largeur de l ecran', () => {
 test('l avatar ne mange pas l ecran sur un petit telephone', () => {
   assert.match(regle('#boot-screen img'), /max-width:\s*min\(/);
 });
+
+// ── Les animations de l'interface ─────────────────────────────────────
+
+test('les animations d entree ne figent pas ce qu elles touchent', () => {
+  // `both` laisse l animation imposer sa valeur de fin pour toujours, et cette
+  // valeur bat toute regle CSS posee ensuite : le `transform` de
+  // `.enigma-card:active` ne s appliquerait plus, et la carte cesserait de
+  // s enfoncer sous le doigt. `backwards` ne vaut qu avant le depart.
+  for (const sel of ['.screen.active', '.enigma-body > *', '.enigma-card'])
+    assert.match(regle(sel), /animation:[^;]*\bbackwards\b/,
+      `${sel} fige ce qu il anime`);
+});
+
+test('une carte verrouillee ne s allume pas avant de retomber', () => {
+  // Elle finit a .35 d opacite. Avec l animation des autres cartes, elle
+  // apparaitrait en pleine lumiere puis s eteindrait — un clignotement.
+  assert.match(regle('.enigma-card.locked'), /animation-name:\s*carte-entre-verrouillee/);
+  assert.match(MOTEUR, /@keyframes carte-entre-verrouillee[\s\S]{0,200}opacity:\s*\.35/);
+});
+
+test('la cascade du hub traverse les actes', () => {
+  // Le rang est pose par le moteur, tous actes confondus : repartir de zero a
+  // chaque groupe ferait trois cascades au lieu d une.
+  assert.match(MOTEUR, /card\.style\.setProperty\('--rang'/);
+  assert.match(regle('.enigma-card'), /animation-delay:\s*calc\(var\(--rang/);
+  // Et elle est bornee : au-dela d une vingtaine de cartes, l effet devient
+  // une attente.
+  assert.match(MOTEUR, /Math\.min\(rang\+\+,\s*\d+\)/);
+});
+
+test('l onde de reussite ne survit pas a la partie', () => {
+  // Une couche plein ecran oubliee dans le document intercepterait tout, ou
+  // s empilerait a chaque bonne reponse.
+  const fn = MOTEUR.match(/function eclatDeReussite\(\)\s*\{[\s\S]*?\n\}/);
+  assert.ok(fn, 'eclatDeReussite introuvable');
+  assert.match(fn[0], /querySelectorAll\('\.eclat-reussite'\)\.forEach\(e => e\.remove\(\)\)/,
+    'deux reussites de suite empileraient deux couches');
+  assert.match(fn[0], /setTimeout\(\(\) => e\.remove\(\)/, 'la couche n est jamais retiree');
+  assert.match(regle('.eclat-reussite'), /pointer-events:\s*none/);
+});
+
+test('qui a demande moins de mouvement en recoit moins', () => {
+  const i = MOTEUR.indexOf('@media (prefers-reduced-motion: reduce)');
+  assert.notEqual(i, -1, 'aucun egard pour ce reglage');
+  const bloc = MOTEUR.slice(i, i + 400);
+  for (const sel of ['.screen.active', '.enigma-body > *', '.enigma-card', '.eclat-reussite'])
+    assert.ok(bloc.includes(sel), `${sel} continue de bouger`);
+});
