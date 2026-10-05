@@ -600,6 +600,19 @@ html, body {
 .feedback-msg.error { display: block; color: var(--warn); background: var(--warn-dim); animation: shake .4s ease; }
 .feedback-msg.success { display: block; color: var(--success); background: var(--success-dim); animation: successPulse .6s ease; }
 
+/* La photo du jeu sur l'accueil joueur. Elle valait 96 px fixes : la seule
+   image de l'écran, et la plus petite chose dessus. Elle suit maintenant la
+   largeur de l'écran, bornée pour ne pas repousser le bouton « Reprendre »
+   hors de vue sur un petit téléphone. */
+#ph-image {
+  width: clamp(132px, 40vw, 180px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border);
+  margin: 0 auto 18px;
+}
+
 /* La bonne réponse, c'est le moment fort du jeu : une onde verte traverse
    l'écran. Une seule couche, retirée aussitôt — elle ne coûte rien et c'est
    elle qu'on retient. */
@@ -1209,7 +1222,7 @@ html, body {
 <!-- ACCUEIL JOUEUR -->
 <div id="player-home" class="screen">
   <div style="max-width:440px;margin:0 auto;width:100%;padding:32px 20px calc(32px + env(safe-area-inset-bottom, 0px));box-sizing:border-box;">
-    <img id="ph-image" alt="" style="display:none;width:96px;height:96px;object-fit:cover;border-radius: var(--r-xl);border:1px solid var(--border);margin:0 auto 18px;">
+    <img id="ph-image" alt="" style="display:none;">
     <div style="font-family:var(--font-mono);font-size:.6rem;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;">Espace joueur</div>
     <div style="font-family:var(--font-display);font-size:1.5rem;margin:6px 0 2px;" id="ph-game">—</div>
     <div style="color:var(--text-dim);font-size:.9rem;margin-bottom:22px;">Bienvenue <strong id="ph-pseudo" style="color:var(--accent)">—</strong></div>

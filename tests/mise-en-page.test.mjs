@@ -134,3 +134,16 @@ test('qui a demande moins de mouvement en recoit moins', () => {
   for (const sel of ['.screen.active', '.enigma-body > *', '.enigma-card', '.eclat-reussite'])
     assert.ok(bloc.includes(sel), `${sel} continue de bouger`);
 });
+
+test('la photo de l accueil joueur suit la largeur de l ecran', () => {
+  // Elle valait 96 px fixes, en style en ligne : la seule image de l ecran, et
+  // la plus petite chose dessus. Bornee en haut pour ne pas repousser le
+  // bouton « Reprendre » hors de vue sur un petit telephone.
+  const r = regle('#ph-image');
+  assert.match(r, /width:\s*clamp\(/);
+  assert.match(r, /aspect-ratio:\s*1/, 'rien ne garantit qu elle reste carree');
+  assert.match(r, /object-fit:\s*cover/);
+  // Et le style en ligne ne doit plus porter de taille, sinon il l emporte.
+  const balise = MOTEUR.match(/<img id="ph-image"[^>]*>/)[0];
+  assert.doesNotMatch(balise, /width:/, 'la taille est encore ecrite en ligne');
+});
