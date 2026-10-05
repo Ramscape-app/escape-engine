@@ -233,3 +233,50 @@ test('la taille des tuiles est calculee en pixels, pas en pourcentage', () => {
 test('les tuiles se recalculent quand l ecran tourne', () => {
   assert.match(MELANGE, /addEventListener\('resize', ajusterTuiles\)/);
 });
+
+// ── La lampe UV ───────────────────────────────────────────────────────
+
+const UV = readFileSync('public/module/lampe-uv.html', 'utf8');
+
+test('la lampe UV ne donne plus la solution avec l enonce', () => {
+  // « Eclairez l ecran pour reveler le message » et « Passez votre doigt comme
+  // une lampe UV » etaient ecrits en dur : il ne restait rien a trouver.
+  assert.doesNotMatch(UV, /Éclairez l'écran/);
+  assert.doesNotMatch(UV, /Passez votre doigt/);
+  assert.match(UV, /const TITRE = P\.get\('title'\) \|\| ''/);
+  assert.match(UV, /const INDICE = P\.get\('indice'\) \|\| ''/);
+  // Et un champ vide ne doit pas laisser une ligne blanche a la place.
+  assert.match(UV, /\.title:empty, \.hint:empty\{display:none\}/);
+});
+
+test('le message est dissimule parmi d autres elements', () => {
+  // Un balayage ne revelait que le message, centre : il n y avait rien a
+  // chercher. Il y a maintenant des fausses pistes et des fragments d encre.
+  assert.match(UV, /const LEURRES = \(P\.get\('leurres'\) \|\| ''\)/);
+  assert.match(UV, /const BRUIT = /);
+  assert.match(UV, /\.leurre\{/, 'les leurres n ont pas de style');
+  assert.match(UV, /e\.className = 'leurre'/, 'aucun leurre n est place dans la scene');
+  // Et le message n est plus au centre : sa hauteur est tiree au sort.
+  assert.match(UV, /const hautMessage = entre\(20, 78\)/);
+});
+
+test('la lampe est assez petite pour qu il faille balayer', () => {
+  // A 85 px fixes, un seul passage montrait tout.
+  assert.match(UV, /const RAYON = Math\.max\(28, Math\.min\(120, Number\(P\.get\('rayon'\) \|\| 60\)\)\)/);
+  assert.match(UV, /circle var\(--r,60px\)/);
+});
+
+test('deux joueurs du meme jeu voient la meme scene', () => {
+  // Un hasard pur rendrait l enigme intestable : l organisateur ne pourrait
+  // pas verifier avant la soiree ce que ses joueurs auront sous les yeux.
+  assert.doesNotMatch(UV, /Math\.random\(\)/);
+  assert.match(UV, /function graine\(txt\)/);
+  assert.match(UV, /etat = graine\(MSG \+ '\|' \+ LEURRES\.join/);
+});
+
+test('l editeur expose de quoi regler la difficulte', () => {
+  const i = EDITEUR.indexOf("v:'lampe-uv'");
+  const bloc = EDITEUR.slice(i, EDITEUR.indexOf(']}', i));
+  for (const k of ['message', 'leurres', 'bruit', 'rayon', 'indice'])
+    assert.match(bloc, new RegExp(`k:'${k}'`), `le parametre ${k} manque`);
+});

@@ -486,7 +486,11 @@ const MODULES = [
     {k:'hint', l:'Indice affiché', t:'text'},
   ]},
   { v:'lampe-uv', l:'Lampe UV (révéler un message)', valide:false, params:[
-    {k:'message', l:'Message caché', t:'text', help:'Révélé au doigt, comme sous une lampe UV.'},
+    {k:'message', l:'Message caché', t:'text', help:'Révélé au doigt, quelque part dans la zone — pas au centre.'},
+    {k:'leurres', l:'Fausses pistes', t:'text', help:'Séparées par des virgules. Elles apparaissent exactement comme le vrai message : c\'est ce qui rend l\'énigme difficile. Ex : 1984,1986,1988'},
+    {k:'bruit', l:'Fragments d\'encre', t:'number', d:16, help:'Groupes de lettres sans signification, dispersés dans la zone. 0 = aucun.'},
+    {k:'rayon', l:'Rayon de la lampe (px)', t:'number', d:60, help:'Plus il est petit, plus il faut balayer. 28 minimum, 120 maximum.'},
+    {k:'indice', l:'Consigne affichée', t:'text', help:'Vide par défaut, et c\'est voulu : « passez votre doigt » donnait la solution avec l\'énoncé. À ne remplir que pour un public qui aurait besoin d\'être guidé.'},
   ]},
   { v:'cesar-roue', l:'Roue de César (outil)', valide:false, params:[] },
 ];

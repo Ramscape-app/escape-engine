@@ -7,50 +7,129 @@
   html,body{background:transparent;color:#eceef1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
   .wrap{max-width:340px;margin:0 auto;padding:12px;text-align:center}
   .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;margin-bottom:12px}
+  .title:empty, .hint:empty{display:none}
   .scene{position:relative;width:100%;aspect-ratio:4/3;border-radius:12px;overflow:hidden;
     background:#1a1d22;border:1px solid #3a3e45;touch-action:none;cursor:crosshair}
   .scene img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.18}
-  /* Couche du message : invisible par défaut (révélée seulement sous le masque circulaire) */
-  .reveal-layer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    text-align:center;padding:18px;font-family:'Courier New',monospace;font-weight:700;
-    font-size:1.6rem;letter-spacing:2px;line-height:1.5;
+  /* Couche encrée : invisible, révélée seulement sous le masque circulaire.
+     Le rayon est un paramètre — à 85 px, un seul balayage montrait tout. */
+  .reveal-layer{position:absolute;inset:0;
     color:#c7a8ff;text-shadow:0 0 10px rgba(160,110,255,.9);
     background:radial-gradient(circle, rgba(120,70,220,.30) 0%, rgba(120,70,220,.10) 50%, transparent 72%);
-    -webkit-mask:radial-gradient(circle 85px at var(--mx,-999px) var(--my,-999px), #000 0%, #000 55%, transparent 75%);
-            mask:radial-gradient(circle 85px at var(--mx,-999px) var(--my,-999px), #000 0%, #000 55%, transparent 75%);
+    -webkit-mask:radial-gradient(circle var(--r,60px) at var(--mx,-999px) var(--my,-999px), #000 0%, #000 55%, transparent 78%);
+            mask:radial-gradient(circle var(--r,60px) at var(--mx,-999px) var(--my,-999px), #000 0%, #000 55%, transparent 78%);
     opacity:0;transition:opacity .08s}
   .reveal-layer.active{opacity:1}
+  /* Le message n'est plus au centre : il se cherche. */
+  .message{position:absolute;left:11%;width:78%;
+    transform:translateY(-50%);text-align:center;
+    font-family:'Courier New',monospace;font-weight:700;
+    font-size:1.5rem;letter-spacing:2px;line-height:1.4}
+  /* Ce qu'on trouve en balayant quand ce n'est pas le message : des fragments
+     d'encre, et les fausses pistes écrites par l'organisateur. */
+  .leurre{position:absolute;font-family:'Courier New',monospace;font-weight:700;
+    white-space:nowrap;opacity:.72}
   .hint{font-size:.68rem;color:#8a909a;margin-top:10px}
 </style></head><body>
 <div class="wrap">
-  <div class="title" id="title">Éclairez l'écran pour révéler le message</div>
+  <div class="title" id="title"></div>
   <div class="scene" id="scene">
     <img id="bg" alt="" style="display:none">
     <div class="reveal-layer" id="layer"></div>
   </div>
-  <div class="hint">Passez votre doigt sur la zone, comme une lampe UV.</div>
+  <div class="hint" id="hint"></div>
 </div>
 <script>
-const P=new URLSearchParams(location.search);
-const MSG=(P.get('message')||P.get('texte')||'INDICE CACHE');
-const IMG=P.get('image');
-const TITLE=P.get('title'); if(TITLE)document.getElementById('title').textContent=TITLE;
-document.getElementById('layer').textContent=MSG;
-if(IMG){ const b=document.getElementById('bg'); b.src=IMG; b.style.display='block'; }
+const P = new URLSearchParams(location.search);
+const MSG = (P.get('message') || P.get('texte') || 'INDICE CACHE');
+const IMG = P.get('image');
+// Plus aucune consigne par defaut. Le joueur a droit a un ecran sombre et a
+// rien d'autre : « eclairez l'ecran » et « passez votre doigt comme une lampe
+// UV » donnaient la solution avec l'enonce. L'organisateur peut toujours
+// ecrire une ligne s'il veut guider.
+const TITRE = P.get('title') || '';
+const INDICE = P.get('indice') || '';
+// Les fausses pistes : des mots plausibles qui apparaissent comme le vrai
+// message. Separes par des virgules.
+const LEURRES = (P.get('leurres') || '').split(',').map(s => s.trim()).filter(Boolean);
+const BRUIT = Math.max(0, Math.min(40, Number(P.get('bruit') || 16)));
+const RAYON = Math.max(28, Math.min(120, Number(P.get('rayon') || 60)));
 
-const scene=document.getElementById('scene'),layer=document.getElementById('layer');
-function moveLight(ev){
-  const r=scene.getBoundingClientRect();const t=ev.touches?ev.touches[0]:ev;
-  const x=t.clientX-r.left,y=t.clientY-r.top;
-  layer.style.setProperty('--mx',x+'px');
-  layer.style.setProperty('--my',y+'px');
-  layer.classList.add('active');
-  if(ev.cancelable) ev.preventDefault();
+document.getElementById('title').textContent = TITRE;
+document.getElementById('hint').textContent = INDICE;
+if (IMG) { const b = document.getElementById('bg'); b.src = IMG; b.style.display = 'block'; }
+
+const scene = document.getElementById('scene');
+const layer = document.getElementById('layer');
+layer.style.setProperty('--r', RAYON + 'px');
+
+// Un tirage reproductible, derive du message : deux joueurs du meme jeu voient
+// la meme scene, et l'organisateur peut la verifier avant la soiree. Un hasard
+// pur rendrait l'enigme intestable.
+function graine(txt) {
+  let h = 2166136261;
+  for (const c of txt) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return h >>> 0;
 }
-function off(){ layer.classList.remove('active'); layer.style.setProperty('--mx','-999px'); layer.style.setProperty('--my','-999px'); }
-scene.addEventListener('mousemove',moveLight);
-scene.addEventListener('mouseleave',off);
-scene.addEventListener('touchstart',moveLight,{passive:false});
-scene.addEventListener('touchmove',moveLight,{passive:false});
-scene.addEventListener('touchend',off);
+let etat = graine(MSG + '|' + LEURRES.join(',') + '|' + BRUIT);
+const alea = () => { etat = (Math.imul(etat, 1664525) + 1013904223) >>> 0; return etat / 4294967296; };
+const entre = (a, b) => a + alea() * (b - a);
+
+// Le message, place quelque part en hauteur plutot qu'au centre. Horizontalement
+// il reste cadre : un bloc de texte long doit pouvoir se replier sans sortir.
+const hautMessage = entre(20, 78);
+const bloc = document.createElement('div');
+bloc.className = 'message';
+bloc.style.top = hautMessage.toFixed(1) + '%';
+bloc.textContent = MSG;
+layer.appendChild(bloc);
+
+// Les fragments d'encre. Ils evitent la bande du message, sinon ils se
+// superposent a lui et le rendent illisible une fois trouve.
+const GLYPHES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const SIGNES = ['※', '◇', '✦', '⌁', '†', '∴', '⟡'];
+function fragment() {
+  if (alea() < 0.22) return SIGNES[Math.floor(alea() * SIGNES.length)];
+  let s = '';
+  const n = 2 + Math.floor(alea() * 4);
+  for (let i = 0; i < n; i++) s += GLYPHES[Math.floor(alea() * GLYPHES.length)];
+  return s;
+}
+const aPlacer = LEURRES.concat(Array.from({ length: BRUIT }, fragment));
+for (const texte of aPlacer) {
+  const e = document.createElement('div');
+  e.className = 'leurre';
+  e.textContent = texte;
+  let y;
+  // Deux essais pour tomber hors de la bande du message, puis on accepte :
+  // une boucle sans fin serait pire qu'un chevauchement.
+  for (let essai = 0; essai < 3; essai++) {
+    y = entre(4, 92);
+    if (Math.abs(y - hautMessage) > 11) break;
+  }
+  e.style.top = y.toFixed(1) + '%';
+  e.style.left = entre(2, 72).toFixed(1) + '%';
+  e.style.fontSize = entre(.75, 1.15).toFixed(2) + 'rem';
+  e.style.transform = 'rotate(' + entre(-24, 24).toFixed(1) + 'deg)';
+  layer.appendChild(e);
+}
+
+function moveLight(ev) {
+  const r = scene.getBoundingClientRect();
+  const t = ev.touches ? ev.touches[0] : ev;
+  layer.style.setProperty('--mx', (t.clientX - r.left) + 'px');
+  layer.style.setProperty('--my', (t.clientY - r.top) + 'px');
+  layer.classList.add('active');
+  if (ev.cancelable) ev.preventDefault();
+}
+function off() {
+  layer.classList.remove('active');
+  layer.style.setProperty('--mx', '-999px');
+  layer.style.setProperty('--my', '-999px');
+}
+scene.addEventListener('mousemove', moveLight);
+scene.addEventListener('mouseleave', off);
+scene.addEventListener('touchstart', moveLight, { passive: false });
+scene.addEventListener('touchmove', moveLight, { passive: false });
+scene.addEventListener('touchend', off);
 </script></body></html>
