@@ -581,11 +581,11 @@ async function handleImageUpload(inputEl, path){
 // fonction, ce qui plafonne a quelques megaoctets — une musique d'intro de
 // trois minutes n'y entre pas. `asset-url` delivre donc une URL signee et le
 // navigateur depose directement dans Supabase.
-function inpAudio(label,path,val,help){
+function inpAudio(label,path,val,help,ph){
   const id='up-'+path.replace(/[^a-z0-9]/gi,'-');
   return `<div class="field"><label>${label}</label>
     <div style="display:flex;gap:8px">
-      <input class="inp" type="text" value="${esc(val)}" oninput="onInput('${path}',this.value,false)" placeholder="vide = musique par defaut" style="flex:1">
+      <input class="inp" type="text" value="${esc(val)}" oninput="onInput('${path}',this.value,false)" placeholder="${esc(ph||'vide = musique par defaut')}" style="flex:1">
       <button class="btn sm" type="button" onclick="document.getElementById('${id}').click()">⇪ Envoyer un son</button>
     </div>
     <input type="file" id="${id}" accept="audio/*" style="display:none" onchange="handleAudioUpload(this,'${path}')">
@@ -1274,7 +1274,10 @@ function tplEnigma(e,i){
 
   if(f==='audio'){
     extra+=`<fieldset class="box"><legend>Audio</legend>
-      ${inp('ID de l\'élément audio','enigmas.'+i+'.audioId',e.audioId||'','Ex : fouras-audio')}
+      ${inpAudio('Fichier audio de l\'énigme','enigmas.'+i+'.audio',e.audio||'',
+        'MP3, M4A, OGG ou WAV, 25 Mo maximum. Le fichier part dans le dossier de ce jeu et devient le son que les joueurs écoutent.','chemin du son, ou envoyez un fichier')}
+      ${inp('ou ID d\'un audio intégré au moteur','enigmas.'+i+'.audioId',e.audioId||'',
+        'Ancien système, pour les jeux déjà en ligne : fouras-audio ou melody-audio. Ignoré si un fichier est envoyé ci-dessus.')}
       <div class="grid2">
         ${chk('Onde sonore (waveform)','enigmas.'+i+'.hasWave',!!e.hasWave)}
         ${chk('Contrôle de vitesse','enigmas.'+i+'.hasSpeedControl',!!e.hasSpeedControl)}

@@ -2782,7 +2782,15 @@ function stopWaveAnim() {
 
 function renderAudioPlayer(container, idx) {
   const e = ENIGMAS[idx];
-  const audioId = e.audioId;
+
+  // Le son de l'énigme vient d'un fichier téléversé depuis l'éditeur, désigné
+  // par son chemin dans le Storage. Auparavant, `audioId` pointait sur un
+  // élément <audio> écrit en dur dans cette page : il n'y en avait que deux,
+  // donc aucun jeu ne pouvait avoir sa propre bande-son. L'ancien champ reste
+  // lu pour les jeux déjà en base.
+  const piste = e.audio ? assetUrl(e.audio) : '';
+  const audioId = piste ? `audio-enigme-${idx}` : (e.audioId || '');
+  const elementExistant = !piste && audioId ? document.getElementById(audioId) : null;
 
   const {
     hasWave = false,
@@ -2792,6 +2800,18 @@ function renderAudioPlayer(container, idx) {
 
   const player = document.createElement('div');
   player.className = 'audio-player';
+
+  // Aucun son joignable : le dire. Sans ce garde-fou, le bouton ▶ s'affichait
+  // et ne faisait rien — l'organisateur ne découvrait le problème qu'en
+  // pleine partie.
+  if (!piste && !elementExistant) {
+    player.innerHTML = `<div class="audio-status" style="color:var(--warn)">
+      AUCUN SON ASSOCIÉ À CETTE ÉNIGME</div>`;
+    container.appendChild(player);
+    console.error(`Énigme ${idx + 1} : aucun fichier audio (ni « audio », ni « audioId » valide).`);
+    renderTextInput(container, idx);
+    return;
+  }
 
   let barsHtml = '';
   if (hasWave) {
@@ -2810,13 +2830,19 @@ function renderAudioPlayer(container, idx) {
     </div>
   ` : '';
 
-  const downloadHtml = hasDownload ? `
+  // Le lien de téléchargement pointait sur « TON_LIEN_ICI », laissé dans le
+  // code : la case « Téléchargement autorisé » produisait un lien mort dans
+  // tous les jeux.
+  const lien = piste || (elementExistant && elementExistant.src) || '';
+  const downloadHtml = hasDownload && lien ? `
     <div class="audio-download" style="margin-top:8px">
-      <a href="TON_LIEN_ICI" download>⬇️</a>
+      <a href="${escHtml(lien)}" download>⬇️</a>
     </div>
   ` : '';
 
   player.innerHTML = `
+    ${piste ? `<audio id="${audioId}" preload="none" src="${escHtml(piste)}"></audio>` : ''}
+
     ${barsHtml}
 
     <div class="audio-controls">

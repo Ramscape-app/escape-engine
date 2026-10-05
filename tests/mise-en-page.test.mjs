@@ -147,3 +147,39 @@ test('la photo de l accueil joueur suit la largeur de l ecran', () => {
   const balise = MOTEUR.match(/<img id="ph-image"[^>]*>/)[0];
   assert.doesNotMatch(balise, /width:/, 'la taille est encore ecrite en ligne');
 });
+
+// ── Le son des enigmes ────────────────────────────────────────────────
+
+const EDITEUR = readFileSync('public/editeur.html', 'utf8');
+
+test('on peut envoyer un fichier audio depuis l editeur', () => {
+  // Le champ ne proposait que l identifiant d un <audio> ecrit en dur dans le
+  // moteur : il n y en avait que deux, donc aucun jeu ne pouvait avoir son
+  // propre son. Meme geste que pour les images desormais.
+  assert.match(EDITEUR, /inpAudio\('Fichier audio de l\\'énigme','enigmas\.'\+i\+'\.audio'/);
+  assert.match(EDITEUR, /accept="audio\/\*"/);
+});
+
+test('le moteur prefere le fichier televerse a l ancien identifiant', () => {
+  const fn = MOTEUR.match(/function renderAudioPlayer\([\s\S]*?\n\}/)[0];
+  assert.match(fn, /e\.audio \? assetUrl\(e\.audio\) : ''/);
+  // Et il construit son propre element plutot que d en chercher un dans la page.
+  assert.match(fn, /<audio id="\$\{audioId\}"/);
+  // L ancien champ reste lu, sinon les jeux en ligne perdraient leur son.
+  assert.match(fn, /e\.audioId/);
+});
+
+test('le lien de telechargement n est plus un marque-place', () => {
+  // Un marque-place etait reste dans le code : la case « Telechargement
+  // autorise » produisait un lien mort dans tous les jeux. On vise l attribut,
+  // pas le mot — sinon le commentaire qui raconte le defaut le reintroduit.
+  assert.doesNotMatch(MOTEUR, /href="TON_LIEN_ICI"/);
+  const fn = MOTEUR.match(/function renderAudioPlayer\([\s\S]*?\n\}/)[0];
+  assert.match(fn, /<a href="\$\{escHtml\(lien\)\}" download>/);
+});
+
+test('une enigme audio sans son le dit au lieu d afficher un bouton mort', () => {
+  const fn = MOTEUR.match(/function renderAudioPlayer\([\s\S]*?\n\}/)[0];
+  assert.match(fn, /AUCUN SON ASSOCIÉ/);
+  assert.match(fn, /console\.error/);
+});

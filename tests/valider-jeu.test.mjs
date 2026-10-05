@@ -125,3 +125,27 @@ test('chaque probleme d enigme porte son index, pour pointer la bonne', () => {
   const c = jeuValide(); c.enigmas[1].answer = [];
   assert.equal(erreurs(c)[0].enigme, 1);
 });
+
+// Une enigme audio tirait son son d'un element <audio> ecrit en dur dans le
+// moteur, designe par `audioId`. Il n'y en avait que deux : aucun jeu ne
+// pouvait avoir sa propre bande-son. Le fichier televerse (`audio`) remplace
+// ce mecanisme, et l'ancien champ reste accepte pour les jeux deja en ligne.
+const avecAudio = (e) => {
+  const cfg = jeuValide();
+  cfg.enigmas.push({ format: 'audio', question: 'Ecoutez', answer: ['x'], hint: 'i', ...e });
+  return cfg;
+};
+
+test('une enigme audio avec un fichier televerse passe', () => {
+  assert.equal(alertes(avecAudio({ audio: 'mariage/indice.m4a' })).length, 0);
+});
+
+test('une enigme audio avec l ancien identifiant passe encore', () => {
+  assert.equal(alertes(avecAudio({ audioId: 'fouras-audio' })).length, 0);
+});
+
+test('une enigme audio sans aucun son est signalee', () => {
+  const a = alertes(avecAudio({}));
+  assert.equal(a.length, 1);
+  assert.match(a[0].message, /sans fichier son/);
+});

@@ -46,8 +46,8 @@ export function validerJeu(cfg) {
     if (format === 'gps' && !(e.lat && e.lng)) {
       ajoute('erreur', `Enigme ${n} : enigme GPS sans coordonnees.`, i);
     }
-    if (format === 'audio' && !e.audioId) {
-      ajoute('alerte', `Enigme ${n} : enigme audio sans element sonore.`, i);
+    if (format === 'audio' && !e.audio && !e.audioId) {
+      ajoute('alerte', `Enigme ${n} : enigme audio sans fichier son.`, i);
     }
 
     // Modules maison : une solution vide rend le module infaisable.
