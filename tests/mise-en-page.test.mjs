@@ -254,10 +254,23 @@ test('le message est dissimule parmi d autres elements', () => {
   // chercher. Il y a maintenant des fausses pistes et des fragments d encre.
   assert.match(UV, /const LEURRES = \(P\.get\('leurres'\) \|\| ''\)/);
   assert.match(UV, /const BRUIT = /);
-  assert.match(UV, /\.leurre\{/, 'les leurres n ont pas de style');
-  assert.match(UV, /e\.className = 'leurre'/, 'aucun leurre n est place dans la scene');
+  assert.match(UV, /\.encre\{/, 'les textes encres n ont pas de style');
+  assert.match(UV, /e\.className = 'encre'/, 'aucun leurre n est place dans la scene');
   // Et le message n est plus au centre : sa hauteur est tiree au sort.
   assert.match(UV, /const hautMessage = entre\(20, 78\)/);
+});
+
+test('le message ne se distingue pas des fausses pistes', () => {
+  // Il etait deux fois plus gros, droit et plus lumineux : on le reperait sans
+  // le lire, et il n y avait plus rien a analyser. Meme habillage pour tous,
+  // pose par la meme fonction.
+  assert.match(UV, /function habiller\(e\) \{[\s\S]*?fontSize[\s\S]*?rotate\([\s\S]*?\n\}/);
+  // Le message passe par cette fonction comme les autres.
+  assert.match(UV, /bloc\.className = 'encre'/);
+  assert.match(UV, /habiller\(bloc\)/);
+  assert.match(UV, /habiller\(e\)/);
+  // Et plus aucune regle ne lui donne une taille a lui.
+  assert.doesNotMatch(UV, /\.message\{/);
 });
 
 test('la lampe est assez petite pour qu il faille balayer', () => {

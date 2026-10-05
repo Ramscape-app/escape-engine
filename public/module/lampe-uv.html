@@ -20,15 +20,16 @@
             mask:radial-gradient(circle var(--r,60px) at var(--mx,-999px) var(--my,-999px), #000 0%, #000 55%, transparent 78%);
     opacity:0;transition:opacity .08s}
   .reveal-layer.active{opacity:1}
-  /* Le message n'est plus au centre : il se cherche. */
-  .message{position:absolute;left:11%;width:78%;
-    transform:translateY(-50%);text-align:center;
-    font-family:'Courier New',monospace;font-weight:700;
-    font-size:1.5rem;letter-spacing:2px;line-height:1.4}
-  /* Ce qu'on trouve en balayant quand ce n'est pas le message : des fragments
-     d'encre, et les fausses pistes écrites par l'organisateur. */
-  .leurre{position:absolute;font-family:'Courier New',monospace;font-weight:700;
+  /* Tout ce qui est encré porte le MÊME habillage — taille, inclinaison,
+     intensité. Le message ne se signale pas : c'est au joueur de reconnaître,
+     parmi les textes qu'il révèle, celui qu'on lui demande d'analyser.
+     Auparavant il était deux fois plus gros, droit et plus lumineux : on le
+     repérait sans le lire. */
+  .encre{position:absolute;font-family:'Courier New',monospace;font-weight:700;
     white-space:nowrap;opacity:.72}
+  /* Seule concession : un message long se replie au lieu de sortir du cadre.
+     Les fragments, eux, tiennent toujours sur une ligne. */
+  .encre.long{white-space:normal;max-width:76%;text-align:center;line-height:1.35}
   .hint{font-size:.68rem;color:#8a909a;margin-top:10px}
 </style></head><body>
 <div class="wrap">
@@ -75,12 +76,22 @@ let etat = graine(MSG + '|' + LEURRES.join(',') + '|' + BRUIT);
 const alea = () => { etat = (Math.imul(etat, 1664525) + 1013904223) >>> 0; return etat / 4294967296; };
 const entre = (a, b) => a + alea() * (b - a);
 
-// Le message, place quelque part en hauteur plutot qu'au centre. Horizontalement
-// il reste cadre : un bloc de texte long doit pouvoir se replier sans sortir.
+// Le meme habillage pour tout le monde. C'est ce qui oblige a lire plutot qu'a
+// reperer : rien dans la forme ne distingue le message d'une fausse piste.
+function habiller(e) {
+  e.style.fontSize = entre(.78, 1.12).toFixed(2) + 'rem';
+  e.style.transform = 'rotate(' + entre(-20, 20).toFixed(1) + 'deg)';
+}
+
+// Le message, place quelque part en hauteur plutot qu'au centre.
 const hautMessage = entre(20, 78);
 const bloc = document.createElement('div');
-bloc.className = 'message';
+// Un message long se replie ; un message court tient sur sa ligne, comme un
+// fragment. Le cadrage horizontal garantit qu'il ne sort pas, meme incline.
+bloc.className = 'encre' + (MSG.length > 14 ? ' long' : '');
 bloc.style.top = hautMessage.toFixed(1) + '%';
+bloc.style.left = entre(6, 18).toFixed(1) + '%';
+habiller(bloc);
 bloc.textContent = MSG;
 layer.appendChild(bloc);
 
@@ -98,7 +109,7 @@ function fragment() {
 const aPlacer = LEURRES.concat(Array.from({ length: BRUIT }, fragment));
 for (const texte of aPlacer) {
   const e = document.createElement('div');
-  e.className = 'leurre';
+  e.className = 'encre';
   e.textContent = texte;
   let y;
   // Deux essais pour tomber hors de la bande du message, puis on accepte :
@@ -109,8 +120,7 @@ for (const texte of aPlacer) {
   }
   e.style.top = y.toFixed(1) + '%';
   e.style.left = entre(2, 72).toFixed(1) + '%';
-  e.style.fontSize = entre(.75, 1.15).toFixed(2) + 'rem';
-  e.style.transform = 'rotate(' + entre(-24, 24).toFixed(1) + 'deg)';
+  habiller(e);
   layer.appendChild(e);
 }
 
