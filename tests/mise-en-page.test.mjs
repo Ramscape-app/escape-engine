@@ -183,3 +183,40 @@ test('une enigme audio sans son le dit au lieu d afficher un bouton mort', () =>
   assert.match(fn, /AUCUN SON ASSOCIÉ/);
   assert.match(fn, /console\.error/);
 });
+
+// ── Le mot melange ────────────────────────────────────────────────────
+
+const MELANGE = readFileSync('public/module/mots-melanged.html', 'utf8');
+
+test('les espaces ne sont pas des lettres a placer', () => {
+  // Le joueur recevait une tuile vide a positionner, sans moyen de savoir ou,
+  // et une erreur dessus faisait echouer une reponse par ailleurs juste.
+  assert.match(MELANGE, /const MOTS = WORD\.split\(\/\\s\+\/\)/);
+  assert.match(MELANGE, /const SOLUTION = MOTS\.join\(''\)/);
+  assert.match(MELANGE, /const letters = SOLUTION\.split\(''\)/);
+  // Et la validation compare a la solution sans espaces, pas au texte d origine.
+  assert.match(MELANGE, /current === SOLUTION/);
+  assert.doesNotMatch(MELANGE, /current === WORD/);
+});
+
+test('chaque mot a sa propre ligne', () => {
+  // Une seule rangee se coupait n importe ou — au milieu d un mot aussi
+  // souvent qu entre deux.
+  assert.match(MELANGE, /<div class="mot">/);
+  assert.match(MELANGE, /\.slots\{[^}]*flex-direction:column/);
+});
+
+test('la taille des tuiles est calculee en pixels, pas en pourcentage', () => {
+  // Un pourcentage place dans une variable se resout PAR PROPRIETE : celui de
+  // `width` sur la largeur, mais le meme relu dans `height` sur la hauteur.
+  // Les tuiles sortaient ecrasees, et ca ne se voyait qu a l image.
+  const i = MELANGE.indexOf('.tile{');
+  const regle = MELANGE.slice(i, MELANGE.indexOf('}', i));
+  assert.doesNotMatch(regle, /%/, 'un pourcentage sert encore a dimensionner la tuile');
+  assert.match(regle, /width:var\(--w/);
+  assert.match(MELANGE, /setProperty\('--w', Math\.max\(18, Math\.min\(42, brut\)\) \+ 'px'\)/);
+});
+
+test('les tuiles se recalculent quand l ecran tourne', () => {
+  assert.match(MELANGE, /addEventListener\('resize', ajusterTuiles\)/);
+});

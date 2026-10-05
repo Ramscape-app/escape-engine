@@ -7,16 +7,27 @@
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{background:transparent;color:#eceef1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-  .wrap{max-width:330px;margin:0 auto;padding:10px;text-align:center}
+  .wrap{max-width:420px;margin:0 auto;padding:10px;text-align:center;--gap:5px}
   .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;margin-bottom:12px}
-  .slots{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;min-height:48px}
-  .tile{width:42px;height:48px;display:flex;align-items:center;justify-content:center;
-    font-family:'Courier New',monospace;font-size:1.4rem;font-weight:700;
+  /* Une ligne par mot. Auparavant toutes les lettres defilaient dans une seule
+     rangee qui se coupait n'importe ou — au milieu d'un mot aussi souvent
+     qu'entre deux — et la reponse devenait illisible des qu'elle en comptait
+     plusieurs. */
+  .slots{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-bottom:14px;min-height:48px}
+  .mot{display:flex;flex-wrap:wrap;gap:var(--gap);justify-content:center;width:100%}
+  /* La tuile retrecit juste assez pour que le mot le plus long tienne sur sa
+     ligne. `--w` est calcule en pixels par `ajusterTuiles()` : un pourcentage
+     place dans une variable se resout PAR PROPRIETE — celui de `width` sur la
+     largeur, mais le meme relu dans `height` sur la hauteur, et les tuiles
+     sortaient ecrasees. */
+  .tile{width:var(--w,42px);height:calc(var(--w,42px) * 1.14);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Courier New',monospace;font-size:calc(var(--w,42px) * .55);font-weight:700;
     background:#3a3e45;border:1px solid #565b63;border-radius:8px;color:#eceef1;
     cursor:pointer;user-select:none;transition:transform .12s,background .15s}
   .tile:active{transform:scale(.9)}
   .tile.empty{background:#23262b;border-style:dashed;cursor:default}
-  .bank{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:48px;
+  .bank{display:flex;flex-wrap:wrap;gap:var(--gap);justify-content:center;min-height:48px;width:100%;
     padding:10px;border:1px dashed #565b63;border-radius:10px;background:rgba(255,255,255,.02)}
   .lbl{font-size:.68rem;color:#8a909a;margin:10px 0 4px}
   .row{display:flex;gap:8px;justify-content:center;margin-top:12px}
@@ -54,7 +65,35 @@ const VALIDATE = P.get('validate') === '1';
 const TITLE = P.get('title');
 if (TITLE) document.getElementById('title').textContent = TITLE;
 
-const letters = WORD.split('');
+// Les espaces ne sont pas des lettres a placer : ils separent les mots. Le
+// joueur recevait une tuile vide a positionner, sans moyen de savoir ou — et
+// une erreur dessus faisait echouer une reponse par ailleurs juste.
+const MOTS = WORD.split(/\s+/).filter(Boolean);
+const SOLUTION = MOTS.join('');
+const letters = SOLUTION.split('');
+
+// Ou commence et finit chaque mot dans la suite des cases.
+const GROUPES = [];
+{
+  let i = 0;
+  for (const m of MOTS) { GROUPES.push({ debut: i, fin: i + m.length }); i += m.length; }
+}
+// La longueur du mot le plus long decide de la taille des tuiles : c'est lui
+// qui doit tenir sur une ligne. Recalcule au changement d'orientation, sinon
+// un telephone tourne garde des tuiles dimensionnees pour l'autre sens.
+const PLUS_LONG = Math.max(1, ...MOTS.map(m => m.length));
+function ajusterTuiles(){
+  const wrap = document.querySelector('.wrap');
+  const gap = 5;
+  // 20 px : les marges interieures du cadre. 2 px de marge pour qu'un arrondi
+  // ne fasse pas basculer la derniere lettre a la ligne.
+  const dispo = wrap.clientWidth - 20 - 2;
+  const brut = Math.floor((dispo - (PLUS_LONG - 1) * gap) / PLUS_LONG);
+  wrap.style.setProperty('--w', Math.max(18, Math.min(42, brut)) + 'px');
+}
+ajusterTuiles();
+addEventListener('resize', ajusterTuiles);
+
 let bank = [];
 let slots = [];
 
@@ -66,7 +105,7 @@ function shuffle(arr){
 function init(){
   let order;
   do { order = shuffle(letters.map((ch,i)=>({ch,id:i}))); }
-  while (letters.length>1 && order.map(o=>o.ch).join('')===WORD);
+  while (letters.length>1 && order.map(o=>o.ch).join('')===SOLUTION);
   bank = order;
   slots = letters.map(()=>null);
   document.getElementById('status').textContent='';
@@ -74,10 +113,15 @@ function init(){
   render();
 }
 function render(){
-  document.getElementById('slots').innerHTML = slots.map((s,i)=>
-    s ? `<div class="tile" onclick="fromSlot(${i})">${s.ch}</div>`
-      : `<div class="tile empty"></div>`
-  ).join('');
+  document.getElementById('slots').innerHTML = GROUPES.map(g => {
+    let cases = '';
+    for (let i = g.debut; i < g.fin; i++) {
+      cases += slots[i]
+        ? `<div class="tile" onclick="fromSlot(${i})">${slots[i].ch}</div>`
+        : `<div class="tile empty"></div>`;
+    }
+    return `<div class="mot">${cases}</div>`;
+  }).join('');
   document.getElementById('bank').innerHTML = bank.map((b,i)=>
     `<div class="tile" onclick="toSlot(${i})">${b.ch}</div>`
   ).join('');
@@ -102,7 +146,7 @@ document.getElementById('submit').onclick = ()=>{
   const zone = document.getElementById('reveal-zone');
   const current = slots.map(s=>s?s.ch:'_').join('');
   if (slots.some(s=>s===null)){ st.className='status'; st.textContent='Placez toutes les lettres.'; return; }
-  if (current === WORD){
+  if (current === SOLUTION){
     st.className='status ok'; st.textContent='✓ Mot correct !';
     zone.innerHTML='';
     if (IMAGE){
