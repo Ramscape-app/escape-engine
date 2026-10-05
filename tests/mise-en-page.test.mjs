@@ -191,19 +191,32 @@ const MELANGE = readFileSync('public/module/mots-melanged.html', 'utf8');
 test('les espaces ne sont pas des lettres a placer', () => {
   // Le joueur recevait une tuile vide a positionner, sans moyen de savoir ou,
   // et une erreur dessus faisait echouer une reponse par ailleurs juste.
-  assert.match(MELANGE, /const MOTS = WORD\.split\(\/\\s\+\/\)/);
-  assert.match(MELANGE, /const SOLUTION = MOTS\.join\(''\)/);
+  assert.match(MELANGE, /const SOLUTION = LIGNES\.join\(''\)\.replace\(\/\\s\+\/g, ''\)/);
   assert.match(MELANGE, /const letters = SOLUTION\.split\(''\)/);
+  // Un espace a l interieur d une ligne est une respiration, pas une case.
+  assert.match(MELANGE, /motif\.push\('ecart'\)/);
+  assert.match(MELANGE, /<div class="ecart"><\/div>/);
   // Et la validation compare a la solution sans espaces, pas au texte d origine.
   assert.match(MELANGE, /current === SOLUTION/);
   assert.doesNotMatch(MELANGE, /current === WORD/);
 });
 
-test('chaque mot a sa propre ligne', () => {
-  // Une seule rangee se coupait n importe ou — au milieu d un mot aussi
-  // souvent qu entre deux.
+test('les retours a la ligne de l editeur decident de la mise en page', () => {
+  // Une ligne ecrite dans l editeur = une ligne dans le jeu : c est ainsi
+  // qu on coupe un mot trop long ou qu on met deux mots cote a cote.
+  assert.match(MELANGE, /\/\\r\?\\n\/\.test\(WORD\) \? WORD\.split\(\/\\r\?\\n\/\) : WORD\.split\(\/\\s\+\/\)/);
+  // Sans aucun retour, l ancien comportement : un mot par ligne. Les jeux
+  // deja en ligne gardent leur mise en page.
   assert.match(MELANGE, /<div class="mot">/);
   assert.match(MELANGE, /\.slots\{[^}]*flex-direction:column/);
+});
+
+test('l editeur offre un champ multi-ligne pour ce module', () => {
+  assert.match(EDITEUR, /\{k:'mot', l:'Mot ou phrase à reconstituer', t:'textarea'/);
+  // Et le moteur de champs sait rendre ce type, sinon le parametre retomberait
+  // sur un champ d une seule ligne sans que rien ne le signale.
+  assert.match(EDITEUR, /p\.t==='textarea'/);
+  assert.match(EDITEUR, /<textarea class="ta short" oninput="onModuleParam/);
 });
 
 test('la taille des tuiles est calculee en pixels, pas en pourcentage', () => {

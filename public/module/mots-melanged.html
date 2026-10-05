@@ -27,6 +27,8 @@
     cursor:pointer;user-select:none;transition:transform .12s,background .15s}
   .tile:active{transform:scale(.9)}
   .tile.empty{background:#23262b;border-style:dashed;cursor:default}
+  /* Un espace a l'interieur d'une ligne : une respiration, pas une case. */
+  .ecart{width:calc(var(--w,42px) * .5);height:calc(var(--w,42px) * 1.14)}
   .bank{display:flex;flex-wrap:wrap;gap:var(--gap);justify-content:center;min-height:48px;width:100%;
     padding:10px;border:1px dashed #565b63;border-radius:10px;background:rgba(255,255,255,.02)}
   .lbl{font-size:.68rem;color:#8a909a;margin:10px 0 4px}
@@ -68,27 +70,44 @@ if (TITLE) document.getElementById('title').textContent = TITLE;
 // Les espaces ne sont pas des lettres a placer : ils separent les mots. Le
 // joueur recevait une tuile vide a positionner, sans moyen de savoir ou — et
 // une erreur dessus faisait echouer une reponse par ailleurs juste.
-const MOTS = WORD.split(/\s+/).filter(Boolean);
-const SOLUTION = MOTS.join('');
-const letters = SOLUTION.split('');
+//
+// Un retour a la ligne ecrit dans l'editeur = une ligne dans le jeu. C'est
+// ainsi qu'on coupe un mot trop long, ou qu'on met deux mots courts cote a
+// cote. Sans aucun retour, on retombe sur un mot par ligne : les jeux deja en
+// ligne gardent exactement leur mise en page.
+const LIGNES = (/\r?\n/.test(WORD) ? WORD.split(/\r?\n/) : WORD.split(/\s+/))
+  .map(l => l.trim()).filter(Boolean);
 
-// Ou commence et finit chaque mot dans la suite des cases.
+// Chaque ligne devient un motif : une lettre a placer, ou un ecart. L'ecart
+// occupe une demi-tuile et n'est pas cliquable.
 const GROUPES = [];
 {
   let i = 0;
-  for (const m of MOTS) { GROUPES.push({ debut: i, fin: i + m.length }); i += m.length; }
+  for (const ligne of LIGNES) {
+    const motif = [];
+    for (const c of ligne) {
+      if (/\s/.test(c)) motif.push('ecart');
+      else { motif.push('lettre'); i++; }
+    }
+    GROUPES.push({ debut: i - motif.filter(t => t === 'lettre').length, motif });
+  }
 }
-// La longueur du mot le plus long decide de la taille des tuiles : c'est lui
-// qui doit tenir sur une ligne. Recalcule au changement d'orientation, sinon
-// un telephone tourne garde des tuiles dimensionnees pour l'autre sens.
-const PLUS_LONG = Math.max(1, ...MOTS.map(m => m.length));
+const SOLUTION = LIGNES.join('').replace(/\s+/g, '');
+const letters = SOLUTION.split('');
+
+// La ligne la plus exigeante decide de la taille des tuiles : c'est elle qui
+// doit tenir. Recalcule au changement d'orientation, sinon un telephone tourne
+// garde des tuiles dimensionnees pour l'autre sens.
+const UNITES = Math.max(1, ...GROUPES.map(g =>
+  g.motif.reduce((n, t) => n + (t === 'ecart' ? 0.5 : 1), 0)));
+const CASES = Math.max(1, ...GROUPES.map(g => g.motif.length));
 function ajusterTuiles(){
   const wrap = document.querySelector('.wrap');
   const gap = 5;
   // 20 px : les marges interieures du cadre. 2 px de marge pour qu'un arrondi
   // ne fasse pas basculer la derniere lettre a la ligne.
   const dispo = wrap.clientWidth - 20 - 2;
-  const brut = Math.floor((dispo - (PLUS_LONG - 1) * gap) / PLUS_LONG);
+  const brut = Math.floor((dispo - (CASES - 1) * gap) / UNITES);
   wrap.style.setProperty('--w', Math.max(18, Math.min(42, brut)) + 'px');
 }
 ajusterTuiles();
@@ -114,11 +133,13 @@ function init(){
 }
 function render(){
   document.getElementById('slots').innerHTML = GROUPES.map(g => {
-    let cases = '';
-    for (let i = g.debut; i < g.fin; i++) {
-      cases += slots[i]
-        ? `<div class="tile" onclick="fromSlot(${i})">${slots[i].ch}</div>`
+    let k = g.debut, cases = '';
+    for (const t of g.motif) {
+      if (t === 'ecart') { cases += `<div class="ecart"></div>`; continue; }
+      cases += slots[k]
+        ? `<div class="tile" onclick="fromSlot(${k})">${slots[k].ch}</div>`
         : `<div class="tile empty"></div>`;
+      k++;
     }
     return `<div class="mot">${cases}</div>`;
   }).join('');

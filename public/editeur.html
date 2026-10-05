@@ -472,7 +472,8 @@ const MODULES = [
     {k:'taille', l:'Taille de la grille', t:'number', help:'Vide = calculée automatiquement.'},
   ]},
   { v:'mots-melanged', l:'Mot mélangé (anagramme)', valide:true, params:[
-    {k:'mot', l:'Mot à reconstituer', t:'text'},
+    {k:'mot', l:'Mot ou phrase à reconstituer', t:'textarea',
+     help:'Une ligne ici = une ligne dans le jeu. C\'est ainsi qu\'on coupe un mot trop long, ou qu\'on met deux mots courts côte à côte. Sans aucun retour à la ligne, chaque mot passe automatiquement à la ligne. Les espaces ne sont jamais des lettres à placer.'},
   ]},
   // Attention : ce module valide PAR DÉFAUT (validate !== '0'), à l'inverse des
   // autres qui exigent validate=1. D'où `valideParDefaut`, qui inverse l'écriture
@@ -1368,6 +1369,10 @@ function tplModule(i, url){
         ? `<select class="inp" onchange="onModuleParam(${i},'${p.k}',this.value)">
              ${p.opts.map(([ov,ol])=>`<option value="${ov}" ${String(val)===ov?'selected':''}>${esc(ol)}</option>`).join('')}
            </select>`
+        : p.t==='textarea'
+        // Un paramètre où les retours à la ligne comptent : ils voyagent dans
+        // l'URL du module, encodés par URLSearchParams.
+        ? `<textarea class="ta short" oninput="onModuleParam(${i},'${p.k}',this.value)">${esc(val)}</textarea>`
         : `<input class="inp" type="${p.t==='number'?'number':'text'}" value="${esc(val)}"
                   oninput="onModuleParam(${i},'${p.k}',this.value)">`;
       return `<div class="field"><label>${esc(p.l)}</label>${champ}
