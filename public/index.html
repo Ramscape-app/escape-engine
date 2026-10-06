@@ -2932,13 +2932,30 @@ function bearingTo(lat1, lon1, lat2, lon2) {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
-function distToZoom(dist) {
-  const MAX_DIST = 10000;
-  const MIN_ZOOM = 19;
-  const MAX_ZOOM = 22;
-  const clamped = Math.max(50, Math.min(dist, MAX_DIST));
-  const t = 1 - Math.log(clamped / 50) / Math.log(MAX_DIST / 50);
-  return MIN_ZOOM + t * (MAX_ZOOM - MIN_ZOOM);
+// Le zoom de la carte pendant le scan GPS.
+//
+// Les bornes allaient de 19 a 22, c'est-a-dire entierement AU-DESSUS du
+// plafond des tuiles — `shared/carte.js` declare le fond en `maxZoom: 19`, ce
+// qui plafonne la carte entiere. Leaflet rabattait donc tout a 19 : a 5 km
+// comme a 40 m, la carte avait exactement le meme aspect. Et le reglage de
+// l'organisateur, applique a la creation de la carte, etait efface des le
+// premier point GPS recu puisque c'est cette fonction qui decidait ensuite.
+//
+// `zoomDepart` est ce reglage. Il garde le sens que lui donne l'editeur — la
+// vue de depart, donc la vue de loin — et la carte se resserre a mesure qu'on
+// approche, sans jamais depasser ce que les tuiles savent afficher.
+const ZOOM_TUILES_MAX = 19;      // shared/carte.js : le fond ne va pas au-dela
+const ZOOM_GPS_DEFAUT = 15;      // meme valeur que l'editeur annonce
+const SERRAGE_GPS = 4;           // crans gagnes entre « loin » et « arrive »
+
+function distToZoom(dist, zoomDepart) {
+  const MIN_DIST = 50, MAX_DIST = 10000;
+  const loin = Math.min(Math.max(1, zoomDepart != null ? zoomDepart : ZOOM_GPS_DEFAUT),
+                        ZOOM_TUILES_MAX);
+  const proche = Math.min(loin + SERRAGE_GPS, ZOOM_TUILES_MAX);
+  const clamped = Math.max(MIN_DIST, Math.min(dist, MAX_DIST));
+  const t = 1 - Math.log(clamped / MIN_DIST) / Math.log(MAX_DIST / MIN_DIST);
+  return loin + t * (proche - loin);
 }
 
 function updateEdgeBlip(lat, lng, targetLat, targetLng, dist) {
@@ -3032,7 +3049,7 @@ function renderGPS(container, idx) {
     const TARGET = e.gpsTarget;
     gpsMap = L.map('gps-map', {
       center: [TARGET.lat, TARGET.lng],
-      zoom: (e.gpsZoom != null ? e.gpsZoom : 15),
+      zoom: (e.gpsZoom != null ? e.gpsZoom : ZOOM_GPS_DEFAUT),
       zoomControl: false,
       // L'attribution etait desactivee : les tuiles derivees d'OpenStreetMap
       // la demandent. Le controle est discret et n'entrave pas le jeu.
@@ -3165,7 +3182,7 @@ window.startGPSTracking = function(idx) {
         }
 
         if (gpsMap) {
-          gpsMap.setView([lat, lng], distToZoom(dist), { animate: true, duration: 1 });
+          gpsMap.setView([lat, lng], distToZoom(dist, e.gpsZoom), { animate: true, duration: 1 });
           updateEdgeBlip(lat, lng, TARGET.lat, TARGET.lng, dist);
         }
 
