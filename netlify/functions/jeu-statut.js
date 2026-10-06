@@ -44,7 +44,11 @@ export default async (req) => {
     }
   }
 
-  const { error } = await sb.from('jeux').update({ statut }).eq('id', id);
+  // `select()` apres l'update : sans lui, une mise a jour qui ne touche aucune
+  // ligne — identifiant inconnu, jeu supprime entre-temps — repond « ok » et la
+  // console affiche un succes sans que rien n'ait change.
+  const { data: maj, error } = await sb.from('jeux').update({ statut }).eq('id', id).select('id');
   if (error) return json({ error: error.message }, 500);
-  return json({ ok: true });
+  if (!maj || !maj.length) return json({ error: 'Jeu introuvable' }, 404);
+  return json({ ok: true, statut });
 };
