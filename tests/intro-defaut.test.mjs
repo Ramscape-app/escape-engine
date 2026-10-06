@@ -13,15 +13,16 @@ const PAGES = {
   editeur: readFileSync('public/editeur.html', 'utf8'),
 };
 
-test('les quatre pages d introduction sont decrites', () => {
-  assert.deepEqual(Object.keys(INTRO_DEFAUT).sort(), ['boot', 'cine', 'intro', 'preboot']);
+test('les cinq pages du jeu sont decrites', () => {
+  assert.deepEqual(Object.keys(INTRO_DEFAUT).sort(),
+    ['boot', 'cine', 'fin', 'intro', 'preboot']);
 });
 
 test('chaque cle que l editeur propose existe dans le defaut', () => {
   // L'editeur pose un marque-place par champ, en lisant `D.<page>.<cle>`.
   // Une cle renommee dans le module laisserait le marque-place vide sans
   // qu'aucune erreur ne se produise.
-  const attendus = [...PAGES.editeur.matchAll(/\bD\.(cine|preboot|boot|intro)\.([a-zA-Z]+)/g)]
+  const attendus = [...PAGES.editeur.matchAll(/\bD\.(cine|preboot|boot|intro|fin)\.([a-zA-Z]+)/g)]
     .map(m => [m[1], m[2]]);
   assert.ok(attendus.length >= 10, `l'editeur ne lit que ${attendus.length} defauts`);
   for (const [page, cle] of attendus)
@@ -67,11 +68,13 @@ test('les consignes ont toutes leurs trois champs', () => {
     assert.deepEqual(Object.keys(c).sort(), ['icon', 'texte', 'titre']);
 });
 
-test('aucun texte par defaut n est vide, sauf la musique', () => {
-  // `music` vide est voulu : le moteur retombe alors sur sa piste par defaut.
+test('aucun texte par defaut n est vide, sauf la musique et l image de fin', () => {
+  // Vides par choix : le moteur retombe alors sur sa piste et son image par
+  // defaut. Les autres champs vides seraient des trous a l'ecran.
+  const permis = new Set(['music', 'image']);
   for (const [page, champs] of Object.entries(INTRO_DEFAUT))
     for (const [cle, val] of Object.entries(champs)) {
-      if (cle === 'music') continue;
+      if (permis.has(cle)) continue;
       const vide = Array.isArray(val) ? !val.length : !String(val).trim();
       assert.equal(vide, false, `INTRO_DEFAUT.${page}.${cle} est vide`);
     }

@@ -1120,13 +1120,13 @@ function ensureIntro(){
 function addConsigne(){ ensureIntro(); CFG.intro.preboot.consignes.push({icon:'•',titre:'TITRE',texte:''}); markDirty(); render(); }
 function removeConsigne(i){ ensureIntro(); CFG.intro.preboot.consignes.splice(i,1); markDirty(); render(); }
 function tplIntro(){
-  const I = CFG.intro||{}; const pb=I.preboot||{}, bt=I.boot||{}, it=I.intro||{}, ci=I.cine||{};
+  const I = CFG.intro||{}; const pb=I.preboot||{}, bt=I.boot||{}, it=I.intro||{}, ci=I.cine||{}, fi=I.fin||{};
   const consignes = pb.consignes||[];
   // Ce que le moteur affichera si le champ reste vide. Le montrer en
   // marque-place plutot que de laisser deviner : ces textes existaient et
   // s'appliquaient sans jamais apparaitre dans l'editeur.
-  const D = window.INTRO_DEFAUT || { cine:{}, preboot:{}, boot:{}, intro:{} };
-  const vide = !I.preboot && !I.boot && !I.intro && !I.cine;
+  const D = window.INTRO_DEFAUT || { cine:{}, preboot:{}, boot:{}, intro:{}, fin:{} };
+  const vide = !I.preboot && !I.boot && !I.intro && !I.cine && !I.fin;
   const bandeau = `
     <div class="banner${vide?' warn':''}" style="margin-bottom:16px">
       <span>${vide
@@ -1186,6 +1186,19 @@ function tplIntro(){
     ${inp('Bandeau confidentiel','intro.intro.classified',it.classified||'','',null,D.intro.classified)}
     ${ta('Texte de briefing (HTML autorisé : <strong>, <br>… — {total} = nb d\'énigmes)','intro.intro.brief',it.brief||'','',false,D.intro.brief)}
     ${inp('Libellé du bouton','intro.intro.button',it.button||'','',null,D.intro.button)}
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:24px 0">
+    <h3 style="margin:6px 0 12px">Page 4 — Fin (écran de victoire)</h3>
+    <div class="help" style="margin-bottom:12px">
+      Ce que les joueurs voient en terminant. C'est le dernier souvenir qu'ils
+      gardent du jeu — et jusqu'ici il était écrit en dur, texte du PROJET 1986
+      compris.
+    </div>
+    ${inpImage('Image de récompense','intro.fin.image',fi.image||'','Upload ou chemin. Laissez vide pour garder l\'image par défaut du moteur.')}
+    ${inp('Emoji','intro.fin.emoji',fi.emoji||'','',null,D.fin.emoji)}
+    ${inp('Titre','intro.fin.titre',fi.titre||'','',null,D.fin.titre)}
+    ${ta('Texte de fin (HTML autorisé : <strong>, <br>… — {total} = nb d\'énigmes)','intro.fin.texte',fi.texte||'','',false,D.fin.texte)}
+    ${inp('Libellé du bouton','intro.fin.bouton',fi.bouton||'','',null,D.fin.bouton)}
   `;
 }
 // Materialise les textes par defaut dans le jeu, pour les modifier au lieu de

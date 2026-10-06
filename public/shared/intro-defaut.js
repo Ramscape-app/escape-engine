@@ -50,4 +50,15 @@ export const INTRO_DEFAUT = {
     brief: "Agent, votre profil a été <strong>sélectionné</strong>.<br><br>En <strong>1986</strong>, un sujet exceptionnel a vu le jour. Aujourd'hui, <strong>40 ans plus tard</strong>, il est temps de prouver que les années n'ont fait que renforcer ses capacités.<br><br><strong>{total} épreuves</strong> vous attendent. Logique, mémoire, agilité, culture… chaque réponse correcte vous rapproche de la <strong>récompense finale</strong>.<br><br>Aucun retour en arrière possible.<br><span style=\"color:var(--warn)\">Bonne chance.</span>",
     button: "ACCEPTER LA MISSION",
   },
+  // Page 4 — l'ecran de victoire. Il etait ecrit en dur dans le moteur, texte
+  // du PROJET 1986 compris : tous les jeux, mariages inclus, finissaient sur
+  // « 40 ans n'est que le debut » et « Joyeux anniversaire ».
+  fin: {
+    emoji: "🎉",
+    // Vide = l'image par defaut du moteur. Un chemin dans le Storage sinon.
+    image: "",
+    titre: "MISSION ACCOMPLIE",
+    texte: "Agent, vous avez prouvé que 40 ans n'est que le début.<br><br>Votre récompense a été déverrouillée.<br><br><strong style=\"color:var(--gold)\">Joyeux anniversaire !</strong>",
+    bouton: "REJOUER",
+  },
 };

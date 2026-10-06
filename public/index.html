@@ -1297,17 +1297,17 @@ html, body {
 
 <!-- VICTORY -->
 <div id="victory-screen" class="screen">
-  <div class="vic-emoji">🎉</div>
-  <img src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/fin.png" alt="Récompense" style="max-width:300px;width:90%;border-radius: var(--r-lg);margin-top:20px;box-shadow:0 4px 20px rgba(0,0,0,.4);">
-  <div class="vic-title">MISSION ACCOMPLIE</div>
+  <div class="vic-emoji" id="vic-emoji">🎉</div>
+  <img id="vic-image" src="https://gpwdnflaxuuselxxkepn.supabase.co/storage/v1/object/public/assets/icons/fin.png" alt="Récompense" style="max-width:300px;width:90%;border-radius: var(--r-lg);margin-top:20px;box-shadow:0 4px 20px rgba(0,0,0,.4);">
+  <div class="vic-title" id="vic-title">MISSION ACCOMPLIE</div>
   <div class="vic-time" id="vic-time"></div>
-  <div class="vic-text">
+  <div class="vic-text" id="vic-text">
     Agent, vous avez prouvé que 40 ans n'est que le début.<br><br>
     Votre récompense a été déverrouillée.<br><br>
     <strong style="color:var(--gold)">Joyeux anniversaire !</strong>
   </div>
   <div style="margin-top:30px;">
-    <button class="btn-primary" onclick="resetGame()">REJOUER</button>
+    <button class="btn-primary" id="vic-bouton" onclick="resetGame()">REJOUER</button>
   </div>
 </div>
 
@@ -2054,7 +2054,8 @@ function getIntroConfig() {
     // blanche, et la console dit pourquoi.
     console.error("shared/intro-defaut.js n'a pas charge : textes d'intro par defaut indisponibles.");
     const c = (GAME_CONFIG && GAME_CONFIG.intro) || {};
-    return { cine: c.cine || {}, preboot: c.preboot || {}, boot: c.boot || {}, intro: c.intro || {} };
+    return { cine: c.cine || {}, preboot: c.preboot || {}, boot: c.boot || {},
+             intro: c.intro || {}, fin: c.fin || {} };
   }
   const c = (GAME_CONFIG && GAME_CONFIG.intro) || {};
   return {
@@ -2062,6 +2063,7 @@ function getIntroConfig() {
     preboot: { ...d.preboot, ...(c.preboot || {}) },
     boot:    { ...d.boot,    ...(c.boot || {}) },
     intro:   { ...d.intro,   ...(c.intro || {}) },
+    fin:     { ...d.fin,     ...(c.fin || {}) },
   };
 }
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
@@ -2102,6 +2104,19 @@ function applyIntro() {
   set('intro-button', I.intro.button);
   const brief = document.getElementById('intro-brief');
   if (brief) brief.innerHTML = String(I.intro.brief).replace(/\{total\}/g, TOTAL);
+
+  // Page 4 — l'écran de victoire. Il était écrit en dur, texte du PROJET 1986
+  // compris : tous les jeux finissaient sur « 40 ans n'est que le début » et
+  // « Joyeux anniversaire », mariages inclus.
+  const F = I.fin || {};
+  set('vic-emoji', F.emoji);
+  set('vic-title', F.titre);
+  set('vic-bouton', F.bouton);
+  const fin = document.getElementById('vic-text');
+  if (fin && F.texte != null) fin.innerHTML = String(F.texte).replace(/\{total\}/g, TOTAL);
+  // Vide = l'image par défaut du moteur, celle déjà écrite dans la balise.
+  const img = document.getElementById('vic-image');
+  if (img && F.image) img.src = assetUrl(F.image);
 }
 
 // Lignes de boot dynamiques

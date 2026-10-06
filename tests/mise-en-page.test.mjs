@@ -293,3 +293,39 @@ test('l editeur expose de quoi regler la difficulte', () => {
   for (const k of ['message', 'leurres', 'bruit', 'rayon', 'indice'])
     assert.match(bloc, new RegExp(`k:'${k}'`), `le parametre ${k} manque`);
 });
+
+// ── L'ecran de victoire ───────────────────────────────────────────────
+
+test('l ecran de fin n est plus ecrit en dur', () => {
+  // Image, emoji, titre, texte et bouton etaient figes dans la page — texte du
+  // PROJET 1986 compris. Tous les jeux, mariages inclus, finissaient sur
+  // « 40 ans n est que le debut » et « Joyeux anniversaire ».
+  for (const id of ['vic-emoji', 'vic-image', 'vic-title', 'vic-text', 'vic-bouton'])
+    assert.match(MOTEUR, new RegExp(`id="${id}"`), `#${id} n est pas atteignable`);
+  const fn = MOTEUR.match(/function applyIntro\(\)[\s\S]*?\n\}/)[0];
+  for (const champ of ['F.emoji', 'F.titre', 'F.bouton', 'F.texte', 'F.image'])
+    assert.ok(fn.includes(champ), `applyIntro n applique pas ${champ}`);
+});
+
+test('la page de fin est fusionnee comme les autres', () => {
+  // Sans cette fusion, un jeu qui ne personnalise que le titre perdrait tout
+  // le reste au lieu de retomber sur les valeurs par defaut.
+  const fn = MOTEUR.match(/function getIntroConfig\(\)[\s\S]*?\n\}/)[0];
+  assert.match(fn, /fin:\s*\{ \.\.\.d\.fin,\s*\.\.\.\(c\.fin \|\| \{\}\) \}/);
+  // Et le repli, quand le module des defauts n a pas charge.
+  assert.match(fn, /fin: c\.fin \|\| \{\}/);
+});
+
+test('une image de fin vide garde celle du moteur', () => {
+  // Mettre `src` a vide afficherait une image cassee au moment le plus
+  // important du jeu.
+  const fn = MOTEUR.match(/function applyIntro\(\)[\s\S]*?\n\}/)[0];
+  assert.match(fn, /if \(img && F\.image\) img\.src = assetUrl\(F\.image\)/);
+});
+
+test('l editeur propose la page de fin, avec envoi d image', () => {
+  assert.match(EDITEUR, /Page 4 — Fin \(écran de victoire\)/);
+  assert.match(EDITEUR, /inpImage\('Image de récompense','intro\.fin\.image'/);
+  for (const k of ['emoji', 'titre', 'texte', 'bouton'])
+    assert.match(EDITEUR, new RegExp(`'intro\\.fin\\.${k}'`), `le champ ${k} manque`);
+});
