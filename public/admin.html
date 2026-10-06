@@ -1681,8 +1681,14 @@ async function ajouterComplice(qid){
 
 const lienComplice = jeton => location.origin + '/repondre.html?jeton=' + jeton;
 
-function copierLien(jeton, btn){
-  const lien = lienComplice(jeton);
+// Les trois liens que l'organisateur a besoin de donner. Ils etaient jusqu'ici
+// a reconstruire de tete depuis le slug ou le code affiches dans les tableaux :
+// c'est le genre de chose qu'on se trompe une fois sur deux, et le joueur se
+// retrouve devant « Code invalide ».
+const lienCode = code => location.origin + '/rejoindre.html?code=' + encodeURIComponent(code);
+const lienJeu  = slug => location.origin + '/rejoindre.html?slug=' + encodeURIComponent(slug);
+
+function copierTexte(lien, btn){
   const fini = ()=>{ const t=btn.textContent; btn.textContent='Copie !'; setTimeout(()=>btn.textContent=t,1500); };
   // `navigator.clipboard` n'existe pas hors HTTPS ni sur les vieux navigateurs :
   // afficher le lien vaut mieux que ne rien faire.
@@ -1690,6 +1696,9 @@ function copierLien(jeton, btn){
     navigator.clipboard.writeText(lien).then(fini, ()=>prompt('Copie ce lien :', lien));
   } else prompt('Copie ce lien :', lien);
 }
+function copierLien(jeton, btn){ copierTexte(lienComplice(jeton), btn); }
+function copierLienCode(code, btn){ copierTexte(lienCode(code), btn); }
+function copierLienJeu(slug, btn){ copierTexte(lienJeu(slug), btn); }
 
 async function revoquerComplice(id){
   if(!confirm('Tirer un nouveau lien pour ce complice ?\n\nL\'ancien cessera de fonctionner. Ses reponses sont conservees.')) return;
@@ -2302,11 +2311,15 @@ function renderCodes(codes){
     <thead><tr><th>Code</th><th>Jeu</th><th>Libelle</th><th>Max</th><th>Expire</th><th>Statut</th><th></th></tr></thead>
     <tbody>${codes.map(c=>{
       const actif=c.actif!==false;
+      const publie=!!(c.jeu && c.jeu.statut==='publie');
       const badge=actif?'<span class="pill ok">Actif</span>':'<span class="pill off">Inactif</span>';
+      // Un code actif sur un jeu non publie ne marche pas : le dire ici, pas au joueur.
+      const alerte=actif&&!publie?' <span class="pill off" title="Le code ne sera accepte qu\'une fois le jeu publie">jeu non publie</span>':'';
       const jeu=c.jeu?esc(c.jeu.name):'-';
       const exp=c.expire_le?new Date(c.expire_le).toLocaleDateString('fr-FR'):'-';
-      return `<tr><td><strong style="font-family:var(--mono)">${esc(c.code)}</strong></td><td>${jeu}</td><td>${esc(c.label||'-')}</td><td>${c.max_joueurs||'-'}</td><td>${exp}</td><td>${badge}</td>`
+      return `<tr><td><strong style="font-family:var(--mono)">${esc(c.code)}</strong></td><td>${jeu}</td><td>${esc(c.label||'-')}</td><td>${c.max_joueurs||'-'}</td><td>${exp}</td><td>${badge}${alerte}</td>`
         + `<td style="text-align:right;white-space:nowrap">`
+        + `<button class="tog" onclick="copierLienCode('${esc(c.code)}',this)">Copier le lien joueur</button> `
         + `<button class="tog" onclick="toggleCode('${esc(c.code)}',${actif})">${actif?'Desactiver':'Activer'}</button> `
         + `<button class="del" onclick="deleteCode('${esc(c.code)}')">Suppr</button></td></tr>`;
     }).join('')}</tbody></table>`;
@@ -2317,7 +2330,11 @@ async function creerCode(){
   if(!jeu_id){ m.textContent='Choisis un jeu.'; m.className='msg err'; return; }
   try{
     const r=await callFn('code-create',{ method:'POST', body:{ jeu_id, code, label, max_joueurs } });
-    m.innerHTML=`Code cree : <strong style="font-family:var(--mono)">${esc(r.code)}</strong>`; m.className='msg ok';
+    // Le lien tout de suite : c'est lui qu'on envoie, pas le code nu.
+    m.innerHTML=`Code cree : <strong style="font-family:var(--mono)">${esc(r.code)}</strong>`
+      + `<br>Lien a envoyer : <strong style="font-family:var(--mono)">${esc(lienCode(r.code))}</strong> `
+      + `<button class="tog" onclick="copierLienCode('${esc(r.code)}',this)">Copier</button>`;
+    m.className='msg ok';
     $('cd-code').value=''; $('cd-label').value=''; $('cd-max').value='';
     loadCodes();
   }catch(e){ m.textContent='Erreur : '+e.message; m.className='msg err'; }
@@ -2620,7 +2637,10 @@ async function renderJeux(){
           const pub = (j.statut==='publie');
           const badge = pub?'<span class="pill ok">Publie</span>':(j.statut==='archive'?'<span class="pill off">Archive</span>':'<span class="pill">Brouillon</span>');
           const tog = pub?'Depublier':'Publier';
-          return `<tr><td><strong>${esc(j.name)}</strong></td><td><span class="pill">${esc(j.slug)}</span></td><td>${badge}</td>`
+          return `<tr><td><strong>${esc(j.name)}</strong></td>`
+            + `<td><span class="pill">${esc(j.slug)}</span> `
+            + `<button class="tog" onclick="copierLienJeu('${esc(j.slug)}',this)" title="Page d'accueil du jeu : le joueur y saisit son code">Lien</button></td>`
+            + `<td>${badge}</td>`
             + `<td style="text-align:right;white-space:nowrap">`
             + `<a class="tog" style="text-decoration:none" href="index.html?previewId=${j.id}" target="_blank">Tester</a> `
             + `<button class="tog" onclick="dupliquer('${j.id}','${esc(j.name)}')">Dupliquer</button> `
@@ -2717,7 +2737,10 @@ async function creerJoueur(){
   try {
     await callFn('joueur-create', { method:'POST', body:{ pseudo, password, jeu_id, slug } });
     const r=$('c-result');
-    r.innerHTML = `Joueur cree. A transmettre :<br>Pseudo : <strong>${esc(pseudo)}</strong> &nbsp; Mot de passe : <strong>${esc(password)}</strong><br>Lien : <strong>rejoindre.html</strong> (mode connexion)`;
+    r.innerHTML = `Joueur cree. A transmettre :<br>Pseudo : <strong>${esc(pseudo)}</strong> &nbsp; Mot de passe : <strong>${esc(password)}</strong>`
+      + `<br>Lien : <strong style="font-family:var(--mono)">${esc(lienJeu(slug))}</strong> `
+      + `<button class="tog" onclick="copierLienJeu('${esc(slug)}',this)">Copier</button>`
+      + `<br><span style="color:var(--dim)">Le joueur clique « Se connecter » et entre ces identifiants.</span>`;
     r.className='created show';
     $('c-pseudo').value=''; $('c-pwd').value='';
     loadJoueurs();

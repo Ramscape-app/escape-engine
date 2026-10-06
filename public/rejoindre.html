@@ -70,7 +70,11 @@ const SUPABASE_ANON = "sb_publishable_3ScfE7ewhH-FaPoaxA1zxw_jQ-BEBJA";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 let mode = 'signup';          // 'signup' | 'login'
-let currentGame = null;       // { id, slug, name }
+let currentGame = null;       // { id, slug, name } — résolu par un code d'invitation
+// Slug lu dans l'URL (lien « rejoindre.html?slug=… »). Il suffit pour SE CONNECTER :
+// l'identité d'un compte, c'est pseudo + slug. S'inscrire, en revanche, demande
+// toujours un code — c'est lui qui donne le droit d'entrer.
+let slugURL = '';
 const $ = id => document.getElementById(id);
 
 // Fabrique l'email technique à partir du pseudo + slug du jeu (jamais montré au joueur).
@@ -126,12 +130,20 @@ async function submit(){
 
   // Si pas encore de jeu résolu mais un code saisi à la main → le résoudre d'abord
   if (!currentGame && codeTyped){ await resolveCode(codeTyped); }
-  if (!currentGame){ showMsg("Entre un code d'invitation valide pour rejoindre un jeu.", 'err'); return; }
+  // Un joueur que l'organisateur a créé lui-même n'a pas de code : il arrive par
+  // le lien du jeu et se connecte. Le slug de l'URL suffit alors à l'identifier.
+  const slug = (currentGame && currentGame.slug) || (mode === 'login' ? slugURL : '');
+  if (!slug){
+    showMsg(mode === 'login'
+      ? "Ouvre le lien que l'organisateur t'a envoyé, ou entre ton code d'invitation."
+      : "Entre un code d'invitation valide pour rejoindre un jeu.", 'err');
+    return;
+  }
   if (pseudo.length < 2){ showMsg("Choisis un pseudo d'au moins 2 caractères.", 'err'); return; }
   if (password.length < 6){ showMsg("Le mot de passe doit faire au moins 6 caractères.", 'err'); return; }
 
   $('submit').disabled = true;
-  const email = synthEmail(pseudo, currentGame.slug);
+  const email = synthEmail(pseudo, slug);
 
   try {
     if (mode === 'signup'){
@@ -140,12 +152,12 @@ async function submit(){
       await callFn('rejoindre', { code: codeTyped, pseudo, password });
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      goToGame();
+      goToGame(slug);
     } else {
       // connexion
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      goToGame();
+      goToGame(slug);
     }
   } catch (err){
     $('submit').disabled = false;
@@ -154,10 +166,10 @@ async function submit(){
   }
 }
 
-function goToGame(){
+function goToGame(slug){
   showMsg('Connexion réussie — chargement du jeu…', 'ok');
   // Redirige vers le jeu (adapte le nom du fichier moteur si besoin)
-  setTimeout(()=>{ location.href = `index.html?slug=${encodeURIComponent(currentGame.slug)}`; }, 700);
+  setTimeout(()=>{ location.href = `index.html?slug=${encodeURIComponent(slug)}`; }, 700);
 }
 
 function toggleMode(){
@@ -188,6 +200,7 @@ function traduire(m){
 
 // ── Pré-remplir le jeu via ?slug= (affichage seulement, le code reste requis) ──
 async function resolveSlug(slug){
+  slugURL = slug;                       // suffit pour se connecter (voir submit)
   try{
     const res = await fetch('/.netlify/functions/jeux-publics?slug=' + encodeURIComponent(slug));
     const j = await res.json();
@@ -202,6 +215,7 @@ async function resolveSlug(slug){
   const params = new URLSearchParams(location.search);
   const code = params.get('code');
   const slug = params.get('slug');
+  if (slug) slugURL = slug;             // présent même quand un code l'accompagne
   if (code){ $('code').value = code; resolveCode(code); }
   else if (slug){ resolveSlug(slug); }
   else { $('game').textContent = "Entre ton code d'invitation."; needCode(); }

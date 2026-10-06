@@ -6,7 +6,11 @@ export default async (req) => {
 
   const sb = adminClient();
   const { data, error } = await sb.from('codes')
-    .select('code, jeu_id, label, actif, max_joueurs, expire_le, created_at, jeu:jeux(name, slug)')
+    // `statut` du jeu : un code ne resout que si le jeu est publie
+    // (voir code-resolve.js). Sans cette colonne, la console affiche un lien
+    // d'invitation parfaitement valide pour un jeu que le joueur ne peut pas
+    // ouvrir — et c'est le joueur qui decouvre « Code invalide ».
+    .select('code, jeu_id, label, actif, max_joueurs, expire_le, created_at, jeu:jeux(name, slug, statut)')
     .order('created_at', { ascending: false });
   if (error) return json({ error: error.message }, 500);
   return json({ ok: true, codes: data });

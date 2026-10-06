@@ -1510,9 +1510,13 @@ async function authGuard() {
   const slug = gameSlugFromURL();
   // Mode libre (pas de Supabase configuré, ou pas de slug) → on laisse passer (test/hors-ligne)
   if (!SB || !slug) return true;
+  // Le slug suit la redirection : sans lui, un joueur qui ouvre le lien de son
+  // jeu (ou son raccourci sur l'écran d'accueil) arrive sur un formulaire muet
+  // qui ne dit même pas quel jeu il rejoint.
+  const retour = 'rejoindre.html?slug=' + encodeURIComponent(slug);
   const { data: { session } } = await SB.auth.getSession();
   if (!session) {                       // pas connecté
-    location.replace('rejoindre.html');
+    location.replace(retour);
     return false;
   }
   // Connecté : est-il rattaché à ce jeu ?
@@ -1523,13 +1527,13 @@ async function authGuard() {
     .maybeSingle();
   if (error || !data || !data.jeu || data.jeu.slug !== slug) {
     alert("Tu n'as pas accès à ce jeu.");
-    location.replace('rejoindre.html');
+    location.replace(retour);
     return false;
   }
   if (data.actif === false) {                 // compte désactivé par l'organisateur
     alert("Ton accès à ce jeu a été désactivé par l'organisateur.");
     await SB.auth.signOut();
-    location.replace('rejoindre.html');
+    location.replace(retour);
     return false;
   }
   JOUEUR_ID = session.user.id;          // pour la progression (phase 3)
