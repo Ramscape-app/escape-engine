@@ -54,11 +54,24 @@ export function validerJeu(cfg) {
     const m = /^module\/([a-z0-9-]+)\.html(?:\?(.*))?$/.exec(String((e && e.iframe) || ''));
     if (m) {
       const q = new URLSearchParams(m[2] || '');
+      // Ce qu'un module ne peut pas faire sans. Certains en exigent plusieurs :
+      // un jeu des differences sans ses deux photos ou sans ses zones ne se
+      // resout pas, et le joueur n'a aucun moyen de le deviner.
       const attendus = { cadenas:'solution', piano:'sequence', simon:'sequence',
-                         'mots-meles':'mots', 'mots-melanged':'mot', 'guess-where':'lat' };
-      const cle = attendus[m[1]];
-      if (cle && !q.get(cle)) {
-        ajoute('erreur', `Enigme ${n} : le module « ${m[1]} » n'a pas de ${cle}.`, i);
+                         'mots-meles':'mots', 'mots-melanged':'mot', 'guess-where':'lat',
+                         differences:['a', 'b', 'zones'], chronologie:'items' };
+      const cles = attendus[m[1]];
+      for (const cle of (Array.isArray(cles) ? cles : cles ? [cles] : [])) {
+        if (!q.get(cle)) {
+          ajoute('erreur', `Enigme ${n} : le module « ${m[1]} » n'a pas de ${cle}.`, i);
+        }
+      }
+      // Deux elements au minimum : avec un seul, l'ordre est deja le bon.
+      if (m[1] === 'chronologie' && q.get('items')) {
+        const lignes = q.get('items').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (lignes.length < 2) {
+          ajoute('erreur', `Enigme ${n} : la remise en ordre n'a qu'un element.`, i);
+        }
       }
     }
     if (e && e.iframe && !m && !/^https?:\/\//.test(e.iframe)) {

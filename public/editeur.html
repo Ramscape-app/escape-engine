@@ -492,6 +492,31 @@ const MODULES = [
     {k:'rayon', l:'Rayon de la lampe (px)', t:'number', d:60, help:'Plus il est petit, plus il faut balayer. 28 minimum, 120 maximum.'},
     {k:'indice', l:'Consigne affichée', t:'text', help:'Vide par défaut, et c\'est voulu : « passez votre doigt » donnait la solution avec l\'énoncé. À ne remplir que pour un public qui aurait besoin d\'être guidé.'},
   ]},
+  { v:'differences', l:'Jeu des différences (2 photos)', valide:true, params:[
+    {k:'a', l:'Photo originale', t:'image'},
+    {k:'b', l:'Photo retouchée', t:'image',
+     help:'Même cadrage que l\'originale, avec les différences. Les deux doivent avoir le même format.'},
+    {k:'zones', l:'Zones à trouver', t:'text',
+     help:'« x,y,rayon » en pourcentage de l\'image, séparés par des points-virgules. Ex : 22,31,7;64,18,6. Utilisez le calibrage plutôt que de les écrire à la main.'},
+    {k:'__calib', l:'Relever les zones', t:'calibrage', exige:['a','b'],
+     manque:'Ajoutez les deux photos pour pouvoir relever les zones.',
+     help:'Ouvre le mini-jeu en mode calibrage : touchez chaque différence, puis copiez la liste dans le champ ci-dessus.'},
+    {k:'indice', l:'Consigne affichée', t:'text', help:'Facultatif. Ex : 5 détails ont changé.'},
+  ]},
+  { v:'chronologie', l:'Remise en ordre (chronologie)', valide:true, params:[
+    {k:'items', l:'Éléments, dans le BON ordre', t:'textarea',
+     help:'Une ligne par élément, saisis dans l\'ordre correct — le jeu les mélange. Une image facultative après une barre verticale : « Le mariage | https://…/photo.jpg ».'},
+    {k:'consigne', l:'Consigne affichée', t:'text', help:'Ex : du plus ancien au plus récent.'},
+    {k:'aide', l:'Aide au comptage', t:'select',
+     opts:[['1','Dire combien sont bien placés'],['0','Ne rien dire']], d:'1',
+     help:'Le comptage guide un public occasionnel, mais permet d\'avancer par tâtonnements.'},
+  ]},
+  { v:'taquin', l:'Taquin (reconstituer une image)', valide:true, params:[
+    {k:'image', l:'Image à reconstituer', t:'image',
+     help:'Carrée de préférence. Sans image, les cases portent des numéros.'},
+    {k:'taille', l:'Taille de la grille', t:'select',
+     opts:[['3','3 × 3 — facile'],['4','4 × 4 — classique'],['5','5 × 5 — long']], d:'3'},
+  ]},
   { v:'cesar-roue', l:'Roue de César (outil)', valide:false, params:[] },
 ];
 const MODULE_LABEL = Object.fromEntries(MODULES.map(m=>[m.v,m.l]));
@@ -637,6 +662,58 @@ function inpImage(label,path,val,help){
     ${val?`<img src="${assetUrlEditor(val)}" alt="" style="max-height:90px;margin-top:8px;border-radius:8px;border:1px solid var(--border)" onerror="this.style.display='none'">`:''}
     ${help?`<div class="help">${help}</div>`:''}</div>`;
 }
+// ── Une image comme paramètre de mini-jeu ────────────────────────────────
+// `handleImageUpload` écrit un chemin de stockage dans la configuration, que
+// le moteur résout ensuite par `assetUrl`. Ici la valeur part dans l'URL de
+// l'iframe, que le moteur passe telle quelle à l'élément : il faut donc
+// l'adresse complète, sinon le navigateur la résout depuis `/module/` et
+// l'image ne s'affiche jamais.
+function champImageModule(i, cle, val){
+  const id = 'upm-' + i + '-' + cle;
+  return `<div style="display:flex;gap:8px">
+      <input class="inp" type="text" value="${esc(val)}" style="flex:1"
+             placeholder="adresse de l'image ou upload"
+             oninput="onModuleParam(${i},'${cle}',this.value)">
+      <button class="btn sm" type="button"
+              onclick="document.getElementById('${id}').click()">⇪ Upload</button>
+    </div>
+    <input type="file" id="${id}" accept="image/*" style="display:none"
+           onchange="uploadImageModule(this,${i},'${cle}')">
+    ${val?`<img src="${esc(assetUrlEditor(val))}" alt="" style="max-height:80px;margin-top:8px;
+       border-radius:8px;border:1px solid var(--border)" onerror="this.style.display='none'">`:''}`;
+}
+async function uploadImageModule(inputEl, i, cle){
+  const file = inputEl.files && inputEl.files[0]; if(!file) return;
+  if(!/^image\//.test(file.type)){ toast('Fichier image requis'); inputEl.value=''; return; }
+  const slug = CFG.meta && CFG.meta.id;
+  if(!slug){ alert("Le jeu doit avoir un identifiant (slug) avant d'uploader."); return; }
+  try{
+    toast('Compression…');
+    const { base64, contentType, filename } = await compressImage(file);
+    toast('Envoi…');
+    const r = await callFn('asset-upload', { method:'POST', body:{ slug, filename, dataBase64:base64, contentType } });
+    onModuleParam(i, cle, assetUrlEditor(r.path));
+    toast('Image ajoutée ✓');
+  }catch(e){ alert('Upload impossible : '+e.message); }
+  inputEl.value='';
+}
+
+// Relever les zones d'un jeu des différences à la main est intenable : le
+// module sait le faire lui-même. Ouvert en mode calibrage, il transforme
+// chaque touche en coordonnées prêtes à coller.
+function boutonCalibrage(i, nom, vals, p){
+  const prets = (p.exige||[]).every(k => vals[k]);
+  if(!prets) return `<div class="help">${esc(p.manque||'Renseignez d\'abord les champs précédents.')}</div>`;
+  // `calibrer` est ajouté APRÈS coup : `moduleToUrl` ne recopie que les
+  // paramètres déclarés dans MODULES, et le lui passer dans `vals` le faisait
+  // jeter en silence — le bouton ouvrait alors le module en mode jeu.
+  // `validate` est retiré : un calibrage ne doit pas valider l'énigme.
+  const url = moduleToUrl(nom, Object.assign({}, vals, { validate:'' })) + '&calibrer=1';
+  return `<button class="btn sm" type="button" onclick="window.open('${esc(url)}','_blank','width=460,height=760')">
+      ◎ Ouvrir le calibrage
+    </button>`;
+}
+
 function configFileFromURL(){
   // Permet ?config=projet-1986/config.json — sous-dossier autorisé, pas de remontée (..).
   const p = new URLSearchParams(location.search).get('config');
@@ -1390,6 +1467,13 @@ function tplModule(i, url){
         // Un paramètre où les retours à la ligne comptent : ils voyagent dans
         // l'URL du module, encodés par URLSearchParams.
         ? `<textarea class="ta short" oninput="onModuleParam(${i},'${p.k}',this.value)">${esc(val)}</textarea>`
+        : p.t==='image'
+        // Une image DANS un module. Contrairement aux images d'énigme, elle
+        // part dans l'URL de l'iframe, que le moteur utilise telle quelle :
+        // on y stocke donc l'adresse complète et non le chemin de stockage.
+        ? champImageModule(i, p.k, val)
+        : p.t==='calibrage'
+        ? boutonCalibrage(i, parsed.nom, v, p)
         : `<input class="inp" type="${p.t==='number'?'number':'text'}" value="${esc(val)}"
                   oninput="onModuleParam(${i},'${p.k}',this.value)">`;
       return `<div class="field"><label>${esc(p.l)}</label>${champ}

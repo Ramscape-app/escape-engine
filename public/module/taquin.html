@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramscape — Taquin</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:transparent;color:#eceef1;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{height:100%;max-width:460px;margin:0 auto;padding:10px;
+    display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+  .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;flex:none}
+  .compteur{font-size:.72rem;color:#8a909a;letter-spacing:1px;flex:none}
+  .compteur b{color:#9ad0c0}
+  /* Le plateau est carre et ne depasse ni la largeur ni la hauteur restante :
+     `min()` sur les deux axes evite qu'un ecran bas ne le fasse deborder de
+     l'iframe, ou qu'un ecran etroit ne l'ecrase. */
+  .plateau{position:relative;flex:none;width:min(100%, 62vh, 340px);aspect-ratio:1;
+    border:1px solid #565b63;border-radius:10px;overflow:hidden;background:#23262b;
+    touch-action:manipulation}
+  .case{position:absolute;display:flex;align-items:center;justify-content:center;
+    font-family:'Courier New',monospace;font-weight:700;color:#eceef1;
+    background:#3a3e45;border:1px solid #23262b;border-radius:4px;cursor:pointer;
+    background-repeat:no-repeat;
+    transition:left .14s cubic-bezier(.22,1,.36,1),top .14s cubic-bezier(.22,1,.36,1)}
+  .case:active{filter:brightness(1.25)}
+  .plateau.fini .case{cursor:default;border-color:transparent}
+  .modele{position:absolute;inset:0;background-size:cover;background-position:center;
+    opacity:0;transition:opacity .2s;pointer-events:none;z-index:5}
+  .modele.vu{opacity:1}
+  .row{display:flex;gap:8px;justify-content:center;flex:none}
+  .btn{background:#3a3e45;color:#eceef1;border:1px solid #565b63;border-radius:9px;
+    padding:9px 16px;font-size:.82rem;cursor:pointer}
+  .btn:active{transform:scale(.95)}
+  .status{font-size:.86rem;font-weight:700;min-height:20px;flex:none}
+  .ok{color:#22d27a}
+  .reveal{font-size:1.2rem;font-weight:800;letter-spacing:2px;color:#9ad0c0;
+    background:#23262b;border:1px dashed #6fb7a3;border-radius:10px;padding:10px;flex:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title" id="title">Reconstituez l'image</div>
+  <div class="compteur" id="compteur"></div>
+  <div class="plateau" id="plateau"><div class="modele" id="modele"></div></div>
+  <div class="row">
+    <button class="btn" id="voir" style="display:none">👁 Voir le modèle</button>
+    <button class="btn" id="reset">↺ Mélanger</button>
+  </div>
+  <div class="status" id="status"></div>
+  <div id="reveal-zone"></div>
+</div>
+
+<script>
+const P = new URLSearchParams(location.search);
+const IMAGE = P.get('image') || '';
+const VALIDATE = P.get('validate') === '1';
+const REVEAL = P.get('reveal');
+const TITLE = P.get('title');
+const N = Math.max(3, Math.min(5, parseInt(P.get('taille') || '3', 10) || 3));
+if (TITLE) document.getElementById('title').textContent = TITLE;
+
+const CASES = N * N;
+const VIDE = CASES - 1;          // la derniere case est le trou, image comprise
+let grille = [];                 // grille[position] = numero de tuile
+let coups = 0, fini = false;
+
+const plateau = document.getElementById('plateau');
+if (IMAGE) {
+  document.getElementById('modele').style.backgroundImage = `url("${IMAGE}")`;
+  document.getElementById('voir').style.display = '';
+}
+
+const lig = p => Math.floor(p / N);
+const col = p => p % N;
+const voisines = p => [p - N, p + N, p - 1, p + 1].filter((q, i) =>
+  q >= 0 && q < CASES && (i < 2 || lig(q) === lig(p)));
+
+// Melange par COUPS LEGAUX depuis la position resolue.
+//
+// Une permutation tiree au hasard a une chance sur deux d'etre insoluble : le
+// joueur chercherait indefiniment une configuration qui n'existe pas. Partir
+// du resultat et reculer garantit qu'un chemin de retour existe.
+function melanger() {
+  grille = [...Array(CASES).keys()];
+  let vide = CASES - 1, precedent = -1;
+  const pas = 60 * N;
+  for (let i = 0; i < pas; i++) {
+    const choix = voisines(vide).filter(q => q !== precedent);
+    const q = choix[Math.floor(Math.random() * choix.length)];
+    [grille[vide], grille[q]] = [grille[q], grille[vide]];
+    precedent = vide;
+    vide = q;
+  }
+  // Un melange qui retombe sur la solution donnerait l'enigme faite.
+  if (resolu()) melanger();
+}
+
+const resolu = () => grille.every((t, p) => t === p);
+
+function rendre(anime) {
+  const taille = 100 / N;
+  for (let p = 0; p < CASES; p++) {
+    const tuile = grille[p];
+    let el = document.getElementById('c' + tuile);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'c' + tuile;
+      el.className = 'case';
+      el.style.width = `calc(${taille}% - 0px)`;
+      el.style.height = `calc(${taille}% - 0px)`;
+      el.style.fontSize = `calc(${taille}vmin * .38)`;
+      if (IMAGE) {
+        el.style.backgroundImage = `url("${IMAGE}")`;
+        el.style.backgroundSize = `${N * 100}% ${N * 100}%`;
+        // Le morceau d'image que porte CETTE tuile, fige une fois pour
+        // toutes : c'est son identite, il ne suit pas ses deplacements.
+        el.style.backgroundPosition =
+          `${col(tuile) * 100 / (N - 1)}% ${lig(tuile) * 100 / (N - 1)}%`;
+      } else {
+        el.textContent = tuile + 1;
+      }
+      el.onclick = () => jouer(tuile);
+      plateau.appendChild(el);
+    }
+    if (!anime) el.style.transition = 'none';
+    el.style.left = col(p) * taille + '%';
+    el.style.top = lig(p) * taille + '%';
+    el.style.visibility = (tuile === VIDE && !fini) ? 'hidden' : 'visible';
+    if (!anime) { el.offsetHeight; el.style.transition = ''; }
+  }
+  document.getElementById('compteur').innerHTML = `<b>${coups}</b> coup${coups > 1 ? 's' : ''}`;
+}
+
+function jouer(tuile) {
+  if (fini) return;
+  const p = grille.indexOf(tuile);
+  const vide = grille.indexOf(VIDE);
+  if (!voisines(p).includes(vide)) return;
+  [grille[p], grille[vide]] = [grille[vide], grille[p]];
+  coups++;
+  rendre(true);
+  if (resolu()) gagne();
+}
+
+function gagne() {
+  fini = true;
+  plateau.classList.add('fini');
+  rendre(true);
+  const st = document.getElementById('status');
+  st.className = 'status ok';
+  st.textContent = `✓ Reconstituée en ${coups} coups !`;
+  if (REVEAL) {
+    const d = document.createElement('div');
+    d.className = 'reveal'; d.textContent = REVEAL;
+    document.getElementById('reveal-zone').appendChild(d);
+  }
+  if (VALIDATE) {
+    try { window.parent.postMessage({ type: 'ramscape:solved', module: 'taquin' }, '*'); }
+    catch (e) {}
+  }
+}
+
+function init() {
+  fini = false; coups = 0;
+  plateau.classList.remove('fini');
+  document.getElementById('status').textContent = '';
+  document.getElementById('status').className = 'status';
+  document.getElementById('reveal-zone').innerHTML = '';
+  melanger();
+  rendre(false);
+}
+
+// Le modele ne s'affiche que tant qu'on appuie : le consulter coute un geste,
+// il ne remplace pas la recherche.
+const modele = document.getElementById('modele');
+const voir = document.getElementById('voir');
+for (const [ev, on] of [['pointerdown', true], ['pointerup', false],
+                        ['pointerleave', false], ['pointercancel', false]]) {
+  voir.addEventListener(ev, (e) => { e.preventDefault(); modele.classList.toggle('vu', on); });
+}
+
+document.getElementById('reset').onclick = init;
+init();
+</script>
+</body>
+</html>

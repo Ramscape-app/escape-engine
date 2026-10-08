@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramscape — Jeu des différences</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:transparent;color:#eceef1;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{height:100%;max-width:460px;margin:0 auto;padding:8px;
+    display:flex;flex-direction:column;gap:6px;text-align:center}
+  .title{font-size:.78rem;color:#aab0b8;letter-spacing:1px;flex:none}
+  .compteur{font-size:.74rem;color:#8a909a;letter-spacing:1px;flex:none}
+  .compteur b{color:#9ad0c0;font-size:.95rem}
+  /* Les deux images se partagent la hauteur restante. `min-height:0` est
+     indispensable : sans lui un enfant flex garde sa hauteur intrinseque et
+     les images debordaient du cadre de l'iframe. */
+  .paire{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px}
+  .vue{flex:1;min-height:0;position:relative;border:1px solid #565b63;border-radius:9px;
+    overflow:hidden;background:#23262b}
+  .vue img{width:100%;height:100%;object-fit:contain;display:block;user-select:none;
+    -webkit-user-drag:none;pointer-events:none}
+  /* La zone cliquable epouse l'image affichee, pas le cadre : avec
+     `object-fit:contain` l'image ne remplit pas forcement son conteneur, et
+     un clic mesure sur le cadre serait decale. */
+  .cible{position:absolute;border:2px solid #22d27a;border-radius:50%;
+    box-shadow:0 0 0 2px rgba(0,0,0,.45),0 0 14px rgba(34,210,122,.5);
+    pointer-events:none;animation:pose .3s cubic-bezier(.22,1,.36,1) backwards}
+  @keyframes pose{from{transform:scale(1.8);opacity:0}}
+  .rate{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+    border:2px solid #e2787f;pointer-events:none;animation:rate .5s ease-out forwards}
+  @keyframes rate{to{transform:scale(2);opacity:0}}
+  .status{font-size:.86rem;font-weight:700;min-height:20px;flex:none}
+  .ok{color:#22d27a}.ko{color:#e2787f}
+  .indice{font-size:.7rem;color:#8a909a;flex:none}
+  .reveal{font-size:1.2rem;font-weight:800;letter-spacing:2px;color:#9ad0c0;
+    background:#23262b;border:1px dashed #6fb7a3;border-radius:10px;padding:10px;flex:none}
+  /* Mode calibrage : reserve a l'organisateur, jamais vu par un joueur. */
+  .calib{flex:none;background:#23262b;border:1px dashed #6fb7a3;border-radius:9px;padding:8px}
+  .calib textarea{width:100%;height:54px;background:#15171a;color:#9ad0c0;border:1px solid #565b63;
+    border-radius:6px;font-family:'Courier New',monospace;font-size:.72rem;padding:6px}
+  .calib .row{display:flex;gap:6px;margin-top:6px}
+  .btn{background:#3a3e45;color:#eceef1;border:1px solid #565b63;border-radius:8px;
+    padding:7px 12px;font-size:.76rem;cursor:pointer;flex:1}
+  .btn:active{transform:scale(.96)}
+  .manque{display:grid;place-items:center;height:100%;font-size:.76rem;color:#8a909a;padding:16px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title" id="title">Trouvez les différences</div>
+  <div class="compteur" id="compteur"></div>
+  <div class="paire">
+    <div class="vue" id="vue-a"></div>
+    <div class="vue" id="vue-b"></div>
+  </div>
+  <div class="indice" id="indice"></div>
+  <div class="status" id="status"></div>
+  <div id="reveal-zone"></div>
+  <div class="calib" id="calib" style="display:none">
+    <textarea id="calib-txt" readonly></textarea>
+    <div class="row">
+      <button class="btn" id="calib-undo">↶ Annuler</button>
+      <button class="btn" id="calib-copy">⧉ Copier</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const P = new URLSearchParams(location.search);
+const IMG_A = P.get('a') || '';
+const IMG_B = P.get('b') || '';
+const VALIDATE = P.get('validate') === '1';
+const CALIBRER = P.get('calibrer') === '1';
+const REVEAL = P.get('reveal');
+const TITLE = P.get('title');
+const INDICE = P.get('indice') || '';
+if (TITLE) document.getElementById('title').textContent = TITLE;
+document.getElementById('indice').textContent = INDICE;
+
+// Une zone s'ecrit « x,y,r » en pourcentage de l'image : le jeu reste juste
+// quelle que soit la taille de l'ecran, ce qu'un reperage en pixels ne
+// permettrait pas. Plusieurs zones separees par un point-virgule.
+function lireZones(txt) {
+  return String(txt || '').split(';').map(z => {
+    const [x, y, r] = z.split(',').map(v => parseFloat(v));
+    if (![x, y].every(Number.isFinite)) return null;
+    return { x, y, r: Number.isFinite(r) && r > 0 ? r : 7 };
+  }).filter(Boolean);
+}
+const ZONES = lireZones(P.get('zones'));
+const trouvees = new Set();
+
+// Les deux images doivent arriver pour que le reperage ait un sens : sans
+// elles on le dit, au lieu d'afficher deux cadres vides ou le joueur
+// chercherait pour rien.
+if (!IMG_A || !IMG_B) {
+  for (const id of ['vue-a', 'vue-b']) {
+    document.getElementById(id).innerHTML =
+      '<div class="manque">Aucune image.<br>L\'organisateur doit en fournir deux.</div>';
+  }
+  console.error('differences : les paramètres « a » et « b » sont requis.');
+} else {
+  for (const [id, src] of [['vue-a', IMG_A], ['vue-b', IMG_B]]) {
+    const img = new Image();
+    img.src = src;
+    img.alt = '';
+    img.onerror = () => {
+      document.getElementById(id).innerHTML =
+        '<div class="manque">Image introuvable.</div>';
+    };
+    document.getElementById(id).appendChild(img);
+  }
+}
+if (!ZONES.length && !CALIBRER) {
+  console.error('differences : aucune zone définie (paramètre « zones »).');
+}
+
+// Ou se trouve reellement l'image dans son cadre.
+//
+// `object-fit: contain` laisse des bandes vides sur un des deux axes des que
+// le rapport du cadre ne vaut pas celui de l'image. Mesurer le clic sur le
+// cadre decalerait donc toutes les zones — d'autant plus que la bande est
+// large. On recalcule la boite occupee par l'image elle-meme.
+function boiteImage(vue) {
+  const img = vue.querySelector('img');
+  const c = vue.getBoundingClientRect();
+  if (!img || !img.naturalWidth) return c;
+  const rapportCadre = c.width / c.height;
+  const rapportImage = img.naturalWidth / img.naturalHeight;
+  let w = c.width, h = c.height, gx = 0, gy = 0;
+  if (rapportImage > rapportCadre) { h = c.width / rapportImage; gy = (c.height - h) / 2; }
+  else { w = c.height * rapportImage; gx = (c.width - w) / 2; }
+  return { left: c.left + gx, top: c.top + gy, width: w, height: h };
+}
+
+function majCompteur() {
+  const el = document.getElementById('compteur');
+  if (CALIBRER) { el.textContent = 'MODE CALIBRAGE'; return; }
+  el.innerHTML = ZONES.length ? `<b>${trouvees.size}</b> / ${ZONES.length} trouvée(s)` : '';
+}
+
+// Une pastille sur CHAQUE image : le joueur voit la difference des deux cotes,
+// ce qui lui evite de la rechercher sur l'autre vue.
+function poser(z) {
+  for (const id of ['vue-a', 'vue-b']) {
+    const vue = document.getElementById(id);
+    const b = boiteImage(vue);
+    const c = vue.getBoundingClientRect();
+    const d = document.createElement('div');
+    d.className = 'cible';
+    const taille = (z.r * 2 / 100) * b.width;
+    d.style.left = (b.left - c.left + z.x / 100 * b.width - taille / 2) + 'px';
+    d.style.top = (b.top - c.top + z.y / 100 * b.height - taille / 2) + 'px';
+    d.style.width = taille + 'px';
+    d.style.height = taille + 'px';
+    vue.appendChild(d);
+  }
+}
+
+function rate(vue, ev) {
+  const c = vue.getBoundingClientRect();
+  const d = document.createElement('div');
+  d.className = 'rate';
+  d.style.left = (ev.clientX - c.left) + 'px';
+  d.style.top = (ev.clientY - c.top) + 'px';
+  vue.appendChild(d);
+  setTimeout(() => d.remove(), 500);
+}
+
+function gagne() {
+  const st = document.getElementById('status');
+  st.className = 'status ok';
+  st.textContent = '✓ Toutes les différences sont trouvées !';
+  if (REVEAL) {
+    const d = document.createElement('div');
+    d.className = 'reveal';
+    d.textContent = REVEAL;
+    document.getElementById('reveal-zone').appendChild(d);
+  }
+  if (VALIDATE) {
+    try { window.parent.postMessage({ type: 'ramscape:solved', module: 'differences' }, '*'); }
+    catch (e) {}
+  }
+}
+
+const calib = [];
+function auClic(ev) {
+  const vue = ev.currentTarget;
+  const b = boiteImage(vue);
+  const x = (ev.clientX - b.left) / b.width * 100;
+  const y = (ev.clientY - b.top) / b.height * 100;
+  if (x < 0 || x > 100 || y < 0 || y > 100) return;   // clic dans une bande vide
+
+  if (CALIBRER) {
+    calib.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, r: 7 });
+    poser(calib[calib.length - 1]);
+    majCalib();
+    return;
+  }
+
+  const st = document.getElementById('status');
+  // La zone la plus proche parmi celles qui restent : deux differences
+  // voisines ne se volent pas le clic.
+  let meilleure = -1, meilleureD = Infinity;
+  ZONES.forEach((z, i) => {
+    if (trouvees.has(i)) return;
+    const d = Math.hypot(x - z.x, y - z.y);
+    if (d <= z.r && d < meilleureD) { meilleure = i; meilleureD = d; }
+  });
+  if (meilleure < 0) { st.className = 'status'; st.textContent = ''; rate(vue, ev); return; }
+
+  trouvees.add(meilleure);
+  poser(ZONES[meilleure]);
+  majCompteur();
+  if (trouvees.size === ZONES.length) gagne();
+}
+
+function majCalib() {
+  document.getElementById('calib-txt').value =
+    calib.map(z => `${z.x},${z.y},${z.r}`).join(';');
+}
+
+for (const id of ['vue-a', 'vue-b']) {
+  document.getElementById(id).addEventListener('click', auClic);
+}
+
+if (CALIBRER) {
+  document.getElementById('calib').style.display = 'block';
+  document.getElementById('indice').textContent =
+    'Touchez chaque différence, puis copiez la liste dans le champ « Zones ».';
+  document.getElementById('calib-undo').onclick = () => {
+    calib.pop();
+    document.querySelectorAll('.cible').forEach(e => e.remove());
+    calib.forEach(poser);
+    majCalib();
+  };
+  document.getElementById('calib-copy').onclick = () => {
+    const t = document.getElementById('calib-txt');
+    t.select();
+    if (navigator.clipboard) navigator.clipboard.writeText(t.value).catch(() => {});
+    else document.execCommand('copy');
+  };
+}
+
+// Les pastilles sont positionnees en pixels : elles doivent suivre un
+// changement de taille, sinon elles se decalent au passage en paysage.
+addEventListener('resize', () => {
+  document.querySelectorAll('.cible').forEach(e => e.remove());
+  const liste = CALIBRER ? calib : [...trouvees].map(i => ZONES[i]);
+  liste.forEach(poser);
+});
+
+majCompteur();
+</script>
+</body>
+</html>
